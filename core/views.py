@@ -37,9 +37,24 @@ def get_current_shop(request):
         return None
 
 
+from django.shortcuts import render, redirect
+from .models import Shop, UserProfile
+
 def login_page_view(request):
+    # 1. Eng avval: Foydalanuvchi tizimga kirganmi?
     if request.user.is_authenticated:
-        return redirect('main_menu')
+        
+        # 2. U do'kon egasimi? (Shop jadvalidan qidiramiz)
+        is_owner = Shop.objects.filter(owner=request.user).exists()
+        
+        # 3. Yoki u xodimmi? (UserProfile jadvalidan qidiramiz)
+        is_worker = UserProfile.objects.filter(user=request.user).exists()
+
+        # 4. Agar u Ega yoki Xodim bo'lsa -> Main Menuga o'tsin
+        if is_owner or is_worker:
+            return redirect('main_menu')
+    
+    # 5. Agar login qilmagan bo'lsa yoki do'koni yo'q bo'lsa -> Landing page
     return render(request, 'landing.html')
 
 
@@ -79,7 +94,7 @@ def telegram_auth_view(request):
                 request.session['client_id'] = client.id
                 return JsonResponse({'status': 'ok', 'redirect_url': '/my-cabinet/'})
 
-            return JsonResponse({'status': 'error', 'msg': 'Ruxsat yo\'q'}, status=403)
+            return JsonResponse({'status': 'ok', 'redirect_url': '/login/'}, status=200)
 
         except Exception as e:
             print(f"Auth error: {e}")

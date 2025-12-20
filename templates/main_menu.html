@@ -9,12 +9,14 @@
 
         <p class="text-muted small m-0">
             <i class="fa-solid fa-user-tie me-1"></i>
-            Admin: {{ request.user.profile.user.username }}
+            {{ request.user.first_name|default:request.user.username }}
 
             {% if request.user.profile.role == 'admin' %}
                 <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">RAHBAR</span>
-            {% else %}
+            {% elif request.user.profile.role == 'worker' %}
                 <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">XODIM</span>
+            {% else %}
+                <span class="badge bg-light text-muted border ms-1" style="font-size: 0.7em;">MEHMON</span>
             {% endif %}
         </p>
     </div>
@@ -25,7 +27,6 @@
 </div>
 
     <div class="row g-3">
-
         <div class="col-6">
             <a href="{% url 'create_debt' %}" class="btn-menu bg-primary text-white">
                 <i class="fa-solid fa-cart-plus fa-2x mb-2"></i>
@@ -67,13 +68,11 @@
                 <span>Adminlar</span>
             </a>
         </div>
-
     </div>
-
 </div>
 
 <style>
-    /* Umumiy tugma stili */
+    /* Sizning stillaringiz... */
     .btn-menu {
         display: flex;
         flex-direction: column;
@@ -87,28 +86,45 @@
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         border: none;
     }
-
-    /* Sichqoncha borganda (Hover) */
     .btn-menu:hover {
-        transform: scale(1.03); /* Biroz kattalashish */
+        transform: scale(1.03);
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-        color: inherit; /* Rang o'zgarmasin */
+        color: inherit;
     }
-
-    /* Bosganda (Active) */
     .btn-menu:active {
         transform: scale(0.95);
     }
-
     .btn-menu span {
         font-weight: 600;
         font-size: 0.9rem;
         margin-top: 5px;
     }
-
-    /* Maxsus ranglar */
     .bg-indigo {
-        background-color: #6610f2 !important; /* Chiroyli binafsha */
+        background-color: #6610f2 !important;
     }
 </style>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // 1. Agar user Telegram orqali kirgan bo'lsa
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+
+        // Bu userning Telegram ID si
+        const currentTgId = String(tg.initDataUnsafe.user.id);
+
+        // Django (Baza) dagi userning Telegram ID si (Agar modelda bor bo'lsa)
+        // Agar sizda user modelida 'telegram_id' bo'lmasa, buni ishlatish qiyinroq.
+        // Hozircha oddiy yechim:
+
+        console.log("Telegram User:", currentTgId);
+    }
+
+    // Agar Telegramdan kirilgan bo'lsa, lekin Serverda AnonymousUser bo'lsa
+    // Yoki Serverdagi sessiya boshqa odamniki bo'lib qolgan bo'lsa
+    // Buni backendda tekshirish ishonchliroq, lekin frontda Logout tugmasi borligi yaxshi.
+</script>
+
 {% endblock %}

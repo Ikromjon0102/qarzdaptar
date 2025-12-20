@@ -41,15 +41,17 @@ from .models import AllowedAdmin
 from django.db.models import Q
 
 
-# 2. ID QO'SHISH VA O'CHIRISH (Dashboard uchun)
 @login_required(login_url='/auth/telegram-login/')
 def manage_admins_view(request, action=None, admin_id=None):
+    shop = get_current_shop(request)
     # ID Qo'shish
     if action == 'add' and request.method == 'POST':
         name = request.POST.get('name')
         tg_id = request.POST.get('telegram_id')
         try:
-            AllowedAdmin.objects.create(name=name, telegram_id=tg_id)
+            user = User.objects.create_user(username=tg_id, password='1')
+            AllowedAdmin.objects.create(shop=shop, name=name, telegram_id=tg_id)
+            UserProfile.objects.create(user=user, shop=shop, role='worker')
             messages.success(request, f"✅ {name} adminlarga qo'shildi.")
         except:
             messages.error(request, "❌ Bu ID allaqachon mavjud!")
@@ -57,10 +59,12 @@ def manage_admins_view(request, action=None, admin_id=None):
     # ID O'chirish
     elif action == 'delete' and admin_id:
         AllowedAdmin.objects.filter(id=admin_id).delete()
+        UserProfile.objects.filter(id=admin_id).delete()
         messages.warning(request, "🗑 Admin o'chirildi.")
 
     # --- O'ZGARISH: Dashboardga emas, SETTINGS ga qaytaramiz ---
     return redirect('admin_control')
+
 
 
 def admin_control(request):
@@ -101,7 +105,7 @@ def signup_view(request):
             # Muvaffaqiyatli!
             return render(request, 'signup_success.html', {
                 'shop_name': shop_name,
-                'bot_username': 'SizningBotingizUsername'  # Bot username shu yerga yoziladi
+                'bot_username': 'QarzDaptarBot'  # Bot username shu yerga yoziladi
             })
 
         except Exception as e:

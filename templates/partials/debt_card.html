@@ -1,8 +1,13 @@
 <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm rounded-4 position-relative"
-     style="background-color: {% if debt.status == 'pending' %}#fff3cd{% else %}#fff{% endif %};">
+     style="cursor: pointer; background-color: {% if debt.status == 'pending' %}#fff3cd{% else %}#fff{% endif %};"
+     onclick="showDetail(this)"
+     data-is-payment="false"
+     data-date="{{ debt.created_at|date:'d.m.Y H:i' }}"
+     data-items="{{ debt.items|escape }}"
+     data-uzs="{{ debt.amount_uzs|floatformat:0 }}"
+     data-usd="{{ debt.amount_usd|floatformat:2 }}">
 
     <div class="d-flex justify-content-between align-items-center">
-
         <div class="d-flex align-items-center" style="min-width: 0;">
             <div class="me-3 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
                  style="width: 45px; height: 45px; background-color: #cfe2ff;">

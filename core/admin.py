@@ -13,7 +13,7 @@ class ClientAdmin(admin.ModelAdmin):
 
     def get_invite_link(self, obj):
         # BOT_USERNAME ni o'zingizning botingiz useri bilan almashtiring
-        bot_username = "autorich_robot" 
+        bot_username = "QarzDaptarBot" 
         return f"https://t.me/{bot_username}?start={obj.invite_token}"
     get_invite_link.short_description = "Taklif ssilkas (Copy)"
 
