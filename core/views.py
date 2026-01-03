@@ -13,12 +13,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Sum, Q
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse
-
-
+from django.shortcuts import render, redirect
+from .models import Shop, UserProfile
+from store.models import Order
 # Modellar
 from .models import Client, Debt, Settings, AllowedAdmin, Shop, UserProfile
-from store.models import Order, Product  # Agar kerak bo'lsa
-
+# from store.models import Order, Product  # Agar kerak bo'lsa
+import json
+import requests
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.conf import settings
+from django.utils import timezone
 
 def get_current_shop(request):
     """
@@ -37,24 +43,25 @@ def get_current_shop(request):
         return None
 
 
-from django.shortcuts import render, redirect
-from .models import Shop, UserProfile
-
 def login_page_view(request):
-    # 1. Eng avval: Foydalanuvchi tizimga kirganmi?
+    # --- 1. SOTUVCHI YOKI ADMINMI? (Django User) ---
     if request.user.is_authenticated:
-        
-        # 2. U do'kon egasimi? (Shop jadvalidan qidiramiz)
+        # Agar bu admin yoki sotuvchi bo'lsa, asosiy menyuga o'tsin
         is_owner = Shop.objects.filter(owner=request.user).exists()
-        
-        # 3. Yoki u xodimmi? (UserProfile jadvalidan qidiramiz)
         is_worker = UserProfile.objects.filter(user=request.user).exists()
 
-        # 4. Agar u Ega yoki Xodim bo'lsa -> Main Menuga o'tsin
-        if is_owner or is_worker:
+        if is_owner or is_worker or request.user.is_superuser:
             return redirect('main_menu')
-    
-    # 5. Agar login qilmagan bo'lsa yoki do'koni yo'q bo'lsa -> Landing page
+
+    # --- 2. MIJOZMI? (Session check) [YANGI QO'SHILGAN QISM] ---
+    # telegram_auth_view da biz 'client_id' ni sessiyaga yozgandik.
+    # Agar sessiyada client_id bo'lsa, demak bu mijoz!
+    elif 'client_id' in request.session:
+        # Mijozni o'zining kabinetiga yo'naltiramiz
+        return redirect('client_cabinet')  # Urls.py dagi name='client_cabinet' bo'lishi kerak
+
+    # --- 3. HECH KIM EMASMI? ---
+    # Demak bu yangi mehmon -> Landing page (reklama)
     return render(request, 'landing.html')
 
 
@@ -324,59 +331,65 @@ def debt_detail_view(request, debt_uuid):
             
     return render(request, 'debt_confirm.html', {'debt': debt})
 
+
 @login_required(login_url='/login/')
 def dashboard_view(request):
     shop = get_current_shop(request)
     if not shop: return redirect('login_page')
 
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
     # 1. DO'KON ADMINLARI
     allowed_admins = AllowedAdmin.objects.filter(shop=shop).order_by('-created_at')
 
-    # 2. CLIENTLAR VA BALANS (Faqat shu do'kon uchun)
+    # 2. CLIENTLAR VA BALANS (Har doimgidek)
     clients = Client.objects.filter(shop=shop).annotate(
         total_debt_uzs=Sum('debt__amount_uzs', filter=Q(debt__status='confirmed')),
         total_debt_usd=Sum('debt__amount_usd', filter=Q(debt__status='confirmed'))
     ).order_by('-total_debt_uzs')
 
-    # 3. STATISTIKA
-    # A) Savdo (Nasiya)
-    monthly_sales_uzs = Debt.objects.filter(
+    # 3. STATISTIKA (JAMI DAVR UCHUN)
+    # Vaqt filterini (created_at__gte) olib tashladik!
+
+    # A) Jami Nasiyaga berilgan tovarlar
+    total_sales_uzs = Debt.objects.filter(
         shop=shop,
         status='confirmed',
-        transaction_type='debt',
-        created_at__gte=month_start
+        transaction_type='debt'
     ).aggregate(Sum('amount_uzs'))['amount_uzs__sum'] or 0
 
-    monthly_sales_usd = Debt.objects.filter(
+    total_sales_usd = Debt.objects.filter(
         shop=shop,
         status='confirmed',
-        transaction_type='debt',
-        created_at__gte=month_start
+        transaction_type='debt'
     ).aggregate(Sum('amount_usd'))['amount_usd__sum'] or 0
 
-    # B) Tushum (To'lov)
-    monthly_income_uzs = Debt.objects.filter(
+    # B) Jami Undirilgan pullar
+    total_income_uzs = Debt.objects.filter(
         shop=shop,
         status='confirmed',
-        transaction_type='payment',
-        created_at__gte=month_start
+        transaction_type='payment'
     ).aggregate(Sum('amount_uzs'))['amount_uzs__sum'] or 0
 
-    monthly_income_usd = Debt.objects.filter(
+    total_income_usd = Debt.objects.filter(
         shop=shop,
         status='confirmed',
-        transaction_type='payment',
-        created_at__gte=month_start
+        transaction_type='payment'
     ).aggregate(Sum('amount_usd'))['amount_usd__sum'] or 0
+
+    # C) Farq (Do'konning tashqaridagi umumiy haqqi)
+    # Income manfiy bo'lishi mumkin yoki musbat, shuni inobatga olib ayiramiz
+    # Agar payment bazada minus bilan saqlansa: sales + income
+    # Agar payment bazada plus bilan saqlansa: sales - income
+    # Bizning mantiqda payment alohida type, shuning uchun ayiramiz:
+    diff_uzs = total_sales_uzs - abs(total_income_uzs)
+    diff_usd = total_sales_usd - abs(total_income_usd)
 
     stats = {
-        'sales_uzs': monthly_sales_uzs,
-        'sales_usd': monthly_sales_usd,
-        'income_uzs': abs(monthly_income_uzs),
-        'income_usd': abs(monthly_income_usd),
+        'sales_uzs': total_sales_uzs,
+        'sales_usd': total_sales_usd,
+        'income_uzs': abs(total_income_uzs),
+        'income_usd': abs(total_income_usd),
+        'diff_uzs': diff_uzs,
+        'diff_usd': diff_usd,
     }
 
     return render(request, 'dashboard.html', {
@@ -386,7 +399,6 @@ def dashboard_view(request):
         'allowed_admins': allowed_admins,
         'shop': shop
     })
-
 
 @login_required(login_url='/login/')
 def admin_client_detail_view(request, client_id):
@@ -451,19 +463,11 @@ def client_cabinet_view(request):
     }
     return render(request, 'client_cabinet.html', context)
 
-# core/views.py
-
-import json
-import requests
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from django.conf import settings
-from django.utils import timezone
 
 # Modellarni import qilamiz
 from .models import Client, Debt
 # Agar Order store app ichida bo'lsa:
-from store.models import Order
+# from store.models import Order
 
 @csrf_exempt
 def telegram_webhook(request):
@@ -552,7 +556,7 @@ def handle_order_reject(chat_id, message_id, order_id):
     print(f"❌ Order #{order_id} bekor qilinmoqda...")
     try:
         order = Order.objects.get(id=order_id)
-        
+
         if order.status != 'new':
             edit_tg_message(chat_id, message_id, f"⚠️ Bu buyurtma allaqachon {order.get_status_display()} bo'lgan!")
             return
@@ -560,7 +564,7 @@ def handle_order_reject(chat_id, message_id, order_id):
         # 1. Statusni bekor qilish
         order.status = 'rejected'
         order.save()
-        
+
         # 2. Xabarni yangilash
         new_text = (
             f"❌ <b>BEKOR QILINDI</b>\n"
@@ -757,3 +761,65 @@ def client_reset_telegram_view(request, client_id):
     messages.warning(request, "Telegram bog'lanishi uzildi. Yangi ssilka yuboring!")
     return redirect('client_edit', client_id=client.id)
 
+@login_required(login_url='/login/')
+def reports_view(request):
+    shop = get_current_shop(request)
+    if not shop: return redirect('login_page')
+
+    # 1. Sanani aniqlash
+    selected_date = request.GET.get('date')
+    if selected_date:
+        year, month = map(int, selected_date.split('-'))
+    else:
+        now = timezone.now()
+        year, month = now.year, now.month
+        selected_date = now.strftime('%Y-%m')
+
+    # 2. Umumiy Statistika (Bu qism o'zgarmadi)
+    monthly_sales_uzs = Debt.objects.filter(shop=shop, status='confirmed', transaction_type='debt', created_at__year=year, created_at__month=month).aggregate(Sum('amount_uzs'))['amount_uzs__sum'] or 0
+    monthly_sales_usd = Debt.objects.filter(shop=shop, status='confirmed', transaction_type='debt', created_at__year=year, created_at__month=month).aggregate(Sum('amount_usd'))['amount_usd__sum'] or 0
+    monthly_income_uzs = Debt.objects.filter(shop=shop, status='confirmed', transaction_type='payment', created_at__year=year, created_at__month=month).aggregate(Sum('amount_uzs'))['amount_uzs__sum'] or 0
+    monthly_income_usd = Debt.objects.filter(shop=shop, status='confirmed', transaction_type='payment', created_at__year=year, created_at__month=month).aggregate(Sum('amount_usd'))['amount_usd__sum'] or 0
+
+    diff_uzs = monthly_sales_uzs - abs(monthly_income_uzs)
+    diff_usd = monthly_sales_usd - abs(monthly_income_usd)
+
+    # 3. MIJOZLAR RO'YXATI (YANGI QISM) ⚡️
+    # Faqat shu oyda tranzaksiya qilgan mijozlarni olamiz
+    active_clients = Client.objects.filter(
+        shop=shop,
+        debt__created_at__year=year,
+        debt__created_at__month=month
+    ).distinct().annotate(
+        # 1. NASIYA (UZS va USD)
+        debt_uzs=Sum('debt__amount_uzs', filter=Q(debt__transaction_type='debt', debt__created_at__year=year,
+                                                  debt__created_at__month=month)),
+        debt_usd=Sum('debt__amount_usd', filter=Q(debt__transaction_type='debt', debt__created_at__year=year,
+                                                  debt__created_at__month=month)),
+
+        # 2. TO'LOV (UZS va USD)
+        # Bazada to'lovlar manfiy saqlangan bo'lsa ham Sum qilaveramiz, keyin shablonda abs (modul) olamiz.
+        # Agar musbat saqlangan bo'lsa, muammo yo'q.
+        pay_uzs=Sum('debt__amount_uzs', filter=Q(debt__transaction_type='payment', debt__created_at__year=year,
+                                                 debt__created_at__month=month)),
+        pay_usd=Sum('debt__amount_usd', filter=Q(debt__transaction_type='payment', debt__created_at__year=year,
+                                                 debt__created_at__month=month))
+    ).order_by('-debt_uzs')
+
+    context = {
+        'shop': shop,
+        'selected_date': selected_date,
+        'year': year,
+        'month': month,
+        'active_clients': active_clients, # <-- Shablonga yuboramiz
+        'stats': {
+            'sales_uzs': monthly_sales_uzs,
+            'sales_usd': monthly_sales_usd,
+            'income_uzs': abs(monthly_income_uzs),
+            'income_usd': abs(monthly_income_usd),
+            'diff_uzs': diff_uzs,
+            'diff_usd': diff_usd,
+        },
+        'back_url': 'main_menu'
+    }
+    return render(request, 'reports.html', context)

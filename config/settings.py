@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_URL = 'https://telapp.tunl.uz'
 SECRET_KEY = 'django-insecure-%4k_!kn#$x4!+o5b_9jvri9)g#8qww0a)0=y9^^#@#16#chqmy'
@@ -27,6 +27,8 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'core',
     'store',
+
+
 ]
 
 MIDDLEWARE = [
@@ -121,3 +123,11 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+
+# settings.py oxiriga qo'shing:
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+USE_THOUSAND_SEPARATOR = True
+THOUSAND_SEPARATOR = ' '

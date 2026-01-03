@@ -7,6 +7,8 @@ from django.contrib.auth.decorators import login_required
 from .models import Client, UserProfile, Shop, Settings
 from .views import send_tg_msg, get_current_shop
 from django.db import transaction
+from .models import AllowedAdmin
+from django.db.models import Q
 
 
 @login_required(login_url='/auth/telegram-login/')
@@ -33,12 +35,6 @@ def broadcast_view(request):
     # return render(request, 'broadcast.html')
 
     return render(request, 'broadcast.html', {'back_url': 'main_menu',})
-
-
-# core/views.py
-
-from .models import AllowedAdmin
-from django.db.models import Q
 
 
 @login_required(login_url='/auth/telegram-login/')
@@ -113,3 +109,5 @@ def signup_view(request):
             return redirect('landing_page')
 
     return redirect('landing_page')
+
+

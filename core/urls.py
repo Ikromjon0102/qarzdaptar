@@ -24,6 +24,8 @@ urlpatterns = [
     path('clients/<int:client_id>/edit/', views.client_form_view, name='client_edit'),
     path('clients/<int:client_id>/reset-tg/', views.client_reset_telegram_view, name='client_reset_tg'),
 
+    path('reports/', views.reports_view, name='reports_page'),
+
     path('webhook/', views.telegram_webhook, name='telegram_webhook'),
 
     path('broadcast/', api.broadcast_view, name='broadcast'),

@@ -43,7 +43,7 @@ class Client(models.Model):
 
     class Meta:
         # Bitta do'kon ichida telefon raqam takrorlanmasin
-        unique_together = ('shop', 'phone')
+        unique_together = ('phone',)
 
     def __str__(self):
         status = "✅" if self.telegram_id else "⏳"

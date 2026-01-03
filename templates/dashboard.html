@@ -1,112 +1,132 @@
 {% extends 'base.html' %}
+{% load humanize %}
+{% load custom_filters %}
+
 {% block matn %}
-    <h3 class="fw-bold m-0"><i class="fa-solid fa-chart-pie"></i> Umumiy Holat</h3>
+    <div class="d-flex justify-content-between align-items-center w-100">
+        <h3 class="fw-bold m-0"><i class="fa-solid fa-chart-line"></i> Umumiy Statistika</h3>
+    </div>
 {% endblock %}
 
 {% block content %}
 
-<h6 class="text-muted small text-uppercase fw-bold mb-2 ps-1 text-dark">📊 Bu oylik ko'rsatkichlar</h6>
+<div class="row g-2 mb-3">
 
-<div class="row g-2 mb-2">
-    <div class="col-12">
-        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10">
-            📦 Nasiyaga sotildi (Tovar)
-        </span> | <span class="badge  text-dark border ">{{ clients|length }} ta mijoz</span>
-    </div>
     <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-primary border-opacity-10">
-            <small class="text-muted d-block text-dark" style="font-size: 0.7rem;">So'mda</small>
-            <h5 class="fw-bold text-dark mb-0">{{ stats.sales_uzs|floatformat:0 }}</h5>
-        </div>
-    </div>
-    <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-primary border-opacity-10">
-            <small class="text-muted d-block text-dark" style="font-size: 0.7rem;">Dollarda</small>
-            <h5 class="fw-bold text-dark mb-0">${{ stats.sales_usd|floatformat:0 }}</h5>
-        </div>
-    </div>
-</div>
+        <div class="p-3 bg-white rounded-3 shadow-sm border border-primary border-opacity-10 h-100 position-relative overflow-hidden">
+            <i class="fa-solid fa-box-open position-absolute text-primary opacity-10" style="font-size: 3rem; right: -10px; bottom: -10px;"></i>
 
-<div class="row g-2 mb-4">
-    <div class="col-12">
-        <span class="badge bg-success text-dark bg-opacity-10 text-success border border-success border-opacity-10">
-            💰 Undirildi (Naqd pul)
-        </span>
-    </div>
-    <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-success border-opacity-25"
-            style="background-color: #f0fff4 !important;">
-            <small class="text-muted d-block" style="font-size: 0.7rem;">So'mda</small>
-            <h5 class="fw-bold text-success mb-0">+{{ stats.income_uzs|floatformat:0 }}</h5>
+            <small class="text-muted text-uppercase fw-bold text-dark" style="font-size: 0.7rem;">📦 Jami Nasiya</small>
+
+            <div class="mt-2">
+                <h6 class="fw-bold text-dark mb-0">{{ stats.sales_uzs|space_format }}</h6>
+                <small class="text-muted text-dark" style="font-size: 0.75rem;">so'm</small>
+            </div>
+
+            <div class="mt-1 border-top pt-1">
+                <h6 class="fw-bold text-dark mb-0">${{ stats.sales_usd|space_format }}</h6>
+                <small class="text-muted text-dark" style="font-size: 0.75rem;">dollar</small>
+            </div>
         </div>
     </div>
+
     <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-success border-opacity-25"
-            style="background-color: #f0fff4 !important;">
-            <small class="text-muted d-block" style="font-size: 0.7rem;">Dollarda</small>
-            <h5 class="fw-bold text-success mb-0">+$ {{ stats.income_usd|floatformat:0 }}</h5>
+        <div class="p-3 bg-white rounded-3 shadow-sm border border-success border-opacity-25 h-100 position-relative overflow-hidden">
+            <i class="fa-solid fa-hand-holding-dollar position-absolute text-success opacity-10" style="font-size: 3rem; right: -10px; bottom: -10px;"></i>
+
+            <small class="text-muted text-uppercase fw-bold text-dark" style="font-size: 0.7rem;">💰 Jami Undiruv</small>
+
+            <div class="mt-2">
+                <h6 class="fw-bold text-success mb-0">+{{ stats.income_uzs|space_format }}</h6>
+                <small class="text-muted text-dark" style="font-size: 0.75rem;">so'm</small>
+            </div>
+
+            <div class="mt-1 border-top pt-1 border-success border-opacity-25">
+                <h6 class="fw-bold text-success mb-0">+$ {{ stats.income_usd|space_format }}</h6>
+                <small class="text-muted text-dark" style="font-size: 0.75rem;">dollar</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="p-3 bg-primary text-white rounded-3 shadow border-0 position-relative overflow-hidden"
+             style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-uppercase small opacity-75 fw-bold">Jami Tashqaridagi Haq</span>
+                <i class="fa-solid fa-chart-pie opacity-50"></i>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-end">
+                <div>
+                    <h3 class="fw-bold mb-0">{{ stats.diff_uzs|space_format }}</h3>
+                    <small class="opacity-75">so'm qoldi</small>
+                </div>
+                <div class="text-end">
+                    <h3 class="fw-bold mb-0">${{ stats.diff_usd|space_format }}</h3>
+                    <small class="opacity-75">dollar qoldi</small>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <hr class="text-muted opacity-25">
 
-<h6 class="text-muted small text-uppercase fw-bold mb-3 ps-1 text-dark">👤 Mijozlar balansi</h6>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="text-muted small text-uppercase fw-bold m-0 ps-1 text-dark">👤 Mijozlar balansi</h6>
+    <span class="badge bg-primary text-dark border">{{ clients|length }} ta mijoz</span>
+</div>
 
-<div class="pb-5"> {% for client in clients %}
+<div class="pb-5">
+    {% for client in clients %}
     <div class="col-12 mb-2">
         <div class="app-card d-flex justify-content-between align-items-center py-3 px-3 shadow-sm bg-white rounded-3 border-0"
             style="cursor: pointer; transition: transform 0.1s;" data-url="{% url 'admin_client_detail' client.id %}"
             onclick="location.href=this.getAttribute('data-url')">
+
             <div>
                 <h6 class="fw-bold mb-1 text-dark">{{ client.full_name }}</h6>
-                <small class="text-muted text-dark"><i class="fa-solid fa-phone" style="font-size: 0.7rem;"></i>
-                    {{ client.phone }}</small>
+                <small class="text-muted text-dark">
+                    <i class="fa-solid fa-phone" style="font-size: 0.7rem;"></i> {{ client.phone }}
+                </small>
             </div>
 
             <div class="text-end">
+                {% if client.total_debt_uzs and client.total_debt_uzs != 0 %}
+                    {% if client.total_debt_uzs > 0 %}
+                        <div class="fw-bold text-danger">{{ client.total_debt_uzs|space_format }} so'm</div>
+                    {% else %}
+                        <div class="fw-bold text-success small">+{{ client.total_debt_uzs|cut:"-"|space_format }} (Haq)</div>
+                    {% endif %}
+                {% endif %}
 
-                {% if client.total_debt_uzs %}
-                {% if client.total_debt_uzs > 0 %}
-                <div class="fw-bold text-danger">{{ client.total_debt_uzs|floatformat:0 }} so'm</div>
-                {% elif client.total_debt_uzs < 0 %} <div class="fw-bold text-success small">
-                    +{{ client.total_debt_uzs|floatformat:0 }} (Haq)
+                {% if client.total_debt_usd and client.total_debt_usd != 0 %}
+                    {% if client.total_debt_usd > 0 %}
+                        <div class="fw-bold text-danger">${{ client.total_debt_usd|floatformat:2|space_format }}</div>
+                    {% else %}
+                        <div class="fw-bold text-success small">+$ {{ client.total_debt_usd|floatformat:2|cut:"-"|space_format }} (Haq)</div>
+                    {% endif %}
+                {% endif %}
+
+                {% if client.total_debt_uzs == 0 and client.total_debt_usd == 0 %}
+                    <span class="badge bg-light text-muted border">Hisob toza ✅</span>
+                {% endif %}
             </div>
-            {% endif %}
-            {% endif %}
 
-            {% if client.total_debt_usd %}
-            {% if client.total_debt_usd > 0 %}
-            <div class="fw-bold text-danger">${{ client.total_debt_usd|floatformat:2 }}</div>
-            {% elif client.total_debt_usd < 0 %} <div class="fw-bold text-success small">
-                +$ {{ client.total_debt_usd|floatformat:0 }} (Haq)
         </div>
-        {% endif %}
-        {% endif %}
-
-        {% if not client.total_debt_uzs and not client.total_debt_usd %}
-        <span class="badge bg-light text-muted border">Hisob toza ✅</span>
-        {% endif %}
-
-        {% if client.total_debt_uzs == 0 and client.total_debt_usd == 0 %}
-        <span class="badge bg-light text-muted border">Hisob toza ✅</span>
-        {% endif %}
-
     </div>
-
-</div>
-</div>
-{% empty %}
-<div class="text-center py-5 text-muted text-dark">
-    <i class="fa-solid fa-users-slash fa-2x mb-3 opacity-25"></i>
-    <p>Mijozlar yo'q</p>
-</div>
-{% endfor %}
+    {% empty %}
+    <div class="text-center py-5 text-muted text-dark">
+        <i class="fa-solid fa-users-slash fa-2x mb-3 opacity-25"></i>
+        <p>Mijozlar yo'q</p>
+    </div>
+    {% endfor %}
 </div>
 
 <a href="{% url 'create_debt' %}"
     class="btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center"
-    style="position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; font-size: 24px; z-index: 100;">
+    style="position: fixed; bottom: 80px; right: 25px; width: 60px; height: 60px; font-size: 24px; z-index: 100;">
     <i class="fa-solid fa-plus"></i>
 </a>
 

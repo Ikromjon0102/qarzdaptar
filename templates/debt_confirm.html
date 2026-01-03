@@ -9,7 +9,7 @@
         <div class="text-center mb-3">
             <i class="fa-solid fa-store fa-2x text-primary mb-2"></i>
             <h5 class="fw-bold text-uppercase">Avto Ehtiyot Qismlar</h5>
-            <p class="text-muted small">{{ debt.created_at|date:"d.m.Y H:i" }}</p>
+            <p class="text-muted small text-dark">{{ debt.created_at|date:"d.m.Y H:i" }}</p>
         </div>
 
         <hr class="dashed-line">
@@ -23,7 +23,7 @@
         <hr class="dashed-line">
 
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted fs-5">Jami qarz:</span>
+            <span class="text-muted fs-5 text-dark">Jami qarz:</span>
             <div class="text-end">
                 {% if debt.amount_uzs > 0 %}
                 <div class="fs-2 fw-bold text-dark">{{ debt.amount_uzs|floatformat:0 }} so'm</div>
@@ -35,8 +35,8 @@
             </div>
         </div>
 
-        <div class="alert alert-warning mt-3 small text-center">
-            <i class="fa-solid fa-triangle-exclamation"></i>
+        <div class="alert alert-warning mt-3 small text-center text-warning">
+            <i class="fa-solid fa-triangle-exclamation text-warning"></i>
             Tasdiqlash tugmasini bosishingiz bilan ushbu summa sizning balansingizga qarz bo'lib yoziladi.
         </div>
     </div>

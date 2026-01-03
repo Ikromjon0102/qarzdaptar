@@ -32,21 +32,17 @@
     </form>
 </div>
 
-{% if not debts and search_query %}
-    <div class="text-center py-5 text-muted">
-        <i class="fa-solid fa-ghost fa-2x mb-2"></i>
-        <p>" <b>{{ search_query }}</b> " bo'yicha hech narsa topilmadi.</p>
-    </div>
-{% endif %}
-{#<div class="app-card text-white mb-4 shadow-lg position-relative overflow-hidden"#}
-{#    style="background: linear-gradient(135deg, #ff416c, #ff4b2b); border: none; border-radius: 16px; padding: 20px;">#}
-{##}
-{#    <i class="fa-solid fa-wallet position-absolute"#}
-{#        style="right: -20px; bottom: -20px; font-size: 120px; opacity: 0.15;"></i>#}
+<!--{% if not debts and search_query %}-->
+<!--    <div class="text-center py-5 text-muted text-dark">-->
+<!--        <i class="fa-solid fa-ghost fa-2x mb-2"></i>-->
+<!--        <p>" <b>{{ search_query }}</b> " bo'yicha hech narsa topilmadi.</p>-->
+<!--    </div>-->
+<!--{% endif %}-->
+
 <div class="app-card text-white mb-4 shadow-lg position-relative overflow-hidden"
     style="background: radial-gradient(circle at top right, #363795, #005C97); border-radius: 16px; padding: 20px;">
 
-    <h6 class="opacity-75 mb-3">Joriy balans:</h6>
+    <h6 class="opacity-75 mb-3 text-dark">Joriy balans:</h6>
 
     <div class="d-flex flex-column">
         <h3 class="fw-bold mb-0">
@@ -68,14 +64,14 @@
 
 {#</div>#}
 
-<div class="d-flex justify-content-between align-items-center px-2 mb-3">
-    <span class="text-muted small fw-bold"><i class="fa-regular fa-calendar"></i> Shu oydagi xaridlar:</span>
+<div class="d-flex justify-content-between align-items-center px-2 mb-3 text-dark">
+    <span class="text-muted small fw-bold text-dark"><i class="fa-regular fa-calendar text-dark"></i> Shu oydagi xaridlar:</span>
     <div class="text-end">
         {% if month_uzs > 0 %}
         <span class="badge bg-secondary bg-opacity-10 text-dark border">{{ month_uzs|floatformat:0 }} so'm</span>
         {% endif %}
         {% if month_usd > 0 %}
-        <span class="badge bg-success bg-opacity-10 text-success border border-success">
+        <span class="badge bg-success bg-opacity-10 text-success text-dark border border-success">
             ${{ month_usd|floatformat:0 }}</span>
         {% endif %}
         {% if month_uzs == 0 and month_usd == 0 %}
@@ -109,7 +105,7 @@
     {% include 'partials/history_list.html' with items=history %}
 </div>
 
-<div class="tab-pane fade" id="pills-debt">
+<div class="tab-pane fade " id="pills-debt">
     {% for debt in history %}
         {% if debt.transaction_type == 'debt' %}
             {% include 'partials/debt_card.html' %}
@@ -140,12 +136,12 @@
                 <div class="my-3">
                     <i id="modalIcon" class="fa-solid fa-receipt fa-3x opacity-50"></i>
                 </div>
-                <div class="p-3 bg-light rounded-3 mb-3 text-start">
+                <div class="p-3 bg-light rounded-3 mb-3 text-start text-dark ">
                     <h6 class="text-muted small text-uppercase mb-2 border-bottom pb-1">Tafsilotlar:</h6>
-                    <p id="modalItems" class="fw-bold mb-0 text-dark" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5;"></p>
+                    <p id="modalItems" class="fw-bold mb-0 text-info" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5;"></p>
                 </div>
                 <div class="text-center">
-                    <small class="text-muted">Qiymat:</small>
+                    <small class="text-muted text-dark ">Qiymat:</small>
                     <h4 class="fw-bold mt-1" id="modalSum"></h4>
                 </div>
             </div>
@@ -198,7 +194,7 @@
             sumElement.className = "fw-bold mt-1 text-success";
             sumElement.innerText = totalText;
             
-            iconElement.className = "fa-solid fa-circle-check fa-3x text-success opacity-50";
+            iconElement.className = "fa-solid fa-circle-check fa-3x text-success opacity-50 ";
         } else {
             // QARZ BO'LSA: QIZIL
             sumElement.className = "fw-bold mt-1 text-danger";
