@@ -12,8 +12,10 @@ urlpatterns = [
 
     path('my-cabinet/', views.client_cabinet_view, name='client_cabinet'),
     path('client/<int:client_id>/', views.admin_client_detail_view, name='admin_client_detail'),
-    path('create-payment/', views.create_payment_view, name='create_payment'),    
-    path('dashboard/', views.dashboard_view, name='dashboard'),   
+    path('api/create-client/', views.create_client_ajax, name='create_client_ajax'),
+
+    path('create-payment/', views.create_payment_view, name='create_payment'),
+    path('dashboard/', views.dashboard_view, name='dashboard'),
     path('manage-debt/<uuid:debt_uuid>/<str:action>/', views.manage_debt_view, name='manage_debt'),
     path('debt/<uuid:debt_uuid>/', views.debt_detail_view, name='debt_detail'),
     path('settings/', views.settings_view, name='settings'),

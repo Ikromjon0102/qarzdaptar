@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 {% block matn %}
 
 <div class="d-flex align-items-center mb-4 pt-2">
@@ -25,17 +26,15 @@
 
     <div class="d-flex flex-column">
         <h3 class="fw-bold mb-0">
-            {% if total_uzs > 0 %} <span class="text-danger">{{ total_uzs|floatformat:0 }} so'm</span> (Qarz)
-            {% elif total_uzs < 0 %} <span class="text-success">
-                +{{ total_uzs|stringformat:"+d"|slice:"1:" }} so'm</span>
-                (Haq)
-                {% else %} 0 so'm {% endif %}
+            {% if total_uzs > 0 %} <span class="text-danger">{{ total_uzs|space_format }} so'm</span> (Qarz)
+            {% elif total_uzs < 0 %} <span class="text-success">+{{ total_uzs|stringformat:"i"|cut:"-"|space_format }} so'm</span>(Haq)
+            {% else %} 0 so'm {% endif %}
         </h3>
 
         {% if total_usd != 0 %}
         <h4 class="fw-bold mb-0 mt-1">
-            {% if total_usd > 0 %} <span class="text-danger">${{ total_usd|floatformat:2 }}</span>
-            {% else %} <span class="text-success">+${{ total_usd|stringformat:"+f"|slice:"1:" }}</span> {% endif %}
+            {% if total_usd > 0 %} <span class="text-danger">${{ total_usd|floatformat:2|space_format }} </span> (Qarz)
+            {% else %} <span class="text-success">+${{ total_usd|floatformat:2|cut:"-"|space_format }}</span> (Haq) {% endif %}
         </h4>
         {% endif %}
     </div>
@@ -45,7 +44,7 @@
     <div class="col-6">
         <a href="{% url 'create_debt' %}?client_id={{ client.id }}"
             class="btn btn-outline-primary w-100 py-2 border-2 fw-bold" style="border-radius: 12px;">
-            <i class="fa-solid fa-plus"></i> Qarz Yozish
+            <i class="fa-solid fa-plus"></i> Sotuv
         </a>
     </div>
     <div class="col-6">
@@ -61,7 +60,7 @@
 <div class="pb-5">
     {% for debt in debts %}
 
-    <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm bg-white rounded-3 position-relative">
+    <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm  rounded-3 position-relative">
 
         <div class="d-flex justify-content-between align-items-center">
 
@@ -70,7 +69,7 @@
                 data-uzs="{{ debt.amount_uzs|floatformat:0 }}" data-usd="{{ debt.amount_usd|floatformat:2 }}"
                 onclick="showDetail(this)">
 
-                <div class="me-3 rounded-circle d-flex align-items-center justify-content-center"
+                <div class="me-3 rounded-circle d-flex align-items-center justify-content-center text-dark"
                     style="width: 40px; height: 40px; background: {% if debt.transaction_type == 'payment' %}#d1e7dd{% elif debt.status == 'rejected' %}#f8d7da{% elif debt.status == 'pending' %}#fff3cd{% else %}#cfe2ff{% endif %};">
 
                     {% if debt.transaction_type == 'payment' %}
@@ -86,7 +85,7 @@
 
                 <div class="text-truncate">
                     <div class="fw-bold text-dark text-truncate">{{ debt.items|truncatechars:18 }}</div>
-                    <small class="text-muted" style="font-size: 0.7rem;">
+                    <small class="text-muted text-dark" style="font-size: 0.7rem;">
                         {{ debt.created_at|date:"d.m" }}
                         {% if debt.status == 'pending' %} <span
                             class="badge bg-warning text-dark ms-1">Kutilmoqda</span> {% endif %}
@@ -98,15 +97,15 @@
 
                 <div class="me-3">
                     {% if debt.transaction_type == 'payment' %}
-                    {% if debt.amount_uzs != 0 %}<div class="fw-bold text-success small">
-                        +{{ debt.amount_uzs|stringformat:"+d"|slice:"1:" }}</div>{% endif %}
-                    {% if debt.amount_usd != 0 %}<div class="fw-bold text-success small">
-                        +$ {{ debt.amount_usd|stringformat:"+f"|slice:"1:" }}</div>{% endif %}
+                        {% if debt.amount_uzs != 0 %}<div class="fw-bold text-success small">
+                            +{{ debt.amount_uzs | stringformat:"i"|cut:"-"|space_format }} so'm</div>{% endif %}
+                        {% if debt.amount_usd != 0 %}<div class="fw-bold text-success small">
+                            +$ {{ debt.amount_usd|floatformat:2|cut:"-"|space_format }}</div>{% endif %}
                     {% else %}
-                    {% if debt.amount_uzs > 0 %}<div class="fw-bold text-danger small">
-                        -{{ debt.amount_uzs|floatformat:0 }}</div>{% endif %}
-                    {% if debt.amount_usd > 0 %}<div class="fw-bold text-danger small">
-                        -$ {{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
+                        {% if debt.amount_uzs > 0 %}<div class="fw-bold text-danger small">
+                            -{{ debt.amount_uzs|space_format }} so'm</div>{% endif %}
+                        {% if debt.amount_usd > 0 %}<div class="fw-bold text-danger small">
+                            -$ {{ debt.amount_usd|floatformat:2|space_format }}</div>{% endif %}
                     {% endif %}
                 </div>
 
@@ -120,7 +119,7 @@
             </div>
         </div>
 
-        {% if debt.status == 'pending' %}
+        {% if debt.status == 'pending' or debt.status == 'rejected' %}
         <div class="border-top mt-2 pt-2 d-flex justify-content-end gap-2">
             <a href="{% url 'manage_debt' debt.uuid 'resend' %}" class="btn btn-sm btn-outline-primary py-0"
                 style="font-size: 0.8rem;">
@@ -146,7 +145,7 @@
                 <h5 class="modal-title fw-bold" id="modalDate"></h5>
             </div>
             <div class="modal-body text-center">
-                <div class="p-3 bg-light rounded-3 mb-3 text-start">
+                <div class="p-3 bg-info rounded-3 mb-3 text-start">
                     <p id="modalItems" class="fw-bold mb-0 text-dark"
                         style="white-space: pre-wrap; font-size: 0.95rem;"></p>
                 </div>

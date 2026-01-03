@@ -449,7 +449,7 @@
         {% if messages %}
         <div class="container mt-3">
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm text-{{ message.tags }}" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
@@ -460,84 +460,7 @@
     <!-- Main Content -->
     <div class="container">
         {% block content %}
-        <!-- Demo Content -->
-        <div class="row mb-4 fade-in-up">
-            <div class="col-6 mb-3">
-                <div class="stat-card">
-                    <div class="stat-value">24</div>
-                    <div class="stat-label">Mijozlar</div>
-                </div>
-            </div>
-            <div class="col-6 mb-3">
-                <div class="stat-card">
-                    <div class="stat-value">3.2M</div>
-                    <div class="stat-label">Jami Qarz</div>
-                </div>
-            </div>
-        </div>
 
-        <div class="app-card fade-in-up" style="animation-delay: 0.1s;">
-            <div class="icon-badge">
-                <i class="fa-solid fa-user-plus"></i>
-            </div>
-            <h5 class="fw-bold mb-3">Yangi mijoz qo'shish</h5>
-
-            <div class="mb-3">
-                <label class="form-label">Ism</label>
-                <input type="text" class="form-control" placeholder="Mijoz ismini kiriting">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Telefon</label>
-                <input type="tel" class="form-control" placeholder="+998 90 123 45 67">
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Qarz miqdori</label>
-                <input type="number" class="form-control" placeholder="0.00">
-            </div>
-
-            <button class="btn-main">
-                <i class="fa-solid fa-check me-2"></i>Saqlash
-            </button>
-        </div>
-
-        <div class="app-card fade-in-up" style="animation-delay: 0.2s;">
-            <h5 class="fw-bold mb-3">So'nggi amaliyotlar</h5>
-
-            <div class="list-item">
-                <div class="list-item-icon">
-                    <i class="fa-solid fa-arrow-down text-success"></i>
-                </div>
-                <div class="list-item-content">
-                    <div class="list-item-title">To'lov olindi</div>
-                    <div class="list-item-subtitle">Akmal Rahimov • 500,000 so'm</div>
-                </div>
-                <span class="badge-modern bg-success">+500K</span>
-            </div>
-
-            <div class="list-item">
-                <div class="list-item-icon">
-                    <i class="fa-solid fa-arrow-up text-danger"></i>
-                </div>
-                <div class="list-item-content">
-                    <div class="list-item-title">Yangi qarz</div>
-                    <div class="list-item-subtitle">Dilshod Karimov • 1,200,000 so'm</div>
-                </div>
-                <span class="badge-modern bg-danger">+1.2M</span>
-            </div>
-
-            <div class="list-item">
-                <div class="list-item-icon">
-                    <i class="fa-solid fa-check text-primary"></i>
-                </div>
-                <div class="list-item-content">
-                    <div class="list-item-title">Qarz yopildi</div>
-                    <div class="list-item-subtitle">Sardor Aliyev • 300,000 so'm</div>
-                </div>
-                <span class="badge-modern bg-primary">Tugadi</span>
-            </div>
-        </div>
         {% endblock %}
     </div>
 

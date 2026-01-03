@@ -122,84 +122,294 @@ def main_menu_view(request):
     })
 
 
+#
+# @login_required(login_url='/login/')
+# def create_debt_view(request):
+#     shop = get_current_shop(request)
+#     selected_client = None
+#
+#     client_id_param = request.GET.get('client_id')
+#     if client_id_param:
+#         # Xavfsizlik: Faqat o'z do'koni mijozini tanlay olsin
+#         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
+#
+#     if request.method == 'POST':
+#         client_id = request.POST.get('client_id')
+#
+#         # Ro'yxatlar
+#         names = request.POST.getlist('item_name[]')
+#         qtys = request.POST.getlist('item_qty[]')
+#         prices = request.POST.getlist('item_price[]')
+#         currencies = request.POST.getlist('item_currency[]')
+#
+#         try:
+#             total_uzs = float(request.POST.get('total_uzs', 0))
+#         except:
+#             total_uzs = 0
+#         try:
+#             total_usd = float(request.POST.get('total_usd', 0))
+#         except:
+#             total_usd = 0
+#
+#         if client_id and names:
+#             client = get_object_or_404(Client, id=client_id, shop=shop)
+#
+#             items_desc_list = []
+#             for name, qty, price, curr in zip(names, qtys, prices, currencies):
+#                 if name:
+#                     q = float(qty)
+#                     p = float(price)
+#                     q = int(q) if q.is_integer() else q
+#                     p = int(p) if p.is_integer() else p
+#                     if curr == 'USD':
+#                         items_desc_list.append(f"🔹 {name}: {q}ta x ${p} = ${q * p}")
+#                     else:
+#                         items_desc_list.append(f"🔸 {name}: {q}ta x {p:,} = {q * p:,}")
+#
+#             full_description = "\n".join(items_desc_list)
+#
+#             # BAZAGA YOZISH (shop=shop)
+#             debt = Debt.objects.create(
+#                 shop=shop,  # <--- MUHIM
+#                 client=client,
+#                 amount_uzs=total_uzs,
+#                 amount_usd=total_usd,
+#                 items=full_description,
+#                 status='pending'
+#             )
+#
+#             messages.success(request, "Nasiya yuborildi!")
+#             return redirect('admin_client_detail', client_id=client.id)
+#
+#     # Faqat shu do'kon mijozlari
+#     clients = Client.objects.filter(shop=shop).order_by('full_name')
+#
+#     # Do'kon sozlamalaridan kursni olamiz
+#     settings_obj, _ = Settings.objects.get_or_create(shop=shop)
+#     current_rate = settings_obj.usd_rate
+#
+#     return render(request, 'create_debt.html', {
+#         'clients': clients,
+#         'back_url': 'main_menu',
+#         'selected_client': selected_client,
+#         'current_rate': current_rate
+#     })
+
+
+# @login_required(login_url='/login/')
+# def create_debt_view(request):
+#     shop = get_current_shop(request)
+#     selected_client = None
+#
+#     client_id_param = request.GET.get('client_id')
+#     if client_id_param:
+#         # Xavfsizlik: Faqat o'z do'koni mijozini tanlay olsin
+#         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
+#
+#     if not shop: return redirect('login_page')
+#
+#     if request.method == 'POST':
+#         # 1. PARAMETRLARNI OLISH
+#         sale_mode = request.POST.get('sale_mode')  # 'cash' yoki 'debt'
+#         payment_type = request.POST.get('payment_type')  # 'cash', 'card', 'click'
+#         client_id = request.POST.get('client')
+#
+#         # 2. MAHSULOTLARNI YIG'ISH
+#         product_names = request.POST.getlist('product_name[]')
+#         quantities = request.POST.getlist('quantity[]')
+#         prices = request.POST.getlist('price[]')
+#         currencies = request.POST.getlist('currency[]')  # 'uzs' yoki 'usd'
+#
+#         # Umumiy hisob
+#         total_uzs = 0
+#         total_usd = 0
+#         items_list = []
+#
+#         for i in range(len(product_names)):
+#             name = product_names[i]
+#             qty = float(quantities[i] or 0)
+#             price = float(prices[i] or 0)
+#             currency = currencies[i]
+#
+#             if qty > 0 and price > 0:
+#                 summ = qty * price
+#                 if currency == 'uzs':
+#                     total_uzs += summ
+#                     items_list.append(f"{name} ({qty} x {price:,.0f} so'm) = {summ:,.0f}")
+#                 else:
+#                     total_usd += summ
+#                     items_list.append(f"{name} ({qty} x ${price}) = ${summ}")
+#
+#         items_str = "\n".join(items_list)
+#
+#         # 3. MIJOZNI ANIQLASH
+#         # Agar Nasiya bo'lsa -> Tanlangan mijoz
+#         current_status = 'confirmed' if sale_mode == 'cash' else 'pending'
+#
+#         # 3. MIJOZNI ANIQLASH
+#         if sale_mode == 'debt':
+#             if not client_id: return redirect('create_debt')
+#             client = Client.objects.get(id=client_id, shop=shop)
+#         else:
+#             # Naqd savdo uchun maxsus mijoz (Statistika uchun)
+#             client, _ = Client.objects.get_or_create(
+#                 shop=shop,
+#                 phone='000000000',
+#                 defaults={'full_name': 'Naqd Savdo (Kassa)'}
+#             )
+#             if client_id:  # Agar naqd bo'lsa ham mijoz tanlangan bo'lsa
+#                 client = Client.objects.get(id=client_id, shop=shop)
+#
+#         # 4. BAZAGA YOZISH
+#         # A) SAVDO (Debt)
+#         debt = Debt.objects.create(
+#             shop=shop,
+#             transaction_type='debt',
+#             client=client,
+#             amount_uzs=total_uzs,
+#             amount_usd=total_usd,
+#             items=items_str,
+#             status=current_status  # <--- O'ZGARDI (pending yoki confirmed)
+#         )
+#
+#         # B) Agar NAQD bo'lsa -> TO'LOV (Payment)
+#         if sale_mode == 'cash':
+#             Debt.objects.create(
+#                 shop=shop,
+#                 transaction_type='payment',
+#                 payment_method=payment_type,
+#                 client=client,
+#                 amount_uzs=total_uzs,
+#                 amount_usd=total_usd,
+#                 items=f"To'lov: {items_str} (ID: {debt.id})",
+#                 status='confirmed'  # To'lov doim tasdiqlangan bo'ladi
+#             )
+#
+#         return redirect('dashboard')
+#
+#     clients = Client.objects.filter(shop=shop).order_by('-id')
+#     context = {
+#         'clients': clients,
+#         'back_url': 'main_menu',
+#         'selected_client': selected_client,
+#     }
+#     return render(request, 'create_debt.html', context)
+
+
+from django.contrib import messages
+
+
+# send_tg_msg funksiyasini import qilishni unutmang (utils yoki services dan)
 
 @login_required(login_url='/login/')
 def create_debt_view(request):
     shop = get_current_shop(request)
-    selected_client = None
+    if not shop: return redirect('login_page')
 
+    selected_client = None
     client_id_param = request.GET.get('client_id')
     if client_id_param:
-        # Xavfsizlik: Faqat o'z do'koni mijozini tanlay olsin
         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
 
     if request.method == 'POST':
-        client_id = request.POST.get('client_id')
+        # 1. PARAMETRLARNI OLISH
+        sale_mode = request.POST.get('sale_mode')
+        payment_type = request.POST.get('payment_type')
+        client_id = request.POST.get('client')
 
-        # Ro'yxatlar
-        names = request.POST.getlist('item_name[]')
-        qtys = request.POST.getlist('item_qty[]')
-        prices = request.POST.getlist('item_price[]')
-        currencies = request.POST.getlist('item_currency[]')
+        # 2. MAHSULOTLARNI YIG'ISH
+        product_names = request.POST.getlist('product_name[]')
+        quantities = request.POST.getlist('quantity[]')
+        prices = request.POST.getlist('price[]')
+        currencies = request.POST.getlist('currency[]')
 
-        try:
-            total_uzs = float(request.POST.get('total_uzs', 0))
-        except:
-            total_uzs = 0
-        try:
-            total_usd = float(request.POST.get('total_usd', 0))
-        except:
-            total_usd = 0
+        total_uzs = 0
+        total_usd = 0
+        items_list = []
 
-        if client_id and names:
-            client = get_object_or_404(Client, id=client_id, shop=shop)
+        for i in range(len(product_names)):
+            name = product_names[i]
+            qty = float(quantities[i] or 0)
+            price = float(prices[i] or 0)
+            currency = currencies[i]
 
-            items_desc_list = []
-            for name, qty, price, curr in zip(names, qtys, prices, currencies):
-                if name:
-                    q = float(qty)
-                    p = float(price)
-                    q = int(q) if q.is_integer() else q
-                    p = int(p) if p.is_integer() else p
-                    if curr == 'USD':
-                        items_desc_list.append(f"🔹 {name}: {q}ta x ${p} = ${q * p}")
-                    else:
-                        items_desc_list.append(f"🔸 {name}: {q}ta x {p:,} = {q * p:,}")
+            if qty > 0 and price > 0:
+                summ = qty * price
+                # Formatlash (HTML uchun emas, baza matni uchun)
+                if currency == 'uzs':
+                    total_uzs += summ
+                    items_list.append(f"{name}: {qty} x {price:,.0f} = {summ:,.0f} so'm")
+                else:
+                    total_usd += summ
+                    items_list.append(f"{name}: {qty} x ${price} = ${summ}")
 
-            full_description = "\n".join(items_desc_list)
+        items_str = "\n".join(items_list)
 
-            # BAZAGA YOZISH (shop=shop)
-            debt = Debt.objects.create(
-                shop=shop,  # <--- MUHIM
-                client=client,
-                amount_uzs=total_uzs,
-                amount_usd=total_usd,
-                items=full_description,
-                status='pending'
+        # 3. MIJOZNI ANIQLASH
+        current_status = 'confirmed' if sale_mode == 'cash' else 'pending'
+
+        if sale_mode == 'debt':
+            if not client_id:
+                messages.error(request, "Nasiya uchun mijoz tanlanishi shart!")
+                return redirect('create_debt')
+            client = Client.objects.get(id=client_id, shop=shop)
+        else:
+            # Naqd savdo
+            client, _ = Client.objects.get_or_create(
+                shop=shop,
+                phone='000000000',
+                defaults={'full_name': 'Naqd Savdo (Kassa)'}
             )
+            if client_id:
+                client = Client.objects.get(id=client_id, shop=shop)
 
-            messages.success(request, "Nasiya yuborildi!")
-            return redirect('admin_client_detail', client_id=client.id)
+        # 4. BAZAGA YOZISH (SAVDO)
+        debt = Debt.objects.create(
+            shop=shop,
+            transaction_type='debt',
+            client=client,
+            amount_uzs=total_uzs,
+            amount_usd=total_usd,
+            items=items_str,
+            status=current_status
+        )
 
-    # Faqat shu do'kon mijozlari
-    clients = Client.objects.filter(shop=shop).order_by('full_name')
+        # --- TUZATISH 1: NAQD TO'LOV MANFIY BO'LISHI KERAK ---
+        if sale_mode == 'cash':
+            Debt.objects.create(
+                shop=shop,
+                transaction_type='payment',
+                payment_method=payment_type,
+                client=client,
+                # E'TIBOR BERING: Minus belgisi qo'yildi (-)
+                amount_uzs=-total_uzs,
+                amount_usd=-total_usd,
+                items=f"To'lov: {items_str} (ID: {debt.id})",
+                status='confirmed'
+            )
+            messages.success(request, "Naqd savdo amalga oshirildi!")
 
-    # Do'kon sozlamalaridan kursni olamiz
-    settings_obj, _ = Settings.objects.get_or_create(shop=shop)
-    current_rate = settings_obj.usd_rate
+        return redirect('dashboard')
 
-    return render(request, 'create_debt.html', {
+    clients = Client.objects.filter(shop=shop).order_by('-id')
+    context = {
         'clients': clients,
         'back_url': 'main_menu',
         'selected_client': selected_client,
-        'current_rate': current_rate
-    })
+    }
+    return render(request, 'create_debt.html', context)
+
+
+from django.db.models import Sum
+from django.contrib import messages
+
 
 @login_required(login_url='/login/')
 def create_payment_view(request):
     shop = get_current_shop(request)
-    selected_client = None
+    if not shop: return redirect('login_page')
 
+    selected_client = None
     client_id_param = request.GET.get('client_id')
     if client_id_param:
         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
@@ -223,11 +433,19 @@ def create_payment_view(request):
 
             method_names = {'cash': 'Naqd', 'card': 'Karta', 'click': 'Click', 'transfer': 'Perechislenie'}
             method_display = method_names.get(payment_method, '')
-            description = f"💵 To'lov ({method_display})" if method_display else "💵 To'lov"
+
+            # Tavsifni chiroyli qilish
+            parts = []
+            if amount_uzs > 0: parts.append(f"{amount_uzs:,.0f} so'm")
+            if amount_usd > 0: parts.append(f"${amount_usd:,.2f}")
+            amount_str = " + ".join(parts)  # Masalan: "1000 so'm + $10"
+
+            description = f"💵 To'lov: {amount_str} ({method_display})"
             if note: description += f" | {note}"
 
+            # 1. BAZAGA YOZISH (To'lov minus bo'lib tushadi)
             Debt.objects.create(
-                shop=shop,  # <--- MUHIM
+                shop=shop,
                 client=client,
                 amount_uzs=-amount_uzs,
                 amount_usd=-amount_usd,
@@ -237,19 +455,52 @@ def create_payment_view(request):
                 payment_method=payment_method
             )
 
-            # Telegram xabar va boshqalar...
-            current_balance = \
-            Debt.objects.filter(shop=shop, client=client, status='confirmed').aggregate(Sum('amount_uzs'))[
-                'amount_uzs__sum'] or 0
+            # 2. TELEGRAM XABARNI TAYYORLASH (MANTIQ O'ZGARDI)
             if client.telegram_id:
                 try:
-                    msg = f"💸 <b>To'lov qabul qilindi!</b>\n\n👤 Mijoz: {client.full_name}\n💰 To'landi: <b>{amount_uzs:,.0f} so'm</b> ({method_display})\n"
+                    # Balansni hisoblaymiz
+                    balance_data = Debt.objects.filter(shop=shop, client=client, status='confirmed').aggregate(
+                        sum_uzs=Sum('amount_uzs'),
+                        sum_usd=Sum('amount_usd')
+                    )
+                    bal_uzs = balance_data['sum_uzs'] or 0
+                    bal_usd = balance_data['sum_usd'] or 0
+
+                    # --- BALANS MATNINI YASASH ---
+                    bal_parts = []
+
+                    # SO'M UCHUN
+                    if bal_uzs > 0:
+                        bal_parts.append(f"{bal_uzs:,.0f} so'm (Qarz)")
+                    elif bal_uzs < 0:
+                        # abs() bu minusni olib tashlaydi
+                        bal_parts.append(f"{abs(bal_uzs):,.0f} so'm (Haq)")
+
+                        # DOLLAR UCHUN
+                    if bal_usd > 0:
+                        bal_parts.append(f"${bal_usd:,.2f} (Qarz)")
+                    elif bal_usd < 0:
+                        bal_parts.append(f"${abs(bal_usd):,.2f} (Haq)")
+
+                    # Agar ikkalasi ham 0 bo'lsa
+                    if not bal_parts:
+                        balance_str = "Hisob toza ✅"
+                    else:
+                        balance_str = ", ".join(bal_parts)
+
+                    # --- XABAR YUBORISH ---
+                    msg = f"💸 <b>To'lov qabul qilindi!</b>\n\n"
+                    msg += f"👤 Mijoz: {client.full_name}\n"
+                    msg += f"💰 To'landi: <b>{amount_str}</b> ({method_display})\n"
+
                     if note: msg += f"📝 Izoh: {note}\n"
                     msg += "➖➖➖➖➖➖➖➖\n"
-                    msg += f"📉 Qolgan qarz: <b>{current_balance:,.0f} so'm</b>"
+                    # Endi bu yerda "Qarz" so'zi shart emas, chunki tepadagi mantiq o'zi yozib beradi
+                    msg += f"📉 Joriy holat: <b>{balance_str}</b>"
+
                     send_tg_msg(client.telegram_id, msg)
                 except Exception as e:
-                    print(e)
+                    print(f"Telegram Error: {e}")
 
             messages.success(request, f"✅ {client.full_name} dan to'lov qabul qilindi!")
             return redirect('admin_client_detail', client_id=client.id)
@@ -261,7 +512,6 @@ def create_payment_view(request):
         'back_url': 'main_menu',
         'selected_client': selected_client
     })
-
 
 @login_required(login_url='/login/')
 def manage_debt_view(request, debt_uuid, action):
@@ -304,7 +554,7 @@ def debt_detail_view(request, debt_uuid):
             # Agar allaqachon bosib bo'lgan bo'lsa
             return render(request, 'status_page.html', {
                 'title': 'Eskirgan havola',
-                'msg': f"Bu so'rov allaqachon {debt.get_status_display().lower()} bo'lgan.",
+                'message': f"Bu so'rov allaqachon {debt.get_status_display().lower()} bo'lgan.",
                 'icon': 'fa-circle-info',
                 'color': 'text-warning'
             })
@@ -314,7 +564,7 @@ def debt_detail_view(request, debt_uuid):
             debt.save()
             return render(request, 'status_page.html', {
                 'title': 'Muvaffaqiyatli!',
-                'msg': 'Siz nasiyani tasdiqladingiz. Rahmat!',
+                'message': 'Siz nasiyani tasdiqladingiz. Rahmat!',
                 'icon': 'fa-circle-check',
                 'color': 'text-success'
             })
@@ -324,7 +574,7 @@ def debt_detail_view(request, debt_uuid):
             debt.save()
             return render(request, 'status_page.html', {
                 'title': 'Rad etildi',
-                'msg': 'Siz nasiyani rad etdingiz.',
+                'message': 'Siz nasiyani rad etdingiz.',
                 'icon': 'fa-circle-xmark',
                 'color': 'text-danger'
             })
@@ -823,3 +1073,36 @@ def reports_view(request):
         'back_url': 'main_menu'
     }
     return render(request, 'reports.html', context)
+
+
+@csrf_exempt
+@login_required
+def create_client_ajax(request):
+    if request.method == 'POST':
+        try:
+            shop = get_current_shop(request)
+            data = json.loads(request.body)
+
+            full_name = data.get('full_name')
+            phone = data.get('phone')
+
+            # Tekshiramiz
+            if Client.objects.filter(shop=shop, phone=phone).exists():
+                return JsonResponse({'status': 'error', 'message': 'Bu raqamli mijoz allaqachon bor!'})
+
+            # Yaratamiz
+            client = Client.objects.create(
+                shop=shop,
+                full_name=full_name,
+                phone=phone
+            )
+
+            return JsonResponse({
+                'status': 'ok',
+                'client_id': client.id,
+                'client_name': client.full_name
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Faqat POST mumkin'})
+

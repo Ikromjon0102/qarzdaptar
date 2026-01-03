@@ -1,5 +1,6 @@
+{% load custom_filters %}
 <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm rounded-4 position-relative"
-     style="cursor: pointer; background-color: {% if debt.status == 'pending' %}#fff3cd{% else %}#fff{% endif %};"
+     style="cursor: pointer; background-color: {% if debt.status == 'pending' %}#fff3cd{% else %}#232E3C{% endif %};"
      onclick="showDetail(this)"
      data-is-payment="false"
      data-date="{{ debt.created_at|date:'d.m.Y H:i' }}"
@@ -19,8 +20,8 @@
             </div>
 
             <div class="text-truncate">
-                <div class="fw-bold text-truncate text-info">{{ debt.items }}</div>
-                <small class="text-muted " style="font-size: 0.75rem;">
+                <div class="fw-bold text-truncate text-dark">{{ debt.items }}</div>
+                <small class="text-muted text-dark" style="font-size: 0.75rem;">
                     {{ debt.created_at|date:"d.m.Y H:i" }}
                     {% if debt.status == 'pending' %}
                         <span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">Kutilmoqda</span>
@@ -31,10 +32,10 @@
 
         <div class="text-end ms-2 flex-shrink-0">
             {% if debt.amount_uzs > 0 %}
-                <div class="fw-bold text-danger">-{{ debt.amount_uzs|floatformat:0 }}</div>
+                <div class="fw-bold text-danger">-{{ debt.amount_uzs|space_format }}</div>
             {% endif %}
             {% if debt.amount_usd > 0 %}
-                <div class="fw-bold text-danger small">-${{ debt.amount_usd|floatformat:2 }}</div>
+                <div class="fw-bold text-danger small">-${{ debt.amount_usd|floatformat:2|space_format }}</div>
             {% endif %}
         </div>
     </div>

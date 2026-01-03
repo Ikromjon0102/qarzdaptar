@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="d-flex flex-column align-items-center justify-content-center min-vh-75 mt-4">
@@ -8,7 +9,7 @@
 
         <div class="text-center mb-3">
             <i class="fa-solid fa-store fa-2x text-primary mb-2"></i>
-            <h5 class="fw-bold text-uppercase">Avto Ehtiyot Qismlar</h5>
+            <h5 class="fw-bold text-uppercase">Mahsulotlar</h5>
             <p class="text-muted small text-dark">{{ debt.created_at|date:"d.m.Y H:i" }}</p>
         </div>
 
@@ -23,14 +24,14 @@
         <hr class="dashed-line">
 
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted fs-5 text-dark">Jami qarz:</span>
+            <span class="text-muted fs-5 text-dark">Jami summa:</span>
             <div class="text-end">
                 {% if debt.amount_uzs > 0 %}
-                <div class="fs-2 fw-bold text-dark">{{ debt.amount_uzs|floatformat:0 }} so'm</div>
+                <div class="fs-2 fw-bold text-dark">{{ debt.amount_uzs|space_format }} so'm</div>
                 {% endif %}
 
                 {% if debt.amount_usd > 0 %}
-                <div class="fs-2 fw-bold text-success">${{ debt.amount_usd|floatformat:2 }}</div>
+                <div class="fs-2 fw-bold text-success">${{ debt.amount_usd|space_format }}</div>
                 {% endif %}
             </div>
         </div>

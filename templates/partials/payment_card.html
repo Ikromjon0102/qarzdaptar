@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm bg-white rounded-4"
      style="cursor: pointer;"
      onclick="showDetail(this)"
@@ -33,13 +34,13 @@
         <div class="text-end ms-2 flex-shrink-0">
             {% if debt.amount_uzs != 0 %}
                 <div class="fw-bold text-success">
-                    +{{ debt.amount_uzs|stringformat:"+d"|slice:"1:" }}
+                    +{{ debt.amount_uzs|stringformat:"i"|cut:"-"|space_format }}
                 </div>
             {% endif %}
 
             {% if debt.amount_usd != 0 %}
                 <div class="fw-bold text-success small">
-                    +$ {{ debt.amount_usd|stringformat:"+f"|slice:"1:" }}
+                    +$ {{ debt.amount_usd|floatformat:2|cut:"-"|space_format }}
                 </div>
             {% endif %}
         </div>

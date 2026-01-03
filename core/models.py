@@ -2,6 +2,7 @@
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import Sum, Q
 
 
 # --- 1. DO'KON MODELI ---
@@ -48,6 +49,19 @@ class Client(models.Model):
     def __str__(self):
         status = "✅" if self.telegram_id else "⏳"
         return f"{self.full_name} ({self.phone}) {status}"
+
+    @property
+    def balance(self):
+        """
+        Mijozning haqiqiy qarzi: (Jami Nasiya) - (Jami To'lov)
+        """
+        debts = self.debt_set.filter(status='confirmed', transaction_type='debt').aggregate(sum=Sum('amount_uzs'))[
+                    'sum'] or 0
+        payments = \
+        self.debt_set.filter(status='confirmed', transaction_type='payment').aggregate(sum=Sum('amount_uzs'))[
+            'sum'] or 0
+
+        return debts - payments
 
 
 # --- 4. RUXSAT ETILGAN ADMINLAR (WHITELIST) ---
@@ -99,7 +113,7 @@ class Debt(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
     def __str__(self):
-        return f"{self.amount_uzs} so'm - {self.client.full_name}"
+        return f"{self.amount_uzs} so'm | $ {self.amount_usd} - {self.client.full_name}"
 
 
 # --- 6. SOZLAMALAR ---

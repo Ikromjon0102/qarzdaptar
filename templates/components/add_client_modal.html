@@ -1,0 +1,34 @@
+<div class="modal fade" id="addClientModal" tabindex="-1" aria-labelledby="addClientModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-primary" id="addClientModalLabel">
+            <i class="fa-solid fa-user-plus me-2"></i>Yangi mijoz
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body pt-3">
+          <form id="addClientForm">
+              <div class="mb-3">
+                  <label class="form-label small text-muted fw-bold">Ism Familiya</label>
+                  <input type="text" id="newClientName" class="form-control form-control-lg fw-bold" required placeholder="Ali Valiyev">
+              </div>
+              <div class="mb-3">
+                  <label class="form-label small text-muted fw-bold">Telefon raqam</label>
+                  <div class="input-group">
+                      <span class="input-group-text bg-light fw-bold text-muted border-end-0">+998</span>
+                      <input type="tel" id="newClientPhone" class="form-control form-control-lg fw-bold border-start-0" required placeholder="901234567" maxlength="9">
+                  </div>
+              </div>
+
+              <div class="d-grid mt-4">
+                  <button type="submit" class="btn btn-primary btn-lg rounded-3 fw-bold">
+                      Saqlash
+                  </button>
+              </div>
+          </form>
+      </div>
+    </div>
+  </div>
+</div>

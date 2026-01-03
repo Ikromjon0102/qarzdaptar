@@ -7,7 +7,7 @@ WEBHOOK_URL = "https://telapp.tunl.uz/webhook/"
 BOT_TOKEN = settings.BOT_TOKEN
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-def send_confirmation_request(telegram_id, debt_obj, domain):
+def send_confirmation_request(telegram_id,  debt_obj, domain):
     """
     Mijozga 'Tasdiqlash' tugmasi bilan xabar yuboradi.
     Tugma bosilganda Telegram Mini App ochiladi.
@@ -34,8 +34,9 @@ def send_confirmation_request(telegram_id, debt_obj, domain):
     # ---------------------------
 
     text = (
-        f"🆕 <b>Yangi Nasiya qaydi!</b>\n\n"
+        f"🆕 <b>Yangi xarid!!</b>\n\n"
         f"🛒 <b>Tovarlar:</b>\n{debt_obj.items}\n\n"
+        f"➖➖➖➖➖➖➖➖\n"
         f"💰 <b>Jami:</b> {total_str}\n\n"
         f"Iltimos, pastdagi tugmani bosib tasdiqlang yoki rad eting."
     )

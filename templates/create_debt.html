@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block matn %}
-<h3 class="fw-bold m-0 text-primary "><i class="fas fa-receipt"></i>  Nasiya Yozish</h3>
+<h3 class="fw-bold m-0 text-primary"><i class="fas fa-receipt"></i> Yangi Sotuv</h3>
 {% endblock %}
 
 {% block content %}
@@ -10,70 +10,179 @@
         background: transparent;
         border: none;
     }
+    .mode-btn {
+        transition: all 0.2s;
+        border-radius: 10px;
+        font-weight: bold;
+        opacity: 0.5;
+        border: 2px solid transparent;
+    }
+    .mode-btn.active {
+        opacity: 1;
+        transform: scale(1.02);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .payment-badge {
+        cursor: pointer;
+        padding: 8px 15px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        background: #f8f9fa;
+        color: #555;
+        font-weight: bold;
+        font-size: 0.85rem;
+        transition: 0.2s;
+    }
+    .payment-badge.selected {
+        background: #198754; /* Success color */
+        color: white;
+        border-color: #198754;
+    }
 </style>
 
 <form method="POST" id="debtForm" autocomplete="off">
     {% csrf_token %}
+    <div id="items-container" class="text-dark">  </div>
 
-    <div class="app-card">
-        <label class="small text-muted mb-1 text-dark">Mijozni tanlang yoki yozing</label>
-
-        <input class="form-control form-control-lg fw-bold text-primary text-dark" list="clientOptions" id="clientDataList"
-            placeholder="Ismni yozing..." onchange="setClientId(this)"
-            value="{% if selected_client %}{{ selected_client.full_name }} ({{ selected_client.phone }}){% endif %}"
-            required>
-
-        <input type="hidden" name="client_id" id="hiddenClientId"
-            value="{% if selected_client %}{{ selected_client.id }}{% endif %}" required>
-
-        <datalist id="clientOptions">
-    {% for client in clients %}
-        <option data-value="{{ client.id }}"
-                value="{{ client.full_name }} ({{ client.phone }}) {% if client.telegram_id %}✅{% else %}📵{% endif %}">
-        </option>
-    {% endfor %}
-</datalist>
-    </div>
-
-    <div id="items-container">
-    </div>
+    <input type="hidden" name="sale_mode" id="saleModeInput" value="debt">
+    <input type="hidden" name="payment_type" id="paymentTypeInput" value="cash">
 
     <button type="button" class="btn btn-outline-primary w-100 py-3 mb-3"
         style="border-radius: 12px; border-style: dashed;" onclick="addItem()">
         <i class="fa-solid fa-plus"></i> Yana qo'shish
     </button>
 
-    <div class="summary-card mb-4">
+
+    <div class="d-flex gap-2 mb-3 bg-white p-2 rounded-3 shadow-sm">
+        <button type="button" class="btn btn-danger w-50 mode-btn active" id="btn-debt" onclick="setMode('debt')">
+            🔴 Nasiya
+        </button>
+        <button type="button" class="btn btn-success w-50 mode-btn" id="btn-cash" onclick="setMode('cash')">
+            🟢 Naqd
+        </button>
+    </div>
+
+    <div class="app-card mb-3" id="client-card">
+        <label class="small text-muted mb-1 text-dark fw-bold" id="client-label">Mijozni tanlang (Qarz yoziladi)</label>
+
+        <div class="input-group">
+            <input class="form-control form-control-lg fw-bold text-dark" list="clientOptions" id="clientDataList"
+                placeholder="Ismni yozing..." onchange="setClientId(this)"
+                value="{% if selected_client %}{{ selected_client.full_name }} ({{ selected_client.phone }}){% endif %}"
+                required>
+
+            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                <i class="fa-solid fa-user-plus"></i>
+            </button>
+        </div>
+
+        <input type="hidden" name="client" id="hiddenClientId"
+            value="{% if selected_client %}{{ selected_client.id }}{% endif %}">
+
+        <datalist id="clientOptions">
+            {% for client in clients %}
+                <option data-value="{{ client.id }}"
+                        value="{{ client.full_name }} ({{ client.phone }})">
+                </option>
+            {% endfor %}
+        </datalist>
+    </div>
+
+
+
+    <div id="payment-methods" class="app-card mb-3 d-none">
+        <label class="small text-muted mb-2 text-dark fw-bold">To'lov turi</label>
+        <div class="d-flex justify-content-between gap-2">
+            <div class="payment-badge w-100 text-center selected" onclick="setPaymentType('cash', this)">NAQD</div>
+            <div class="payment-badge w-100 text-center" onclick="setPaymentType('card', this)">KARTA</div>
+            <div class="payment-badge w-100 text-center" onclick="setPaymentType('click', this)">CLICK</div>
+        </div>
+    </div>
+
+    <div class="summary-card mb-4 app-card">
         <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-muted">Jami So'm:</span>
-            <h5 class="fw-bold m-0" id="totalUzsDisplay">0 so'm</h5>
+            <span class="text-muted text-dark">Jami So'm:</span>
+            <h5 class="fw-bold m-0 text-success" id="totalUzsDisplay">0 so'm</h5>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="text-muted">Jami Dollar:</span>
+            <span class="text-muted text-dark">Jami Dollar:</span>
             <h5 class="fw-bold m-0 text-success" id="totalUsdDisplay">$0</h5>
         </div>
 
-        <input type="hidden" name="total_uzs" id="hiddenTotalUzs" value="0">
-        <input type="hidden" name="total_usd" id="hiddenTotalUsd" value="0">
-
-        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold"
-            style="background-color: var(--tg-theme-button-color); border-radius: 12px;">
+        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow" id="submitBtn"
+            style="border-radius: 12px;">
             SAQLASH VA YUBORISH
         </button>
     </div>
 
     <div style="height: 50px;"></div>
 </form>
-
+{% include 'components/add_client_modal.html' %}
 {% endblock %}
 
 {% block scripts %}
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        addItem();
+        addItem(); // Bitta qator qo'shib qo'yamiz
     });
 
-    // Mijoz ID sini inputdan olish
+    // 1. REJIMNI O'ZGARTIRISH (NAQD / NASIYA)
+    function setMode(mode) {
+        document.getElementById('saleModeInput').value = mode;
+
+        const btnDebt = document.getElementById('btn-debt');
+        const btnCash = document.getElementById('btn-cash');
+        const clientList = document.getElementById('clientDataList');
+        const clientLabel = document.getElementById('client-label');
+        const paymentMethods = document.getElementById('payment-methods');
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (mode === 'cash') {
+            // Button styles
+            btnDebt.classList.remove('active');
+            btnCash.classList.add('active');
+
+            // Logic
+            clientList.required = false; // Naqd bo'lsa mijoz shart emas
+            clientList.placeholder = "Mijoz (Ixtiyoriy)...";
+            clientLabel.innerText = "Mijoz (Ixtiyoriy)";
+
+            // Show Payments
+            paymentMethods.classList.remove('d-none');
+
+            // Submit Button Color
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-success');
+            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> SOTISH (NAQD)';
+
+        } else {
+            // Button styles
+            btnCash.classList.remove('active');
+            btnDebt.classList.add('active');
+
+            // Logic
+            clientList.required = true; // Nasiya bo'lsa mijoz SHART
+            clientList.placeholder = "Ismni yozing...";
+            clientLabel.innerText = "Mijozni tanlang (Qarz yoziladi)";
+
+            // Hide Payments
+            paymentMethods.classList.add('d-none');
+
+            // Submit Button Color
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-primary');
+            submitBtn.innerHTML = 'SAQLASH VA YUBORISH';
+        }
+    }
+
+    // 2. TO'LOV TURINI TANLASH
+    function setPaymentType(type, element) {
+        document.getElementById('paymentTypeInput').value = type;
+        document.querySelectorAll('.payment-badge').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+    }
+
+    // 3. MIJOZ ID SINI OLISH
     function setClientId(inputElement) {
         const list = document.getElementById('clientOptions');
         const hiddenInput = document.getElementById('hiddenClientId');
@@ -85,36 +194,37 @@
                 break;
             }
         }
-        if (!found) hiddenInput.value = ""; // Agar ro'yxatda yo'q bo'lsa tozalash
+        if (!found) hiddenInput.value = "";
     }
 
+    // 4. QATOR QO'SHISH (Backendga moslab nomlari o'zgartirildi)
     function addItem() {
         const container = document.getElementById('items-container');
         const count = container.children.length + 1;
         const html = `
-        <div class="app-card item-row animate__animated animate__fadeIn position-relative">
+        <div class="app-card item-row animate__animated animate__fadeIn position-relative mb-2">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="fw-bold small text-muted text-dark">Tovar #${count}</span>
                 <button type="button" class="btn-trash p-0" onclick="removeRow(this)"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="mb-2">
-                <input type="text" name="item_name[]" class="form-control fw-bold" placeholder="Mahsulot nomi" required>
+                <input type="text" name="product_name[]" class="form-control fw-bold" placeholder="Mahsulot nomi" required>
             </div>
             <div class="row g-2">
                 <div class="col-4">
-                    <input type="tel" name="item_qty[]" class="form-control text-center qty-input" placeholder="Soni" oninput="calculateTotal()" required>
+                    <input type="number" step="any" name="quantity[]" class="form-control text-center qty-input" placeholder="Soni" oninput="calculateTotal()" required>
                 </div>
                 <div class="col-4">
-                    <input type="tel" name="item_price[]" class="form-control price-input" placeholder="Narxi" oninput="calculateTotal()" required>
+                    <input type="number" step="any" name="price[]" class="form-control price-input" placeholder="Narxi" oninput="calculateTotal()" required>
                 </div>
                 <div class="col-4">
-                    <select name="item_currency[]" class="form-select currency-input fw-bold px-1" onchange="calculateTotal()">
-                        <option value="UZS">So'm</option>
-                        <option value="USD">$ Doll</option>
+                    <select name="currency[]" class="form-select currency-input fw-bold px-1" onchange="calculateTotal()">
+                        <option value="uzs">So'm</option>
+                        <option value="usd">$ Dollor</option>
                     </select>
                 </div>
             </div>
-            <div class="text-end mt-1"><small class="text-muted row-total-text" style="font-size: 0.8rem;">0</small></div>
+            <div class="text-end mt-1"><small class="text-muted row-total-text text-dark" style="font-size: 0.8rem;">0</small></div>
         </div>`;
         container.insertAdjacentHTML('beforeend', html);
     }
@@ -123,6 +233,13 @@
         const container = document.getElementById('items-container');
         if (container.children.length > 1) {
             btn.closest('.item-row').remove();
+            calculateTotal();
+        } else {
+            // Agar oxirgi qator bo'lsa, ichini tozalab qo'yamiz
+            const row = btn.closest('.item-row');
+            row.querySelector('input[name="product_name[]"]').value = '';
+            row.querySelector('.qty-input').value = '';
+            row.querySelector('.price-input').value = '';
             calculateTotal();
         }
     }
@@ -137,18 +254,81 @@
             const totalTextDisplay = row.querySelector('.row-total-text');
             let rowTotal = qty * price;
 
-            if (currency === 'USD') {
+            if (currency === 'usd') { // Value kichik harfda bo'lishi kerak backendga moslab
                 totalUsd += rowTotal;
                 totalTextDisplay.innerHTML = `<span class="text-success">$${rowTotal.toLocaleString()}</span>`;
             } else {
                 totalUzs += rowTotal;
-                totalTextDisplay.innerHTML = `${rowTotal.toLocaleString()} so'm`;
+                totalTextDisplay.innerHTML = `<span class="text-success">${rowTotal.toLocaleString()} so'm</span>`;
             }
         });
         document.getElementById('totalUzsDisplay').innerText = totalUzs.toLocaleString('uz-UZ') + " so'm";
         document.getElementById('totalUsdDisplay').innerText = "$" + totalUsd.toLocaleString('en-US');
-        document.getElementById('hiddenTotalUzs').value = totalUzs;
-        document.getElementById('hiddenTotalUsd').value = totalUsd;
     }
+
+    document.getElementById('addClientForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const nameInput = document.getElementById('newClientName');
+        const phoneInput = document.getElementById('newClientPhone');
+        const btn = this.querySelector('button[type="submit"]');
+
+        const name = nameInput.value;
+        const phone = '998' + phoneInput.value; // Formatlash
+
+        // Buttonni disable qilish
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saqlanmoqda...';
+
+        fetch("{% url 'create_client_ajax' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ full_name: name, phone: phone })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                // 1. Datalistga yangi mijozni qo'shamiz
+                const dataList = document.getElementById('clientOptions');
+                const option = document.createElement('option');
+                option.setAttribute('data-value', data.client_id);
+                option.value = `${data.client_name} (${phone})`;
+                dataList.appendChild(option);
+
+                // 2. Inputga yangi mijozni yozib qo'yamiz
+                const input = document.getElementById('clientDataList');
+                input.value = option.value;
+
+                // 3. Hidden ID ni yangilaymiz
+                document.getElementById('hiddenClientId').value = data.client_id;
+
+                // 4. Modalni yopamiz
+                const modalEl = document.getElementById('addClientModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+
+                // 5. Formani tozalaymiz
+                nameInput.value = '';
+                phoneInput.value = '';
+
+                // Xabar berish (ixtiyoriy)
+                // alert("Mijoz muvaffaqiyatli qo'shildi!");
+            } else {
+                alert("Xatolik: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Server bilan aloqa yo'q!");
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    });
+
 </script>
 {% endblock %}
