@@ -1,22 +1,46 @@
 # core/models.py
 import uuid
+
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q
-
+from django.utils import timezone
 
 # --- 1. DO'KON MODELI ---
 class Shop(models.Model):
     name = models.CharField(max_length=100, verbose_name="Do'kon nomi")
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shops', verbose_name="Egasining logini")
     created_at = models.DateTimeField(auto_now_add=True)
+    CATEGORY_CHOICES = (
+        ('grocery', 'Oziq-ovqat'),
+        ('clothing', 'Kiyim-kechak'),
+        ('auto', 'Avto ehtiyot qismlar'),
+        ('construction', 'Qurilish mollari'),
+        ('pharmacy', 'Dorixona'),
+        ('tech', 'Maishiy texnika'),
+        ('other', 'Boshqa'),
+    )
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name="Do'kon turi")
+
+    # YANGI: OBUNA (TRIAL)
+    is_trial_used = models.BooleanField(default=False, verbose_name="Sinov davri ishlatilganmi?")
+    subscription_ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Obuna tugash vaqti")
 
     # Sozlamalar
     telegram_bot_token = models.CharField(max_length=100, blank=True, null=True, verbose_name="Bot Token")
     is_active = models.BooleanField(default=True, verbose_name="To'lov qilinganmi?")  # Obuna uchun
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_category_display()})"
+
+    @property
+    def days_left(self):
+        """Qolgan kunlarni hisoblash"""
+        if not self.subscription_ends_at:
+            return 0
+        delta = self.subscription_ends_at - timezone.now()
+        return max(delta.days, 0)
 
 
 # --- 2. ADMIN/XODIM PROFILI (YANGI) ---

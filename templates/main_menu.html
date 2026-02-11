@@ -22,16 +22,36 @@
         </p>
     </div>
 
+
 <!--    <a href="{% url 'login_page' %}" class="btn btn-light shadow-sm rounded-circle text-danger">-->
 <!--        <i class="fa-solid fa-right-from-bracket"></i>-->
 <!--    </a>-->
 </div>
+{% if shop.days_left <= 10 %}
+    <div class="alert {% if shop.days_left <= 3 %}alert-danger
+        {% else %} alert-warning
+        {% endif %} d-flex align-items-center justify-content-between"
+         role="alert">
+        <div style="color:black">
+            <i class="fa-solid fa-clock me-2"></i>
+            <strong>Diqqat!</strong>
+            Sinov davri tugashiga
+            <strong>{{ shop.days_left }} kun</strong> qoldi.
+            {% if shop.days_left <= 0 %}
+                Tizim ertaga o'chirilishi mumkin!
+            {% endif %}
+        </div>
 
+        <a href="https://t.me/ergashev_ikromjon?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank" class="btn btn-sm btn-dark">
+            <i class="fa-regular fa-credit-card me-1"></i> To'lov qilish
+        </a>
+    </div>
+{% endif %}
     <div class="row g-3">
         <div class="col-6">
             <a href="{% url 'create_debt' %}" class="btn-menu bg-primary text-white">
                 <i class="fa-solid fa-cart-plus fa-2x mb-2"></i>
-                <span>Nasiya Yozish</span>
+                <span>Savdo</span>
             </a>
         </div>
 

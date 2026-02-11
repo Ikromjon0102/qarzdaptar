@@ -26,6 +26,9 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.utils import timezone
 
+from .utils import clean_phone_number
+
+
 def get_current_shop(request):
     """
     Tizimga kirgan adminning do'konini qaytaradi.
@@ -121,185 +124,6 @@ def main_menu_view(request):
         'shop': shop
     })
 
-
-#
-# @login_required(login_url='/login/')
-# def create_debt_view(request):
-#     shop = get_current_shop(request)
-#     selected_client = None
-#
-#     client_id_param = request.GET.get('client_id')
-#     if client_id_param:
-#         # Xavfsizlik: Faqat o'z do'koni mijozini tanlay olsin
-#         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
-#
-#     if request.method == 'POST':
-#         client_id = request.POST.get('client_id')
-#
-#         # Ro'yxatlar
-#         names = request.POST.getlist('item_name[]')
-#         qtys = request.POST.getlist('item_qty[]')
-#         prices = request.POST.getlist('item_price[]')
-#         currencies = request.POST.getlist('item_currency[]')
-#
-#         try:
-#             total_uzs = float(request.POST.get('total_uzs', 0))
-#         except:
-#             total_uzs = 0
-#         try:
-#             total_usd = float(request.POST.get('total_usd', 0))
-#         except:
-#             total_usd = 0
-#
-#         if client_id and names:
-#             client = get_object_or_404(Client, id=client_id, shop=shop)
-#
-#             items_desc_list = []
-#             for name, qty, price, curr in zip(names, qtys, prices, currencies):
-#                 if name:
-#                     q = float(qty)
-#                     p = float(price)
-#                     q = int(q) if q.is_integer() else q
-#                     p = int(p) if p.is_integer() else p
-#                     if curr == 'USD':
-#                         items_desc_list.append(f"🔹 {name}: {q}ta x ${p} = ${q * p}")
-#                     else:
-#                         items_desc_list.append(f"🔸 {name}: {q}ta x {p:,} = {q * p:,}")
-#
-#             full_description = "\n".join(items_desc_list)
-#
-#             # BAZAGA YOZISH (shop=shop)
-#             debt = Debt.objects.create(
-#                 shop=shop,  # <--- MUHIM
-#                 client=client,
-#                 amount_uzs=total_uzs,
-#                 amount_usd=total_usd,
-#                 items=full_description,
-#                 status='pending'
-#             )
-#
-#             messages.success(request, "Nasiya yuborildi!")
-#             return redirect('admin_client_detail', client_id=client.id)
-#
-#     # Faqat shu do'kon mijozlari
-#     clients = Client.objects.filter(shop=shop).order_by('full_name')
-#
-#     # Do'kon sozlamalaridan kursni olamiz
-#     settings_obj, _ = Settings.objects.get_or_create(shop=shop)
-#     current_rate = settings_obj.usd_rate
-#
-#     return render(request, 'create_debt.html', {
-#         'clients': clients,
-#         'back_url': 'main_menu',
-#         'selected_client': selected_client,
-#         'current_rate': current_rate
-#     })
-
-
-# @login_required(login_url='/login/')
-# def create_debt_view(request):
-#     shop = get_current_shop(request)
-#     selected_client = None
-#
-#     client_id_param = request.GET.get('client_id')
-#     if client_id_param:
-#         # Xavfsizlik: Faqat o'z do'koni mijozini tanlay olsin
-#         selected_client = Client.objects.filter(id=client_id_param, shop=shop).first()
-#
-#     if not shop: return redirect('login_page')
-#
-#     if request.method == 'POST':
-#         # 1. PARAMETRLARNI OLISH
-#         sale_mode = request.POST.get('sale_mode')  # 'cash' yoki 'debt'
-#         payment_type = request.POST.get('payment_type')  # 'cash', 'card', 'click'
-#         client_id = request.POST.get('client')
-#
-#         # 2. MAHSULOTLARNI YIG'ISH
-#         product_names = request.POST.getlist('product_name[]')
-#         quantities = request.POST.getlist('quantity[]')
-#         prices = request.POST.getlist('price[]')
-#         currencies = request.POST.getlist('currency[]')  # 'uzs' yoki 'usd'
-#
-#         # Umumiy hisob
-#         total_uzs = 0
-#         total_usd = 0
-#         items_list = []
-#
-#         for i in range(len(product_names)):
-#             name = product_names[i]
-#             qty = float(quantities[i] or 0)
-#             price = float(prices[i] or 0)
-#             currency = currencies[i]
-#
-#             if qty > 0 and price > 0:
-#                 summ = qty * price
-#                 if currency == 'uzs':
-#                     total_uzs += summ
-#                     items_list.append(f"{name} ({qty} x {price:,.0f} so'm) = {summ:,.0f}")
-#                 else:
-#                     total_usd += summ
-#                     items_list.append(f"{name} ({qty} x ${price}) = ${summ}")
-#
-#         items_str = "\n".join(items_list)
-#
-#         # 3. MIJOZNI ANIQLASH
-#         # Agar Nasiya bo'lsa -> Tanlangan mijoz
-#         current_status = 'confirmed' if sale_mode == 'cash' else 'pending'
-#
-#         # 3. MIJOZNI ANIQLASH
-#         if sale_mode == 'debt':
-#             if not client_id: return redirect('create_debt')
-#             client = Client.objects.get(id=client_id, shop=shop)
-#         else:
-#             # Naqd savdo uchun maxsus mijoz (Statistika uchun)
-#             client, _ = Client.objects.get_or_create(
-#                 shop=shop,
-#                 phone='000000000',
-#                 defaults={'full_name': 'Naqd Savdo (Kassa)'}
-#             )
-#             if client_id:  # Agar naqd bo'lsa ham mijoz tanlangan bo'lsa
-#                 client = Client.objects.get(id=client_id, shop=shop)
-#
-#         # 4. BAZAGA YOZISH
-#         # A) SAVDO (Debt)
-#         debt = Debt.objects.create(
-#             shop=shop,
-#             transaction_type='debt',
-#             client=client,
-#             amount_uzs=total_uzs,
-#             amount_usd=total_usd,
-#             items=items_str,
-#             status=current_status  # <--- O'ZGARDI (pending yoki confirmed)
-#         )
-#
-#         # B) Agar NAQD bo'lsa -> TO'LOV (Payment)
-#         if sale_mode == 'cash':
-#             Debt.objects.create(
-#                 shop=shop,
-#                 transaction_type='payment',
-#                 payment_method=payment_type,
-#                 client=client,
-#                 amount_uzs=total_uzs,
-#                 amount_usd=total_usd,
-#                 items=f"To'lov: {items_str} (ID: {debt.id})",
-#                 status='confirmed'  # To'lov doim tasdiqlangan bo'ladi
-#             )
-#
-#         return redirect('dashboard')
-#
-#     clients = Client.objects.filter(shop=shop).order_by('-id')
-#     context = {
-#         'clients': clients,
-#         'back_url': 'main_menu',
-#         'selected_client': selected_client,
-#     }
-#     return render(request, 'create_debt.html', context)
-
-
-from django.contrib import messages
-
-
-# send_tg_msg funksiyasini import qilishni unutmang (utils yoki services dan)
 
 @login_required(login_url='/login/')
 def create_debt_view(request):
@@ -1001,7 +825,6 @@ def client_form_view(request, client_id=None):
 @login_required(login_url='/login/')
 def client_reset_telegram_view(request, client_id):
     client = get_object_or_404(Client, id=client_id)
-
     # Telegram ID ni o'chiramiz va Yangi Token beramiz
     client.telegram_id = None
     import uuid
@@ -1082,6 +905,10 @@ def create_client_ajax(request):
         try:
             shop = get_current_shop(request)
             data = json.loads(request.body)
+            raw_phone = data.get('phone', '')
+            clean_phone = clean_phone_number(raw_phone)
+            if not clean_phone:
+                return JsonResponse({'status': 'error', 'message': "Telefon raqam noto'g'ri! (Masalan: 901234567)"})
 
             full_name = data.get('full_name')
             phone = data.get('phone')
@@ -1090,7 +917,7 @@ def create_client_ajax(request):
             if Client.objects.filter(shop=shop, phone=phone).exists():
                 return JsonResponse({'status': 'error', 'message': 'Bu raqamli mijoz allaqachon bor!'})
 
-            # Yaratamiz
+
             client = Client.objects.create(
                 shop=shop,
                 full_name=full_name,
@@ -1106,3 +933,7 @@ def create_client_ajax(request):
             return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Faqat POST mumkin'})
 
+@login_required(login_url='/login/')
+def pricing_view(request):
+    shop = get_current_shop(request)
+    return render(request, 'subs/pricing.html', {'shop': shop})

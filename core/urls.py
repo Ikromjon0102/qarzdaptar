@@ -19,6 +19,7 @@ urlpatterns = [
     path('manage-debt/<uuid:debt_uuid>/<str:action>/', views.manage_debt_view, name='manage_debt'),
     path('debt/<uuid:debt_uuid>/', views.debt_detail_view, name='debt_detail'),
     path('settings/', views.settings_view, name='settings'),
+    path('pricing/', views.pricing_view, name='pricing_page'),
 
     path('create-debt/', views.create_debt_view, name='create_debt'),
     path('clients/', views.client_list_view, name='client_list'),
