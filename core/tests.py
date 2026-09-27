@@ -235,7 +235,7 @@ class NavigationAndRoleTests(TestCase):
     def test_worker_menu_hides_admin_links(self, _post):
         self.client.force_login(self.worker)
         resp = self.client.get(reverse('main_menu'))
-        self.assertContains(resp, 'XODIM')
+        self.assertContains(resp, 'Xodim ·')
         self.assertNotContains(resp, reverse('settings'))
         self.assertNotContains(resp, reverse('admin_control'))
         self.client.force_login(self.owner)

@@ -123,8 +123,20 @@ def main_menu_view(request):
     if not shop:
         return HttpResponse("Sizga do'kon biriktirilmagan!")
 
+    # Bosh ekran: umumiy holat, bugungi natija va so'nggi amallar
+    recent = (
+        Debt.objects.filter(shop=shop)
+        .exclude(is_cash_sale=True, transaction_type='payment')  # naqd savdoning to'lov juftini ko'rsatmaymiz
+        .select_related('client')
+        .order_by('-created_at')[:8]
+    )
     return render(request, 'main_menu.html', {
-        'shop': shop
+        'shop': shop,
+        'active_tab': 'home',
+        'stats': shop_stats(shop),
+        'today': shop_stats(shop, created_at__date=timezone.localdate()),
+        'pending_count': Debt.objects.filter(shop=shop, status='pending').count(),
+        'recent': recent,
     })
 
 
@@ -533,7 +545,7 @@ def dashboard_view(request):
         'top_debtors': debtors[:10],
         'debtor_count': debtors.count(),
         'stats': stats,
-        'back_url': 'main_menu',
+        'active_tab': 'stats',
         'allowed_admins': allowed_admins,
         'shop': shop
     })
@@ -891,7 +903,7 @@ def client_list_view(request):
         'clients': clients,
         'search_query': request.GET.get('q', ''),
         'active_filter': request.GET.get('filter', 'all'),
-        'back_url': 'main_menu',
+        'active_tab': 'clients',
     })
 
 
@@ -1003,7 +1015,7 @@ def reports_view(request):
         'month': month,
         'active_clients': active_clients, # <-- Shablonga yuboramiz
         'stats': stats,
-        'back_url': 'main_menu'
+        'active_tab': 'stats',
     }
     return render(request, 'reports.html', context)
 

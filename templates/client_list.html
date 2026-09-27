@@ -1,9 +1,7 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
-{% block matn %}
-    <h4 class="fw-bold ps-1 m-0"><i class="fa-solid fa-users"></i> Mijozlar</h4>
-{% endblock %}
+{% block matn %}<h3>Mijozlar</h3>{% endblock %}
 
 {% block content %}
 <style>
@@ -11,7 +9,7 @@
     .filter-chips::-webkit-scrollbar { display: none; }
     .chip {
         flex-shrink: 0;
-        border: 1px solid rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--line);
         background: var(--tg-secondary);
         color: var(--tg-text);
         border-radius: 999px;
@@ -38,23 +36,23 @@
     .client-row small { color: var(--tg-hint); }
 </style>
 
-<div class="position-relative mb-3">
-    <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 16px; top: 50%; transform: translateY(-50%); color: var(--tg-hint);"></i>
-    <input type="search" id="clientSearch" class="form-control ps-5" placeholder="Ism yoki telefon..."
-           value="{{ search_query }}" autocomplete="off">
-</div>
-
-<div class="d-flex justify-content-between align-items-center mb-3 gap-2">
-    <div class="filter-chips" id="filterChips">
-        <button type="button" class="chip" data-filter="all">Hammasi<span class="count" data-count="all"></span></button>
-        <button type="button" class="chip" data-filter="debtor">Qarzdorlar<span class="count" data-count="debtor"></span></button>
-        <button type="button" class="chip" data-filter="pending">Kutilmoqda<span class="count" data-count="pending"></span></button>
-        <button type="button" class="chip" data-filter="notg">Botga ulanmagan<span class="count" data-count="notg"></span></button>
+<div class="d-flex gap-2 mb-2">
+    <div class="position-relative flex-fill">
+        <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 14px; top: 50%; transform: translateY(-50%); color: var(--tg-hint);"></i>
+        <input type="search" id="clientSearch" class="form-control ps-5" placeholder="Ism yoki telefon..."
+               value="{{ search_query }}" autocomplete="off" style="background: var(--tg-secondary);">
     </div>
-    <select id="sortSelect" class="form-select form-select-sm w-auto flex-shrink-0" style="padding: 6px 28px 6px 10px;" aria-label="Saralash">
+    <select id="sortSelect" class="form-select w-auto flex-shrink-0" style="background-color: var(--tg-secondary); padding-right: 32px;" aria-label="Saralash">
         <option value="name">A-Z</option>
         <option value="debt">Qarz ↓</option>
     </select>
+</div>
+
+<div class="filter-chips mb-3" id="filterChips">
+    <button type="button" class="chip" data-filter="all">Hammasi<span class="count" data-count="all"></span></button>
+    <button type="button" class="chip" data-filter="debtor">Qarzdorlar<span class="count" data-count="debtor"></span></button>
+    <button type="button" class="chip" data-filter="pending">Kutilmoqda<span class="count" data-count="pending"></span></button>
+    <button type="button" class="chip" data-filter="notg">Botga ulanmagan<span class="count" data-count="notg"></span></button>
 </div>
 
 <div class="pb-5" id="clientRows">
@@ -93,7 +91,7 @@
 </div>
 
 <a href="{% url 'client_add' %}" class="btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center"
-   style="position: fixed; bottom: 24px; right: 20px; width: 58px; height: 58px; font-size: 22px; z-index: 100;"
+   style="position: fixed; bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom)); right: 16px; width: 54px; height: 54px; font-size: 20px; z-index: 100;"
    aria-label="Mijoz qo'shish">
     <i class="fa-solid fa-user-plus"></i>
 </a>

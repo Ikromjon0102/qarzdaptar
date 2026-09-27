@@ -1,118 +1,76 @@
 {% extends 'base.html' %}
-{% load humanize %}
 {% load custom_filters %}
 
-{% block matn %}
-    <div class="d-flex justify-content-between align-items-center w-100">
-        <h3 class="fw-bold m-0"><i class="fa-solid fa-chart-line"></i> Statistika</h3>
-    </div>
-{% endblock %}
+{% block matn %}<h3>Hisobot</h3>{% endblock %}
 
 {% block content %}
+<div class="segmented">
+    <a href="{% url 'dashboard' %}" class="active">Umumiy</a>
+    <a href="{% url 'reports_page' %}">Oylik</a>
+</div>
 
-<div class="row g-2 mb-3">
+<!-- Asosiy ko'rsatkich -->
+<div class="app-card text-white" style="background: var(--primary-gradient); padding: 20px;">
+    <div class="small" style="opacity: 0.85;">Mijozlardagi qarz (tashqaridagi haq)</div>
+    <div class="fw-bold" style="font-size: 28px;">{{ stats.diff_uzs|space_format }} <span style="font-size: 16px;">so'm</span></div>
+    {% if stats.diff_usd %}<div class="fw-bold">${{ stats.diff_usd|floatformat:2 }}</div>{% endif %}
+</div>
 
-    <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-primary border-opacity-10 h-100 position-relative overflow-hidden">
-            <i class="fa-solid fa-box-open position-absolute text-primary opacity-10" style="font-size: 3rem; right: -10px; bottom: -10px;"></i>
-
-            <small class="text-muted text-uppercase fw-bold text-dark" style="font-size: 0.7rem;">📦 Jami Nasiya</small>
-
-            <div class="mt-2">
-                <h6 class="fw-bold text-dark mb-0">{{ stats.sales_uzs|space_format }}</h6>
-                <small class="text-muted text-dark" style="font-size: 0.75rem;">so'm</small>
-            </div>
-
-            <div class="mt-1 border-top pt-1">
-                <h6 class="fw-bold text-dark mb-0">${{ stats.sales_usd|space_format }}</h6>
-                <small class="text-muted text-dark" style="font-size: 0.75rem;">dollar</small>
-            </div>
+<div class="list-group-app">
+    <div class="list-row">
+        <span class="row-icon blue"><i class="fa-solid fa-bag-shopping"></i></span>
+        <div class="row-main"><div class="row-title">Jami nasiya berildi</div></div>
+        <div class="row-end">
+            {{ stats.sales_uzs|space_format }} so'm
+            {% if stats.sales_usd %}<div class="small">${{ stats.sales_usd|floatformat:2 }}</div>{% endif %}
         </div>
     </div>
-
-    <div class="col-6">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-success border-opacity-25 h-100 position-relative overflow-hidden">
-            <i class="fa-solid fa-hand-holding-dollar position-absolute text-success opacity-10" style="font-size: 3rem; right: -10px; bottom: -10px;"></i>
-
-            <small class="text-muted text-uppercase fw-bold text-dark" style="font-size: 0.7rem;">💰 Jami Undiruv</small>
-
-            <div class="mt-2">
-                <h6 class="fw-bold text-success mb-0">+{{ stats.income_uzs|space_format }}</h6>
-                <small class="text-muted text-dark" style="font-size: 0.75rem;">so'm</small>
-            </div>
-
-            <div class="mt-1 border-top pt-1 border-success border-opacity-25">
-                <h6 class="fw-bold text-success mb-0">+$ {{ stats.income_usd|space_format }}</h6>
-                <small class="text-muted text-dark" style="font-size: 0.75rem;">dollar</small>
-            </div>
+    <div class="list-row">
+        <span class="row-icon green"><i class="fa-solid fa-arrow-down"></i></span>
+        <div class="row-main"><div class="row-title">Jami undirildi</div></div>
+        <div class="row-end text-success">
+            {{ stats.income_uzs|space_format }} so'm
+            {% if stats.income_usd %}<div class="small">${{ stats.income_usd|floatformat:2 }}</div>{% endif %}
         </div>
     </div>
-
-    <div class="col-12">
-        <div class="p-3 bg-primary text-white rounded-3 shadow border-0 position-relative overflow-hidden"
-             style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-uppercase small opacity-75 fw-bold">Jami Tashqaridagi Haq</span>
-                <i class="fa-solid fa-chart-pie opacity-50"></i>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-end">
-                <div>
-                    <h3 class="fw-bold mb-0">{{ stats.diff_uzs|space_format }}</h3>
-                    <small class="opacity-75">so'm qoldi</small>
-                </div>
-                <div class="text-end">
-                    <h3 class="fw-bold mb-0">${{ stats.diff_usd|space_format }}</h3>
-                    <small class="opacity-75">dollar qoldi</small>
-                </div>
-            </div>
+    <div class="list-row">
+        <span class="row-icon gray"><i class="fa-solid fa-money-bill-wave"></i></span>
+        <div class="row-main">
+            <div class="row-title">Naqd savdo</div>
+            <div class="row-sub">{{ stats.cash_count }} ta savdo · nasiyaga kirmaydi</div>
         </div>
-    </div>
-
-    <div class="col-12">
-        <div class="p-3 bg-white rounded-3 shadow-sm border border-success border-opacity-25 d-flex justify-content-between align-items-center">
-            <div>
-                <small class="text-muted text-uppercase fw-bold text-dark" style="font-size: 0.7rem;">🟢 Naqd savdo</small>
-                <div class="small" style="color: var(--tg-hint);">{{ stats.cash_count }} ta savdo · nasiyaga kirmaydi</div>
-            </div>
-            <div class="text-end">
-                <div class="fw-bold text-success">{{ stats.cash_uzs|space_format }} so'm</div>
-                {% if stats.cash_usd %}<div class="fw-bold text-success small">${{ stats.cash_usd|space_format }}</div>{% endif %}
-            </div>
+        <div class="row-end">
+            {{ stats.cash_uzs|space_format }} so'm
+            {% if stats.cash_usd %}<div class="small">${{ stats.cash_usd|floatformat:2 }}</div>{% endif %}
         </div>
     </div>
 </div>
 
-<hr class="text-muted opacity-25">
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 class="text-muted small text-uppercase fw-bold m-0 ps-1 text-dark">🔴 Eng katta qarzdorlar</h6>
-    <a href="{% url 'client_list' %}?filter=debtor" class="small fw-bold text-decoration-none">
-        Hammasi ({{ debtor_count }}) <i class="fa-solid fa-chevron-right"></i>
+<div class="d-flex justify-content-between align-items-center">
+    <div class="section-title">Eng katta qarzdorlar</div>
+    <a href="{% url 'client_list' %}?filter=debtor" class="small fw-bold text-decoration-none mt-3">
+        Hammasi ({{ debtor_count }}) <i class="fa-solid fa-chevron-right" style="font-size: 10px;"></i>
     </a>
 </div>
 
-<div class="pb-5">
+<div class="list-group-app">
     {% for client in top_debtors %}
-    <a href="{% url 'admin_client_detail' client.id %}"
-       class="d-flex justify-content-between align-items-center py-3 px-3 mb-2 rounded-3 text-decoration-none"
-       style="background: var(--tg-secondary); color: var(--tg-text); box-shadow: var(--card-shadow);">
-        <div style="min-width: 0;">
-            <div class="fw-bold text-truncate">{{ forloop.counter }}. {{ client.full_name }}</div>
-            <small style="color: var(--tg-hint);"><i class="fa-solid fa-phone" style="font-size: 0.7rem;"></i> {{ client.phone }}</small>
+    <a href="{% url 'admin_client_detail' client.id %}" class="list-row">
+        <span class="row-icon red fw-bold" style="font-size: 14px;">{{ forloop.counter }}</span>
+        <div class="row-main">
+            <div class="row-title">{{ client.full_name }}</div>
+            <div class="row-sub">{{ client.phone }}</div>
         </div>
-        <div class="text-end fw-bold flex-shrink-0">
-            {% if client.total_debt_uzs and client.total_debt_uzs > 0 %}<div class="text-danger">{{ client.total_debt_uzs|space_format }} so'm</div>{% endif %}
-            {% if client.total_debt_usd and client.total_debt_usd > 0 %}<div class="text-danger small">${{ client.total_debt_usd|floatformat:2|space_format }}</div>{% endif %}
+        <div class="row-end text-danger">
+            {% if client.total_debt_uzs and client.total_debt_uzs > 0 %}<div>{{ client.total_debt_uzs|space_format }} so'm</div>{% endif %}
+            {% if client.total_debt_usd and client.total_debt_usd > 0 %}<div class="small">${{ client.total_debt_usd|floatformat:2 }}</div>{% endif %}
         </div>
     </a>
     {% empty %}
-    <div class="text-center py-5" style="color: var(--tg-hint);">
-        <i class="fa-solid fa-face-smile fa-2x mb-3 opacity-50"></i>
-        <p>Qarzdorlar yo'q</p>
+    <div class="text-center py-4 text-muted">
+        <i class="fa-solid fa-face-smile fa-2x mb-2 opacity-50"></i>
+        <div>Qarzdorlar yo'q</div>
     </div>
     {% endfor %}
 </div>
-
 {% endblock %}

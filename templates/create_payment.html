@@ -1,9 +1,7 @@
 {% extends 'base.html' %}
 
 {% block matn %}
-<h3 class="fw-bold ps-1 text-success">
-    <i class="fa-solid fa-hand-holding-dollar"></i> To'lov Qabul Qilish
-</h3>
+<h3>To'lov qabul qilish</h3>
 {% endblock %}
 
 {% block content %}
@@ -20,7 +18,7 @@
     .currency-tag {
         background: var(--tg-bg);
         color: var(--tg-text);
-        border: 2px solid rgba(0, 0, 0, 0.06);
+        border: none;
         font-weight: 700;
         min-width: 64px;
         justify-content: center;
@@ -39,11 +37,11 @@
     }
 </style>
 
-<form method="POST" id="paymentForm" autocomplete="off" novalidate>
+<form method="POST" id="paymentForm" autocomplete="off" novalidate class="has-action-bar">
     {% csrf_token %}
 
-    <div class="app-card mb-3" id="client-card" style="border-radius: 14px; padding: 15px; overflow: visible;">
-        <label class="small text-muted mb-2 text-uppercase fw-bold text-dark">Kim to'layapti?</label>
+    <div class="app-card" id="client-card" style="overflow: visible;">
+        <label class="form-label">Kim to'layapti?</label>
 
         {% include 'components/client_picker.html' with field_name='client_id' allow_add=False %}
 
@@ -54,15 +52,15 @@
                     <div class="label">Joriy qarz</div>
                     <div class="fw-bold" id="currentDebt"></div>
                 </div>
-                <button type="button" class="btn btn-sm btn-success fw-bold rounded-pill d-none" id="payAllBtn">
-                    <i class="fa-solid fa-check-double"></i> Hammasini to'ladi
+                <button type="button" class="btn btn-sm btn-success fw-bold rounded-pill text-nowrap flex-shrink-0 d-none" id="payAllBtn">
+                    <i class="fa-solid fa-check-double"></i> Hammasi
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="app-card mb-3 text-dark" style="border-radius: 14px; padding: 15px;">
-        <label class="small text-muted mb-3 text-uppercase fw-bold text-dark">Qancha to'ladi?</label>
+    <div class="app-card">
+        <label class="form-label">Qancha to'ladi?</label>
 
         <div class="input-group mb-2">
             <input type="text" inputmode="numeric" name="amount_uzs" id="amountUzs"
@@ -86,7 +84,7 @@
         </div>
 
         <div class="mt-3 mb-3 text-dark">
-            <label class="form-label fw-bold text-muted text-dark">To'lov turi</label>
+            <label class="form-label">To'lov turi</label>
             <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
                 {% for key, label in payment_methods.items %}
                 <input type="radio" class="btn-check" name="payment_method" id="method-{{ key }}" value="{{ key }}"
@@ -105,9 +103,13 @@
         <input type="text" name="note" class="form-control" placeholder="Izoh (ixtiyoriy)" value="{{ note|default:'' }}" maxlength="200">
     </div>
 
-    <button type="submit" id="submitBtn" class="btn btn-success w-100 py-3 fw-bold shadow-lg" style="border-radius: 14px;">
-        <i class="fa-solid fa-check-double"></i> TO'LOVNI QABUL QILISH
-    </button>
+    <div class="action-bar">
+        <div class="inner">
+            <button type="submit" id="submitBtn" class="btn btn-success w-100 py-3 fw-bold">
+                <i class="fa-solid fa-check"></i> To'lovni qabul qilish
+            </button>
+        </div>
+    </div>
 </form>
 
 {% endblock %}

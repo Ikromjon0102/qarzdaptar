@@ -1,26 +1,24 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block header %}{% endblock %}
 
 {% block content %}
 <div class="pt-3">
 
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <div class="min-w-0">
-        <h2 class="fw-bold mb-0 text-dark text-truncate">{{ shop.name }}</h2>
-        <p class="small m-0" style="color: var(--tg-hint);">
-            <i class="fa-solid fa-user-tie me-1"></i>
-            {{ request.user.first_name|default:request.user.username }}
-            {% if is_shop_admin %}
-                <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">RAHBAR</span>
-            {% else %}
-                <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">XODIM</span>
-            {% endif %}
-        </p>
+<!-- Salomlashish -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div style="min-width: 0;">
+        <div class="small text-muted">
+            {% if is_shop_admin %}Rahbar{% else %}Xodim{% endif %} · {{ request.user.first_name|default:request.user.username }}
+        </div>
+        <h1 class="fw-bold m-0 text-truncate" style="font-size: 24px;">{{ shop.name }}</h1>
     </div>
-
     <form method="POST" action="{% url 'logout' %}" onsubmit="return confirm('Tizimdan chiqasizmi?')">
         {% csrf_token %}
-        <button type="submit" class="btn btn-light shadow-sm rounded-circle text-danger flex-shrink-0"
-                style="width: 42px; height: 42px;" aria-label="Chiqish" title="Chiqish">
+        <button type="submit" class="btn rounded-circle d-flex align-items-center justify-content-center"
+                style="width: 40px; height: 40px; background: var(--tg-secondary); color: var(--tg-hint);"
+                aria-label="Chiqish" title="Chiqish">
             <i class="fa-solid fa-right-from-bracket"></i>
         </button>
     </form>
@@ -28,123 +26,143 @@
 
 {# Muddat belgilanmagan (eski) do'konlarga ogohlantirish ko'rsatilmaydi #}
 {% if shop.subscription_ends_at and shop.days_left <= 10 %}
-    <div class="alert {% if shop.days_left <= 3 %}alert-danger
-        {% else %} alert-warning
-        {% endif %} d-flex align-items-center justify-content-between"
-         role="alert">
-        <div style="color:black">
-            <i class="fa-solid fa-clock me-2"></i>
-            <strong>Diqqat!</strong>
-            {% if shop.days_left <= 0 %}
-                Obuna muddati <strong>bugun tugaydi</strong>.
-            {% else %}
-                Obuna tugashiga <strong>{{ shop.days_left }} kun</strong> qoldi.
-            {% endif %}
-        </div>
-
-        <a href="https://t.me/ergashev_ikromjon?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank" class="btn btn-sm btn-dark">
-            <i class="fa-regular fa-credit-card me-1"></i> To'lov qilish
-        </a>
-    </div>
-{% endif %}
-
-<!-- Kundalik asosiy amallar -->
-<a href="{% url 'create_debt' %}" class="btn-menu btn-menu-main mb-3" style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
-    <i class="fa-solid fa-cart-plus fa-2x"></i>
-    <div class="text-start">
-        <div class="menu-title">Savdo</div>
-        <div class="menu-sub">Nasiya yoki naqd sotuv</div>
+<a href="https://t.me/ergashev_ikromjon?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank"
+   class="app-toast {% if shop.days_left <= 3 %}error{% else %}warning{% endif %} text-decoration-none mb-3">
+    <i class="fa-solid fa-clock mt-1"></i>
+    <div>
+        {% if shop.days_left <= 0 %}Obuna muddati <b>bugun tugaydi</b>.
+        {% else %}Obuna tugashiga <b>{{ shop.days_left }} kun</b> qoldi.{% endif %}
+        <div class="small" style="color: var(--tg-button);">Uzaytirish →</div>
     </div>
 </a>
+{% endif %}
 
-<div class="row g-3 mb-4">
+<!-- Asosiy ko'rsatkich -->
+<div class="app-card text-white mb-3" style="background: var(--primary-gradient); padding: 20px;">
+    <div class="small" style="opacity: 0.85;">Mijozlardagi qarz</div>
+    <div class="fw-bold" style="font-size: 30px; line-height: 1.2;">
+        {{ stats.diff_uzs|space_format }} <span style="font-size: 18px;">so'm</span>
+    </div>
+    {% if stats.diff_usd %}<div class="fw-bold" style="font-size: 18px;">${{ stats.diff_usd|floatformat:2 }}</div>{% endif %}
+
+    <div class="d-flex gap-3 mt-3 pt-3 small" style="border-top: 1px solid rgba(255,255,255,0.25);">
+        <div class="flex-fill">
+            <div style="opacity: 0.8;">Bugun nasiya</div>
+            <div class="fw-bold">{{ today.sales_uzs|space_format }}</div>
+        </div>
+        <div class="flex-fill">
+            <div style="opacity: 0.8;">Bugun to'lov</div>
+            <div class="fw-bold">{{ today.income_uzs|space_format }}</div>
+        </div>
+        <div class="flex-fill">
+            <div style="opacity: 0.8;">Bugun naqd</div>
+            <div class="fw-bold">{{ today.cash_uzs|space_format }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tezkor amallar -->
+<div class="row g-2 mb-2">
     <div class="col-6">
-        <a href="{% url 'create_payment' %}" class="btn-menu" style="background: linear-gradient(135deg, #198754 0%, #0f5132 100%);">
-            <i class="fa-solid fa-hand-holding-dollar fa-2x mb-2"></i>
-            <span class="menu-title">To'lov olish</span>
+        <a href="{% url 'create_debt' %}" class="quick-action">
+            <span class="row-icon blue"><i class="fa-solid fa-cart-plus"></i></span>
+            <span>Savdo</span>
         </a>
     </div>
     <div class="col-6">
-        <a href="{% url 'client_list' %}" class="btn-menu" style="background: linear-gradient(135deg, #6f42c1 0%, #432874 100%);">
-            <i class="fa-solid fa-users fa-2x mb-2"></i>
-            <span class="menu-title">Mijozlar</span>
+        <a href="{% url 'create_payment' %}" class="quick-action">
+            <span class="row-icon green"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+            <span>To'lov olish</span>
         </a>
     </div>
 </div>
 
-<!-- Ikkinchi darajali bo'limlar -->
-<div class="menu-list">
-    <a href="{% url 'dashboard' %}" class="menu-row">
-        <i class="fa-solid fa-chart-line text-primary"></i><span>Statistika</span>
-        <i class="fa-solid fa-chevron-right chevron"></i>
+{% if pending_count %}
+<a href="{% url 'client_list' %}?filter=pending" class="list-group-app list-row mt-2">
+    <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>
+    <div class="row-main">
+        <div class="row-title">{{ pending_count }} ta nasiya tasdiqlanmagan</div>
+        <div class="row-sub">Mijozlar hali tasdiqlamagan</div>
+    </div>
+    <i class="fa-solid fa-chevron-right chevron"></i>
+</a>
+{% endif %}
+
+<!-- So'nggi amallar -->
+<div class="section-title">So'nggi amallar</div>
+<div class="list-group-app">
+    {% for op in recent %}
+    <a href="{% url 'admin_client_detail' op.client_id %}" class="list-row">
+        {% if op.transaction_type == 'payment' %}
+            <span class="row-icon green"><i class="fa-solid fa-arrow-down"></i></span>
+        {% elif op.is_cash_sale %}
+            <span class="row-icon gray"><i class="fa-solid fa-money-bill-wave"></i></span>
+        {% elif op.status == 'pending' %}
+            <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>
+        {% elif op.status == 'rejected' %}
+            <span class="row-icon red"><i class="fa-solid fa-xmark"></i></span>
+        {% else %}
+            <span class="row-icon blue"><i class="fa-solid fa-bag-shopping"></i></span>
+        {% endif %}
+        <div class="row-main">
+            <div class="row-title">{% if op.is_cash_sale and op.client.phone == '000000000' %}Naqd savdo{% else %}{{ op.client.full_name }}{% endif %}</div>
+            <div class="row-sub">{{ op.created_at|date:"d.m H:i" }} · {{ op.items|truncatechars:40 }}</div>
+        </div>
+        <div class="row-end small">
+            {% if op.transaction_type == 'payment' %}
+                <span class="text-success">+{{ op.amount_uzs|stringformat:"d"|cut:"-"|space_format }}</span>
+            {% elif op.is_cash_sale %}
+                <span>{{ op.amount_uzs|space_format }}</span>
+            {% else %}
+                <span class="text-danger">{{ op.amount_uzs|space_format }}</span>
+            {% endif %}
+            {% if op.amount_usd %}<div class="small">${{ op.amount_usd|floatformat:2|cut:"-" }}</div>{% endif %}
+        </div>
     </a>
-    <a href="{% url 'reports_page' %}" class="menu-row">
-        <i class="fa-solid fa-chart-pie text-success"></i><span>Oylik hisobot</span>
-        <i class="fa-solid fa-chevron-right chevron"></i>
-    </a>
-    {% if is_shop_admin %}
-    <a href="{% url 'broadcast' %}" class="menu-row">
-        <i class="fa-solid fa-paper-plane text-info"></i><span>Xabar yuborish</span>
-        <i class="fa-solid fa-chevron-right chevron"></i>
-    </a>
-    <a href="{% url 'admin_control' %}" class="menu-row">
-        <i class="fa-solid fa-users-gear text-warning"></i><span>Xodimlar</span>
-        <i class="fa-solid fa-chevron-right chevron"></i>
-    </a>
-    <a href="{% url 'settings' %}" class="menu-row">
-        <i class="fa-solid fa-gear" style="color: var(--tg-hint);"></i><span>Sozlamalar</span>
-        <i class="fa-solid fa-chevron-right chevron"></i>
-    </a>
-    {% endif %}
+    {% empty %}
+    <div class="text-center py-4 px-3 text-muted">
+        <i class="fa-solid fa-receipt fa-2x mb-2 opacity-50"></i>
+        <div>Hali amallar yo'q. Birinchi savdoni qo'shing!</div>
+    </div>
+    {% endfor %}
 </div>
+
+{% if is_shop_admin %}
+<div class="section-title">Boshqaruv</div>
+<div class="list-group-app">
+    <a href="{% url 'broadcast' %}" class="list-row">
+        <span class="row-icon blue"><i class="fa-solid fa-paper-plane"></i></span>
+        <div class="row-main"><div class="row-title">Xabar yuborish</div></div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    <a href="{% url 'admin_control' %}" class="list-row">
+        <span class="row-icon orange"><i class="fa-solid fa-users-gear"></i></span>
+        <div class="row-main"><div class="row-title">Xodimlar</div></div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    <a href="{% url 'settings' %}" class="list-row">
+        <span class="row-icon gray"><i class="fa-solid fa-gear"></i></span>
+        <div class="row-main"><div class="row-title">Sozlamalar</div></div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+</div>
+{% endif %}
 
 </div>
 
 <style>
-    .btn-menu {
+    .quick-action {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        padding: 20px;
-        border-radius: 20px;
-        text-decoration: none;
-        height: 120px;
-        color: #fff !important;
-        transition: transform 0.15s ease-in-out;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
-    }
-    .btn-menu:active { transform: scale(0.96); }
-    .btn-menu-main {
-        flex-direction: row;
-        justify-content: flex-start;
-        gap: 18px;
-        height: 96px;
-        padding: 20px 24px;
-    }
-    .menu-title { font-weight: 700; font-size: 1.05rem; color: #fff; }
-    .menu-sub { font-size: 0.8rem; opacity: 0.8; color: #fff; }
-    .menu-list {
+        gap: 10px;
+        padding: 12px;
         background: var(--tg-secondary);
-        border-radius: 16px;
+        border-radius: var(--radius-lg);
         box-shadow: var(--card-shadow);
-        overflow: hidden;
-    }
-    .menu-row {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 15px 18px;
         color: var(--tg-text);
+        font-weight: 700;
         text-decoration: none;
-        font-weight: 600;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
-    .menu-row:last-child { border-bottom: none; }
-    .menu-row:active { background: rgba(0, 0, 0, 0.04); }
-    .menu-row > i:first-child { width: 22px; text-align: center; }
-    .menu-row span { flex: 1; }
-    .menu-row .chevron { color: var(--tg-hint); font-size: 0.8rem; }
-    .min-w-0 { min-width: 0; }
+    .quick-action:active { transform: scale(0.98); }
 </style>
 {% endblock %}

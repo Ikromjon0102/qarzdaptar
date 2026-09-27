@@ -1,106 +1,79 @@
 {% extends 'base.html' %}
-{% block matn %}
-<h3 class="fw-bold m-0 text-primary"><i class="fas fa-receipt"></i> Yangi savdo</h3>
-{% endblock %}
+{% block matn %}<h3>Yangi savdo</h3>{% endblock %}
 
 {% block content %}
 <style>
-    .btn-trash {
-        color: #ff5c5c;
-        background: transparent;
-        border: none;
-    }
-    .mode-btn {
-        transition: all 0.2s;
-        border-radius: 10px;
-        font-weight: bold;
-        opacity: 0.5;
-        border: 2px solid transparent;
-    }
-    .mode-btn.active {
-        opacity: 1;
-        transform: scale(1.02);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
+    .btn-trash { color: var(--danger); background: transparent; border: none; }
+    .mode-seg { flex: 1; border: none; background: transparent; padding: 9px; border-radius: 10px; font-weight: 700; color: var(--tg-hint); }
+    #btn-debt.active { background: var(--tg-secondary); color: var(--danger); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    #btn-cash.active { background: var(--tg-secondary); color: var(--success); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .payment-badge {
         cursor: pointer;
-        padding: 8px 4px;
-        border-radius: 8px;
-        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 10px 4px;
+        border-radius: 10px;
         background: var(--tg-bg);
         color: var(--tg-text);
-        font-weight: bold;
-        font-size: 0.8rem;
-        transition: 0.2s;
+        font-weight: 700;
+        font-size: 13px;
     }
-    .payment-badge.selected {
-        background: #198754;
-        color: white;
-        border-color: #198754;
-    }
+    .payment-badge.selected { background: var(--success); color: #fff; }
     .no-tg-box {
-        border: 1px solid #ffc107;
-        background: rgba(255, 193, 7, 0.12);
+        border: 1px solid var(--warning);
+        background: rgba(240, 165, 0, 0.1);
         border-radius: 12px;
         padding: 12px;
         color: var(--tg-text);
     }
-    .form-error {
-        color: #dc3545;
-        font-size: 0.85rem;
-        font-weight: 600;
+    .form-error { color: var(--danger); font-size: 13px; font-weight: 600; }
+    .add-row-btn {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-radius: var(--radius-lg);
+        border: 1.5px dashed var(--tg-button);
+        background: transparent;
+        color: var(--tg-button);
+        font-weight: 700;
     }
 </style>
 
-<form method="POST" id="debtForm" autocomplete="off" novalidate>
+<form method="POST" id="debtForm" autocomplete="off" novalidate class="has-action-bar">
     {% csrf_token %}
-    <div id="items-container" class="text-dark"></div>
-    <div id="itemsError" class="form-error mb-2 d-none">
-        <i class="fa-solid fa-circle-exclamation"></i> Kamida bitta tovarning soni va narxini kiriting
-    </div>
-
     <input type="hidden" name="sale_mode" id="saleModeInput" value="{{ sale_mode }}">
     <input type="hidden" name="payment_type" id="paymentTypeInput" value="{{ payment_type }}">
 
-    <button type="button" class="btn btn-outline-primary w-100 py-3 mb-3"
-        style="border-radius: 12px; border-style: dashed;" onclick="addItem()">
-        <i class="fa-solid fa-plus"></i> Yana qo'shish
-    </button>
-
-    <div class="d-flex gap-2 mb-3 bg-white p-2 rounded-3 shadow-sm">
-        <button type="button" class="btn btn-danger w-50 mode-btn" id="btn-debt" onclick="setMode('debt')">
-            🔴 Nasiya
-        </button>
-        <button type="button" class="btn btn-success w-50 mode-btn" id="btn-cash" onclick="setMode('cash')">
-            🟢 Naqd
-        </button>
+    <!-- 1. Savdo turi -->
+    <div class="segmented">
+        <button type="button" class="mode-seg" id="btn-debt" onclick="setMode('debt')">Nasiya</button>
+        <button type="button" class="mode-seg" id="btn-cash" onclick="setMode('cash')">Naqd</button>
     </div>
 
-    <div class="app-card mb-3" id="client-card" style="overflow: visible;">
-        <label class="small text-muted mb-1 text-dark fw-bold" id="client-label">Mijozni tanlang (Qarz yoziladi)</label>
+    <!-- 2. Mijoz -->
+    <div class="app-card" id="client-card" style="overflow: visible;">
+        <label class="form-label" id="client-label">Mijoz</label>
 
         {% include 'components/client_picker.html' with field_name='client' allow_add=True %}
 
         <!-- Botga ulanmagan mijoz uchun ogohlantirish -->
         <div id="no-tg-warning" class="no-tg-box mt-3 d-none">
             <div class="fw-bold mb-1">
-                <i class="fa-solid fa-triangle-exclamation" style="color:#e0a800"></i>
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--warning)"></i>
                 Mijoz botga ulanmagan
             </div>
-            <div class="small mb-2" style="color: var(--tg-hint);">
+            <div class="small mb-2 text-muted">
                 Unga tasdiqlash so'rovi yuborib bo'lmaydi. Nasiyani qanday saqlaymiz?
             </div>
             <label class="d-flex align-items-start gap-2 mb-2">
                 <input type="radio" name="no_tg_action" value="confirm" class="form-check-input mt-1"
                        {% if no_tg_action != 'pending' %}checked{% endif %}>
                 <span><b>Darhol balansga yozish</b><br>
-                    <small style="color: var(--tg-hint);">Mijoz tasdiqlamaydi, qarz darhol hisoblanadi</small></span>
+                    <small class="text-muted">Mijoz tasdiqlamaydi, qarz darhol hisoblanadi</small></span>
             </label>
             <label class="d-flex align-items-start gap-2 mb-2">
                 <input type="radio" name="no_tg_action" value="pending" class="form-check-input mt-1"
                        {% if no_tg_action == 'pending' %}checked{% endif %}>
                 <span><b>Tasdiqlashni kutish</b><br>
-                    <small style="color: var(--tg-hint);">Mijoz botga ulangach yoki siz tasdiqlaganingizda hisoblanadi</small></span>
+                    <small class="text-muted">Mijoz botga ulangach yoki siz tasdiqlaganingizda hisoblanadi</small></span>
             </label>
             <a href="#" id="inviteLink" class="small fw-bold text-decoration-none">
                 <i class="fa-brands fa-telegram"></i> Mijozni botga taklif qilish
@@ -108,39 +81,45 @@
         </div>
     </div>
 
-    <div id="payment-methods" class="app-card mb-3 d-none">
-        <label class="small text-muted mb-2 text-dark fw-bold">To'lov turi</label>
+    <!-- 3. Tovarlar -->
+    <div class="section-title mt-3">Tovarlar</div>
+    <div id="items-container"></div>
+    <div id="itemsError" class="form-error mb-2 d-none">
+        <i class="fa-solid fa-circle-exclamation"></i> Kamida bitta tovarning soni va narxini kiriting
+    </div>
+    <button type="button" class="add-row-btn" onclick="addItem()">
+        <i class="fa-solid fa-plus"></i> Tovar qo'shish
+    </button>
+
+    <!-- 4. Naqd savdoda to'lov turi -->
+    <div id="payment-methods" class="app-card d-none">
+        <label class="form-label">To'lov turi</label>
         <div class="d-flex justify-content-between gap-2">
             {% for key, label in payment_methods.items %}
             <div class="payment-badge w-100 text-center{% if key == payment_type %} selected{% endif %}"
-                 data-type="{{ key }}" onclick="setPaymentType('{{ key }}', this)">{{ label|upper }}</div>
+                 data-type="{{ key }}" onclick="setPaymentType('{{ key }}', this)">{{ label }}</div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="summary-card mb-4 app-card">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-muted text-dark">Jami So'm:</span>
-            <h5 class="fw-bold m-0 text-success" id="totalUzsDisplay">0 so'm</h5>
+    <!-- Pastki panel: jami summa va saqlash -->
+    <div class="action-bar">
+        <div class="inner d-flex align-items-center gap-3">
+            <div class="flex-fill" style="min-width: 0;">
+                <div class="small text-muted">Jami</div>
+                <div class="fw-bold text-truncate" style="font-size: 18px;" id="totalUzsDisplay">0 so'm</div>
+                <div class="small fw-bold" id="totalUsdDisplay">$0</div>
+                {% if usd_rate %}
+                <div class="small text-muted d-none" id="grandTotalRow">
+                    <span id="grandTotalDisplay"></span> <span class="d-none" id="usdRate"></span>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary fw-bold px-4 py-3 flex-shrink-0" id="submitBtn">
+                Saqlash
+            </button>
         </div>
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-muted text-dark">Jami Dollar:</span>
-            <h5 class="fw-bold m-0 text-success" id="totalUsdDisplay">$0</h5>
-        </div>
-        {% if usd_rate %}
-        <div class="d-flex justify-content-between align-items-center mb-1 d-none" id="grandTotalRow">
-            <span class="small" style="color: var(--tg-hint);">Hammasi so'mda (1$ = <span id="usdRate"></span>):</span>
-            <span class="fw-bold small" id="grandTotalDisplay"></span>
-        </div>
-        {% endif %}
-
-        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow mt-2" id="submitBtn"
-            style="border-radius: 12px;">
-            SAQLASH VA YUBORISH
-        </button>
     </div>
-
-    <div style="height: 50px;"></div>
 </form>
 {{ prefill_items|json_script:"prefillItems" }}
 {% include 'components/add_client_modal.html' %}
@@ -181,11 +160,11 @@
         submitBtn.classList.toggle('btn-primary', mode !== 'cash');
 
         if (mode === 'cash') {
-            clientLabel.innerText = "Mijoz (Ixtiyoriy)";
-            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> SOTISH (NAQD)';
+            clientLabel.innerText = "Mijoz (ixtiyoriy)";
+            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Sotish';
             clientPicker.setError(false);
         } else {
-            clientLabel.innerText = "Mijozni tanlang (Qarz yoziladi)";
+            clientLabel.innerText = "Mijoz (qarz shunga yoziladi)";
         }
         updateClientState();
     }
@@ -213,8 +192,8 @@
 
         if (mode === 'debt') {
             submitBtn.innerHTML = client && !client.tg
-                ? '<i class="fa-solid fa-floppy-disk"></i> SAQLASH'
-                : '<i class="fa-brands fa-telegram"></i> SAQLASH VA YUBORISH';
+                ? '<i class="fa-solid fa-check"></i> Saqlash'
+                : '<i class="fa-brands fa-telegram"></i> Yuborish';
         }
     }
     document.addEventListener('client-selected', updateClientState);
@@ -232,7 +211,7 @@
         const html = `
         <div class="app-card item-row position-relative mb-2">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-bold small text-muted text-dark">Tovar #${count}</span>
+                <span class="fw-bold small text-muted">Tovar #${count}</span>
                 <button type="button" class="btn-trash p-0" onclick="removeRow(this)" aria-label="O'chirish"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="mb-2">
@@ -302,14 +281,16 @@
             }
         });
         document.getElementById('totalUzsDisplay').innerText = fmtUzs(totalUzs) + " so'm";
-        document.getElementById('totalUsdDisplay').innerText = "$" + fmtUsd(totalUsd);
+        const usdEl = document.getElementById('totalUsdDisplay');
+        usdEl.innerText = "+ $" + fmtUsd(totalUsd);
+        usdEl.classList.toggle('d-none', !(totalUsd > 0));
 
         // Dollar bo'lsa - sozlamalardagi kurs bo'yicha umumiy summa
         const grandRow = document.getElementById('grandTotalRow');
         if (grandRow) {
             grandRow.classList.toggle('d-none', !(totalUsd > 0));
             document.getElementById('usdRate').innerText = fmtUzs(USD_RATE);
-            document.getElementById('grandTotalDisplay').innerText = '≈ ' + fmtUzs(totalUzs + totalUsd * USD_RATE) + " so'm";
+            document.getElementById('grandTotalDisplay').innerText = '≈ ' + fmtUzs(totalUzs + totalUsd * USD_RATE) + " so'm (1$ = " + fmtUzs(USD_RATE) + ")";
         }
         return {totalUzs, totalUsd};
     }
