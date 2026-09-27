@@ -1,4 +1,5 @@
 import json
+import uuid
 import requests
 import threading
 import time
@@ -177,6 +178,10 @@ def create_debt_view(request):
                 messages.error(request, "Nasiya uchun mijoz tanlanishi shart!")
                 return redirect('create_debt')
             client = Client.objects.get(id=client_id, shop=shop)
+            # Botga ulanmagan mijozga tasdiqlash so'rovi yuborib bo'lmaydi.
+            # Sotuvchi tanlovi: darhol balansga yozish yoki kutib turish.
+            if not client.telegram_id and request.POST.get('no_tg_action') == 'confirm':
+                current_status = 'confirmed'
         else:
             # Naqd savdo
             client, _ = Client.objects.get_or_create(
@@ -212,8 +217,17 @@ def create_debt_view(request):
                 status='confirmed'
             )
             messages.success(request, "Naqd savdo amalga oshirildi!")
+            return redirect('dashboard')
 
-        return redirect('dashboard')
+        if client.telegram_id:
+            messages.success(request, f"✅ Nasiya saqlandi. {client.full_name}ga tasdiqlash so'rovi yuborildi.")
+        elif current_status == 'confirmed':
+            messages.success(request, f"✅ Nasiya {client.full_name} balansiga yozildi (mijoz botga ulanmagan).")
+        else:
+            messages.warning(request, f"⏳ Nasiya saqlandi, lekin {client.full_name} botga ulanmagan — "
+                                      "tasdiqlash so'rovi yuborilmadi va balansga qo'shilmadi. "
+                                      "Pastda «Tasdiqlash» tugmasini bosing yoki mijozga havola yuboring.")
+        return redirect('admin_client_detail', client_id=client.id)
 
     clients = Client.objects.filter(shop=shop).order_by('-id')
     context = {
@@ -554,21 +568,33 @@ def telegram_webhook(request):
                 text = data['message'].get('text', '')
 
                 if text.startswith('/start '):
-                    token = text.split(' ')[1]
-                    # Token orqali mijozni topamiz (u qaysi do'konda bo'lsa ham)
-                    client = Client.objects.filter(invite_token=token).first()
-                    if client:
-                        client.telegram_id = chat_id
-                        client.invite_token = None
-                        client.save()
-                        send_tg_msg(chat_id, f"🎉 {client.shop.name}: Xush kelibsiz, {client.full_name}!")
+                    token = text.split(' ', 1)[1].strip()
+                    if token == 'login':
+                        # Do'kon egasi ro'yxatdan o'tgach shu yerga keladi
                         send_menu(chat_id, request.get_host())
+                    elif token == 'id':
+                        # Landing sahifadagi "ID olish" tugmasi
+                        send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>\n\n"
+                                             "Shu raqamni nusxalab, ro'yxatdan o'tish formasiga kiriting.")
                     else:
-                        send_tg_msg(chat_id, "❌ Xato ssilka")
+                        # Token orqali mijozni topamiz (u qaysi do'konda bo'lsa ham)
+                        client = None
+                        try:
+                            client = Client.objects.filter(invite_token=uuid.UUID(token)).first()
+                        except ValueError:
+                            pass
+                        if client:
+                            client.telegram_id = chat_id
+                            client.invite_token = None
+                            client.save()
+                            send_tg_msg(chat_id, f"🎉 {client.shop.name}: Xush kelibsiz, {client.full_name}!")
+                            send_menu(chat_id, request.get_host())
+                        else:
+                            send_tg_msg(chat_id, "❌ Havola eskirgan yoki noto'g'ri. Do'kondan yangi havola so'rang.")
                 elif text == '/start':
                     send_menu(chat_id, request.get_host())
                 elif text in ['/id', '/myid']:
-                    send_tg_msg(chat_id, f"🆔: {chat_id}")
+                    send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>")
 
             elif 'callback_query' in data:
                 callback = data['callback_query']
@@ -700,24 +726,46 @@ def send_tg_msg(chat_id, text):
         print(f"Telegram send error: {e}")
 
 def send_menu(chat_id, domain):
+    """
+    Foydalanuvchi turiga qarab menyu yuboradi:
+    do'kon egasi/xodim, mijoz yoki hali ro'yxatdan o'tmagan odam.
+    """
     try:
         url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
-        welcome_text = (
-            "👋 <b>Nasiya Nazorati Tizimi</b>\n\n"
-            "Shaxsiy kabinetingizga kirish uchun pastdagi tugmani bosing 👇"
-        )
+        login_url = f"https://{domain}/auth/telegram-login/"
+
+        staff_user = User.objects.filter(username=str(chat_id)).first()
+        if staff_user:
+            shop = Shop.objects.filter(owner=staff_user).first()
+            if not shop and hasattr(staff_user, 'profile'):
+                shop = staff_user.profile.shop
+            shop_name = f" «{shop.name}»" if shop else ""
+            welcome_text = (
+                f"🏪 <b>Do'koningiz{shop_name} tayyor!</b>\n\n"
+                "Savdo, nasiya va to'lovlarni boshqarish uchun pastdagi tugmani bosing 👇"
+            )
+            button = {"text": "🏪 Do'konni ochish", "web_app": {"url": login_url}}
+        elif Client.objects.filter(telegram_id=chat_id).exists():
+            welcome_text = (
+                "👋 <b>Nasiya Nazorati Tizimi</b>\n\n"
+                "Shaxsiy kabinetingizga kirish uchun pastdagi tugmani bosing 👇"
+            )
+            button = {"text": "🏠 Kabinetga kirish", "web_app": {"url": login_url}}
+        else:
+            welcome_text = (
+                "👋 <b>QarzDaptar</b>ga xush kelibsiz!\n\n"
+                "Siz hali ro'yxatdan o'tmagansiz.\n"
+                "• <b>Do'kon egasimisiz?</b> Pastdagi tugma orqali do'kon oching.\n"
+                "• <b>Mijozmisiz?</b> Do'kondan shaxsiy havola so'rang.\n\n"
+                f"🆔 Sizning Telegram ID: <code>{chat_id}</code>"
+            )
+            button = {"text": "🏪 Do'kon ochish", "web_app": {"url": f"https://{domain}/"}}
+
         payload = {
             "chat_id": chat_id,
             "text": welcome_text,
             "parse_mode": "HTML",
-            "reply_markup": {
-                "inline_keyboard": [[
-                    {
-                        "text": "🏠 Kabinetga kirish",
-                        "web_app": {"url": f"https://{domain}/auth/telegram-login/"}
-                    }
-                ]]
-            }
+            "reply_markup": {"inline_keyboard": [[button]]}
         }
         requests.post(url, json=payload)
     except Exception as e:
@@ -801,7 +849,10 @@ def client_form_view(request, client_id=None):
 
         if full_name and phone:
             # Unikallikni faqat SHU DO'KON ichida tekshiramiz
-            if not client and Client.objects.filter(shop=shop, phone=phone).exists():
+            duplicates = Client.objects.filter(shop=shop, phone=phone)
+            if client:
+                duplicates = duplicates.exclude(id=client.id)
+            if duplicates.exists():
                 messages.error(request, f"Xatolik! Bu raqam do'koningizda mavjud.")
                 return render(request, 'client_form.html',
                               {'client': {'full_name': full_name, 'phone': phone}, 'back_url': 'client_list'})

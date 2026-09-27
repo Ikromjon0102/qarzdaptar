@@ -554,14 +554,18 @@
                                         <label
                                             class="block text-primary text-xs font-bold uppercase tracking-wider mb-2 ml-1">Telegram ID</label>
                                         <div class="relative">
-                                            <input type="number" name="telegram_id"
-                                                class="w-full custom-input rounded-xl px-4 py-3"
-                                                placeholder="998901234567" required />
-                                            <a href="https://t.me/qarzdaptarbot" target="_blank"
+                                            <input type="text" name="telegram_id" id="telegramIdInput"
+                                                inputmode="numeric" pattern="[0-9]{5,15}"
+                                                title="Faqat raqamlar. Telefon raqam emas!"
+                                                class="w-full custom-input rounded-xl px-4 py-3 pr-24"
+                                                placeholder="Masalan: 123456789" required />
+                                            <a href="https://t.me/QarzDaptarBot?start=id" target="_blank"
+                                                id="getIdLink"
                                                 class="absolute right-3 top-3 text-gray-400 hover:text-white text-xs underline">ID olish</a>
                                         </div>
-                                        <p class="text-xs text-gray-500 mt-2 ml-1">
-                                            Login sifatida ishlatiladi.
+                                        <p class="text-xs text-gray-500 mt-2 ml-1" id="telegramIdHint">
+                                            ⚠️ Bu <b>telefon raqam emas</b>. ID'ni bilish uchun «ID olish» tugmasini bosing —
+                                            bot sizga raqamni yuboradi.
                                         </p>
                                     </div>
                                     <button type="submit"
@@ -595,6 +599,19 @@
         </footer>
     </div>
 
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Telegram ichida ochilgan bo'lsa, ID ni o'zimiz to'ldiramiz
+        document.addEventListener("DOMContentLoaded", () => {
+            const tgUser = window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user;
+            if (!tgUser) return;
+            const input = document.getElementById("telegramIdInput");
+            input.value = tgUser.id;
+            input.readOnly = true;
+            document.getElementById("getIdLink").style.display = "none";
+            document.getElementById("telegramIdHint").innerHTML = "✅ Telegram ID avtomatik aniqlandi.";
+        });
+    </script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const cards = document.querySelectorAll(".carousel-card");

@@ -33,6 +33,13 @@
         font-size: 0.85rem;
         transition: 0.2s;
     }
+    .no-tg-box {
+        border: 1px solid #ffc107;
+        background: rgba(255, 193, 7, 0.12);
+        border-radius: 12px;
+        padding: 12px;
+        color: var(--tg-text);
+    }
     .payment-badge.selected {
         background: #198754; /* Success color */
         color: white;
@@ -79,9 +86,34 @@
         <input type="hidden" name="client" id="hiddenClientId"
             value="{% if selected_client %}{{ selected_client.id }}{% endif %}">
 
+        <!-- Botga ulanmagan mijoz uchun ogohlantirish -->
+        <div id="no-tg-warning" class="no-tg-box mt-3 d-none">
+            <div class="fw-bold mb-1">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#e0a800"></i>
+                Mijoz botga ulanmagan
+            </div>
+            <div class="small mb-2" style="color: var(--tg-hint);">
+                Unga tasdiqlash so'rovi yuborib bo'lmaydi. Nasiyani qanday saqlaymiz?
+            </div>
+            <label class="d-flex align-items-start gap-2 mb-2">
+                <input type="radio" name="no_tg_action" value="confirm" class="form-check-input mt-1" checked>
+                <span><b>Darhol balansga yozish</b><br>
+                    <small style="color: var(--tg-hint);">Mijoz tasdiqlamaydi, qarz darhol hisoblanadi</small></span>
+            </label>
+            <label class="d-flex align-items-start gap-2 mb-2">
+                <input type="radio" name="no_tg_action" value="pending" class="form-check-input mt-1">
+                <span><b>Tasdiqlashni kutish</b><br>
+                    <small style="color: var(--tg-hint);">Mijoz botga ulangach yoki siz tasdiqlaganingizda hisoblanadi</small></span>
+            </label>
+            <a href="#" id="inviteLink" class="small fw-bold text-decoration-none">
+                <i class="fa-brands fa-telegram"></i> Mijozni botga taklif qilish
+            </a>
+        </div>
+
         <datalist id="clientOptions">
             {% for client in clients %}
                 <option data-value="{{ client.id }}"
+                        data-tg="{% if client.telegram_id %}1{% else %}0{% endif %}"
                         value="{{ client.full_name }} ({{ client.phone }})">
                 </option>
             {% endfor %}
@@ -124,6 +156,7 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         addItem(); // Bitta qator qo'shib qo'yamiz
+        updateClientState(); // ?client_id= bilan kelgan bo'lsa
     });
 
     // 1. REJIMNI O'ZGARTIRISH (NAQD / NASIYA)
@@ -171,7 +204,37 @@
             // Submit Button Color
             submitBtn.classList.remove('btn-success');
             submitBtn.classList.add('btn-primary');
-            submitBtn.innerHTML = 'SAQLASH VA YUBORISH';
+        }
+        updateClientState();
+    }
+
+    // Tanlangan mijoz botga ulanganmi? (null - tanlanmagan)
+    function selectedClientHasTg() {
+        const id = document.getElementById('hiddenClientId').value;
+        if (!id) return null;
+        const opt = document.querySelector(`#clientOptions option[data-value="${id}"]`);
+        return opt ? opt.getAttribute('data-tg') === '1' : null;
+    }
+
+    // Ogohlantirish va tugma matnini mijoz holatiga moslash
+    function updateClientState() {
+        const mode = document.getElementById('saleModeInput').value;
+        const warning = document.getElementById('no-tg-warning');
+        const submitBtn = document.getElementById('submitBtn');
+        const hasTg = selectedClientHasTg();
+        const showWarning = mode === 'debt' && hasTg === false;
+
+        warning.classList.toggle('d-none', !showWarning);
+        warning.querySelectorAll('input').forEach(el => el.disabled = !showWarning);
+        if (showWarning) {
+            const id = document.getElementById('hiddenClientId').value;
+            document.getElementById('inviteLink').href = "{% url 'client_edit' 0 %}".replace('/0/', `/${id}/`);
+        }
+
+        if (mode === 'debt') {
+            submitBtn.innerHTML = hasTg === false
+                ? '<i class="fa-solid fa-floppy-disk"></i> SAQLASH'
+                : '<i class="fa-brands fa-telegram"></i> SAQLASH VA YUBORISH';
         }
     }
 
@@ -195,6 +258,7 @@
             }
         }
         if (!found) hiddenInput.value = "";
+        updateClientState();
     }
 
     // 4. QATOR QO'SHISH (Backendga moslab nomlari o'zgartirildi)
@@ -295,6 +359,7 @@
                 const dataList = document.getElementById('clientOptions');
                 const option = document.createElement('option');
                 option.setAttribute('data-value', data.client_id);
+                option.setAttribute('data-tg', '0'); // Yangi mijoz hali botga ulanmagan
                 option.value = `${data.client_name} (${phone})`;
                 dataList.appendChild(option);
 
@@ -304,6 +369,7 @@
 
                 // 3. Hidden ID ni yangilaymiz
                 document.getElementById('hiddenClientId').value = data.client_id;
+                updateClientState();
 
                 // 4. Modalni yopamiz
                 const modalEl = document.getElementById('addClientModal');

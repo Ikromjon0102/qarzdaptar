@@ -27,7 +27,8 @@
 <!--        <i class="fa-solid fa-right-from-bracket"></i>-->
 <!--    </a>-->
 </div>
-{% if shop.days_left <= 10 %}
+{# Muddat belgilanmagan (eski) do'konlarga ogohlantirish ko'rsatilmaydi #}
+{% if shop.subscription_ends_at and shop.days_left <= 10 %}
     <div class="alert {% if shop.days_left <= 3 %}alert-danger
         {% else %} alert-warning
         {% endif %} d-flex align-items-center justify-content-between"
@@ -35,10 +36,10 @@
         <div style="color:black">
             <i class="fa-solid fa-clock me-2"></i>
             <strong>Diqqat!</strong>
-            Sinov davri tugashiga
-            <strong>{{ shop.days_left }} kun</strong> qoldi.
             {% if shop.days_left <= 0 %}
-                Tizim ertaga o'chirilishi mumkin!
+                Obuna muddati <strong>bugun tugaydi</strong>.
+            {% else %}
+                Obuna tugashiga <strong>{{ shop.days_left }} kun</strong> qoldi.
             {% endif %}
         </div>
 

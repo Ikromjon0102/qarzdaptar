@@ -67,8 +67,8 @@ class Client(models.Model):
     invite_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, null=True, blank=True)
 
     class Meta:
-        # Bitta do'kon ichida telefon raqam takrorlanmasin
-        unique_together = ('phone',)
+        # Bitta do'kon ichida telefon raqam takrorlanmasin (boshqa do'konda bo'lishi mumkin)
+        unique_together = ('shop', 'phone')
 
     def __str__(self):
         status = "✅" if self.telegram_id else "⏳"

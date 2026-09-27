@@ -1,14 +1,21 @@
+import re
 import threading  # <--- YANGI KUCH
 import time
+from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
+from django.urls import reverse
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from .models import Client, UserProfile, Shop, Settings
 from .views import send_tg_msg, get_current_shop
 from django.db import transaction
 from .models import AllowedAdmin
 from django.db.models import Q
+
+# Yangi do'kon uchun bepul sinov muddati (kun)
+TRIAL_DAYS = 14
 
 
 @login_required(login_url='/auth/telegram-login/')
@@ -76,12 +83,20 @@ def signup_view(request):
     if request.method == 'POST':
         shop_name = request.POST.get('shop_name')
         admin_name = request.POST.get('admin_name')
-        telegram_id = request.POST.get('telegram_id')
+        telegram_id = (request.POST.get('telegram_id') or '').strip()
+        signup_url = reverse('landing_page') + '#start-now'
 
         # Validatsiya
+        if not re.fullmatch(r'\d{5,15}', telegram_id):
+            messages.error(request, "Telegram ID faqat raqamlardan iborat bo'lishi kerak. «ID olish» tugmasini bosing.")
+            return redirect(signup_url)
+        if re.fullmatch(r'998\d{9}', telegram_id):
+            messages.error(request, "Bu telefon raqamga o'xshaydi. Telefon emas, Telegram ID kerak — "
+                                    "«ID olish» tugmasini bosing, bot sizga ID'ni yuboradi.")
+            return redirect(signup_url)
         if User.objects.filter(username=telegram_id).exists():
-            messages.error(request, "Bu Telegram ID bilan allaqachon do'kon ochilgan!")
-            return redirect('landing_page')
+            messages.error(request, "Bu Telegram ID bilan allaqachon do'kon ochilgan! Botga kirib, «Do'konni ochish» tugmasini bosing.")
+            return redirect(signup_url)
 
         try:
             with transaction.atomic():  # Agar bittasi o'xshamasa, hammasini bekor qiladi
@@ -89,7 +104,12 @@ def signup_view(request):
                 user = User.objects.create_user(username=telegram_id, password='1')  # Parol shartli
 
                 # 2. Do'kon yaratamiz
-                shop = Shop.objects.create(name=shop_name, owner=user)
+                shop = Shop.objects.create(
+                    name=shop_name,
+                    owner=user,
+                    is_trial_used=True,
+                    subscription_ends_at=timezone.now() + timedelta(days=TRIAL_DAYS),
+                )
 
                 # 3. Profil va Adminlik
                 UserProfile.objects.create(user=user, shop=shop, role='admin')
@@ -101,12 +121,13 @@ def signup_view(request):
             # Muvaffaqiyatli!
             return render(request, 'signup_success.html', {
                 'shop_name': shop_name,
-                'bot_username': 'QarzDaptarBot'  # Bot username shu yerga yoziladi
+                'bot_username': 'QarzDaptarBot',  # Bot username shu yerga yoziladi
+                'trial_days': TRIAL_DAYS,
             })
 
         except Exception as e:
             messages.error(request, f"Xatolik yuz berdi: {e}")
-            return redirect('landing_page')
+            return redirect(signup_url)
 
     return redirect('landing_page')
 
