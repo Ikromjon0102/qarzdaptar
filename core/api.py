@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from .models import Client, UserProfile, Shop, Settings
 from .views import send_tg_msg, get_current_shop
+from .permissions import shop_admin_required
 from django.db import transaction
 from .models import AllowedAdmin
 from django.db.models import Q
@@ -18,7 +19,7 @@ from django.db.models import Q
 TRIAL_DAYS = 14
 
 
-@login_required(login_url='/auth/telegram-login/')
+@shop_admin_required
 def broadcast_view(request):
     shop = get_current_shop(request)
     if request.method == 'POST':
@@ -36,46 +37,53 @@ def broadcast_view(request):
                         pass
 
             threading.Thread(target=send_thread, args=(text, clients)).start()
-            messages.success(request, "Xabar yuborish boshlandi!")
-            return redirect('dashboard')
-
-    # return render(request, 'broadcast.html')
+            messages.success(request, f"📨 Xabar {clients.count()} ta mijozga yuborilmoqda.")
+            return redirect('main_menu')
 
     return render(request, 'broadcast.html', {'back_url': 'main_menu',})
 
 
-@login_required(login_url='/auth/telegram-login/')
+@shop_admin_required
 def manage_admins_view(request, action=None, admin_id=None):
     shop = get_current_shop(request)
-    # ID Qo'shish
+    # Xodim qo'shish
     if action == 'add' and request.method == 'POST':
-        name = request.POST.get('name')
-        tg_id = request.POST.get('telegram_id')
-        try:
-            user = User.objects.create_user(username=tg_id, password='1')
-            AllowedAdmin.objects.create(shop=shop, name=name, telegram_id=tg_id)
-            UserProfile.objects.create(user=user, shop=shop, role='worker')
-            messages.success(request, f"✅ {name} adminlarga qo'shildi.")
-        except:
-            messages.error(request, "❌ Bu ID allaqachon mavjud!")
+        name = (request.POST.get('name') or '').strip()
+        tg_id = (request.POST.get('telegram_id') or '').strip()
+        if not name or not re.fullmatch(r'\d{5,15}', tg_id):
+            messages.error(request, "❌ Ism va to'g'ri Telegram ID (faqat raqam) kiriting.")
+        elif User.objects.filter(username=tg_id).exists():
+            messages.error(request, "❌ Bu Telegram ID allaqachon ro'yxatda bor!")
+        else:
+            with transaction.atomic():
+                user = User.objects.create_user(username=tg_id, password=None)
+                AllowedAdmin.objects.create(shop=shop, name=name, telegram_id=tg_id)
+                UserProfile.objects.create(user=user, shop=shop, role='worker')
+            messages.success(request, f"✅ {name} xodimlarga qo'shildi.")
 
-    # ID O'chirish
+    # Xodimni o'chirish (faqat o'z do'konidan, o'zini emas)
     elif action == 'delete' and admin_id:
-        AllowedAdmin.objects.filter(id=admin_id).delete()
-        UserProfile.objects.filter(id=admin_id).delete()
-        messages.warning(request, "🗑 Admin o'chirildi.")
+        admin = AllowedAdmin.objects.filter(id=admin_id, shop=shop).first()
+        if not admin:
+            messages.error(request, "❌ Xodim topilmadi.")
+        elif str(admin.telegram_id) == request.user.username or shop.owner.username == str(admin.telegram_id):
+            messages.error(request, "❌ Do'kon egasini o'chirib bo'lmaydi.")
+        else:
+            User.objects.filter(username=str(admin.telegram_id), profile__shop=shop).delete()
+            admin.delete()
+            messages.warning(request, f"🗑 {admin.name} xodimlardan o'chirildi.")
 
-    # --- O'ZGARISH: Dashboardga emas, SETTINGS ga qaytaramiz ---
     return redirect('admin_control')
 
 
-
+@shop_admin_required
 def admin_control(request):
     shop = get_current_shop(request)
     allowed_admins = AllowedAdmin.objects.filter(shop=shop).order_by('-created_at')
     return render(request, 'admin_control.html', {
         'back_url': 'main_menu',
         'allowed_admins': allowed_admins,
+        'owner_tg_id': shop.owner.username if shop else '',
     })
 
 

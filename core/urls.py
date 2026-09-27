@@ -6,6 +6,7 @@ urlpatterns = [
     path('login/', views.login_page_view, name='login_page'),
     path('auth/telegram-login/', views.telegram_auth_view, name='telegram_auth'),
     path('main/', views.main_menu_view, name='main_menu'),
+    path('logout/', views.logout_view, name='logout'),
 
     path('', views.login_page_view, name='landing_page'), # Glavniy sahifa
     path('signup/', api.signup_view, name='signup'),

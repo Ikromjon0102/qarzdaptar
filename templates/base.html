@@ -85,6 +85,8 @@
         }
 
         .header-title {
+            flex: 1;
+            min-width: 0;
             font-size: 24px;
             font-weight: 700;
             margin: 0;
@@ -434,13 +436,14 @@
 <!--    </div>-->
     <!-- Modern Header -->
 
-    {% if back_url %}
+    {% if back_url or back_href %}
     <div class="modern-header">
         <div class="container">
             <div class="d-flex align-items-center gap-3">
-                <button onclick="window.history.back()" class="back-btn">
+                <a href="{% if back_href %}{{ back_href }}{% else %}{% url back_url %}{% endif %}"
+                   class="back-btn flex-shrink-0" id="backBtn" aria-label="Orqaga">
                     <i class="fa-solid fa-arrow-left"></i>
-                </button>
+                </a>
                 <h1 class="header-title">{% block matn %} Nasiya Kitob {% endblock %}</h1>
             </div>
         </div>
@@ -468,13 +471,27 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Telegram Web App Integration
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
+        // Telegram Web App Integration (brauzerda ochilsa ham sahifa ishlashi kerak)
+        const tg = (window.Telegram && window.Telegram.WebApp) || null;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        // Orqaga: sahifadagi tugma ham, Telegram'ning o'z "Back" tugmasi ham aniq manzilga olib boradi
+        // (brauzer tarixiga tayanish Telegram'dan to'g'ridan-to'g'ri ochilganda yoki POST'dan keyin noto'g'ri ishlardi)
+        const backBtn = document.getElementById('backBtn');
+        if (tg && tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
+            if (backBtn) {
+                tg.BackButton.show();
+                tg.BackButton.onClick(() => { window.location.href = backBtn.href; });
+            } else {
+                tg.BackButton.hide();
+            }
+        }
 
         // Apply Telegram theme colors
-        const tg = window.Telegram.WebApp;
-        if (tg.themeParams) {
+        if (tg && tg.themeParams) {
             document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#f5f7fa');
             document.documentElement.style.setProperty('--tg-text', tg.themeParams.text_color || '#000000');
             document.documentElement.style.setProperty('--tg-button', tg.themeParams.button_color || '#3390ec');
@@ -485,7 +502,7 @@
         // Add haptic feedback
         document.querySelectorAll('button, .list-item').forEach(element => {
             element.addEventListener('click', () => {
-                if (tg.HapticFeedback) {
+                if (tg && tg.HapticFeedback) {
                     tg.HapticFeedback.impactOccurred('light');
                 }
             });

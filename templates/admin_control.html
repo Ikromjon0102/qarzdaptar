@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block matn %}
-<h5 class="fw-bold m-0"><i class="fa-solid fa-users-gear text-primary"></i> Adminlar Boshqaruvi</h5>
+<h5 class="fw-bold m-0"><i class="fa-solid fa-users-gear text-primary"></i> Xodimlar</h5>
 {% endblock %}
 {% block content %}
     <div class="card bg-white shadow-sm border-0 rounded-4">
@@ -35,17 +35,20 @@
                     </div>
 
                 </div>
-                <span class="badge border" style="color: #2b542c">Active</span>
+                {% if admin.telegram_id|stringformat:"s" == owner_tg_id %}
+                <span class="badge bg-warning text-dark">RAHBAR</span>
+                {% else %}
                 <a href="{% url 'manage_admins_id' 'delete' admin.id %}"
                    class="btn btn-sm btn-outline-danger border shadow-sm"
                    onclick="return confirm('Rostdan ham o\'chirmoqchimisiz?')">
                     <i class="fa-solid fa-trash-can"></i>
                 </a>
+                {% endif %}
             </div>
             {% empty %}
                 <div class="text-center py-4 text-muted border rounded-3 border-dashed">
                     <i class="fa-solid fa-user-slash fa-2x mb-2 opacity-50"></i>
-                    <p class="m-0">Qo'shimcha adminlar yo'q</p>
+                    <p class="m-0">Qo'shimcha xodimlar yo'q</p>
                 </div>
             {% endfor %}
         </div>

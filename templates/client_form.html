@@ -1,84 +1,35 @@
 {% extends 'base.html' %}
 
 {% block matn %}
-<h5 class="fw-bold m-0">{% if client %} <i class="fa-solid fa-user-pen"></i> Tahrirlash {% else %} <i class="fa-solid fa-user-plus"></i> Yangi Mijoz {% endif %}</h5>
+<h5 class="fw-bold m-0">{% if client %}<i class="fa-solid fa-user-pen"></i> Tahrirlash{% else %}<i class="fa-solid fa-user-plus"></i> Yangi mijoz{% endif %}</h5>
 {% endblock %}
 
 {% block content %}
 <form method="POST" autocomplete="off">
     {% csrf_token %}
-    
-    <div class="app-card bg-white mb-4 shadow-sm ">
+
+    <div class="app-card bg-white mb-4 shadow-sm">
         <div class="mb-3 text-dark">
             <label class="form-label text-muted small text-uppercase fw-bold text-dark">F.I.SH</label>
-            <input type="text" name="full_name" class="form-control fw-bold text-dark" placeholder="Mijoz ismi" value="{{ client.full_name|default:'' }}" required>
+            <input type="text" name="full_name" class="form-control fw-bold text-dark" placeholder="Mijoz ismi"
+                   value="{% if form %}{{ form.full_name }}{% else %}{{ client.full_name|default:'' }}{% endif %}" required>
         </div>
-        
+
         <div class="mb-0">
             <label class="form-label text-muted small text-uppercase fw-bold text-dark">Telefon</label>
-            <input type="tel" name="phone" class="form-control fw-bold" placeholder="+998..." value="{{ client.phone|default:'' }}" required>
+            <input type="tel" name="phone" class="form-control fw-bold" placeholder="+998 90 123 45 67"
+                   value="{% if form %}{{ form.phone }}{% else %}{{ client.phone|default:'' }}{% endif %}" required>
         </div>
     </div>
 
-    {% if client %}
-    <div class="app-card bg-white mb-4 shadow-sm">
-        <h6 class="fw-bold mb-3 text-primary"><i class="fa-brands fa-telegram"></i> Telegram Holati</h6>
-        
-        {% if client.telegram_id %}
-            <div class="alert alert-success d-flex align-items-center mb-2">
-                <i class="fa-solid fa-circle-check me-2"></i> 
-                <div>
-                    <strong>Ulangan</strong><br>
-                    <small>ID: {{ client.telegram_id }}</small>
-                </div>
-            </div>
-            
-            <a href="{% url 'client_reset_tg' client.id %}" class="btn btn-outline-danger w-100 btn-sm" onclick="return confirm('Rostdan ham Telegramni uzmoqchimisiz? Mijoz qayta ulanishi kerak bo\'ladi.')">
-                <i class="fa-solid fa-link-slash"></i> Bog'lanishni uzish (Reset)
-            </a>
-            <p class="text-muted small mt-2 mb-0">Agar mijoz profilini o'chirib, yangi ochgan bo'lsa, shu tugmani bosing.</p>
-
-        {% else %}
-            <div class="alert alert-warning mb-2">
-                <i class="fa-solid fa-triangle-exclamation"></i> Hali ulanmagan
-            </div>
-            
-        <div class="card border-0 shadow-sm rounded-4 mb-3">
-    <div class="card-body text-center">
-        <h5 class="fw-bold" style="{color:black}">{{ client.full_name }}</h5>
-        <p class="text-muted small mb-3">{{ client.phone }}</p>
-
-        {% if client.invite_token %}
-<a href="https://t.me/share/url?url=https://t.me/QarzDaptarBot?start={{ client.invite_token }}&text=Assalomu alaykum, {{ client.full_name }}!%0A%0ASizni do'konimizning shaxsiy kabinetiga taklif qilamiz. Hisobingizni ko'rish uchun yuqoridagi havolani bosing: 👆"
-       class="btn btn-primary w-100 rounded-pill py-2 fw-bold mb-2"
-       target="_blank">
-        <i class="fa-brands fa-telegram fa-lg me-2"></i> Linkni yuborish </a>
-            <div class="text-muted small" style="font-size: 0.7rem;">
-                Tugmani bosing va mijozni tanlang. Link avtomat yoziladi.
-            </div>
-        {% else %}
-            <div class="alert alert-success py-2 mb-0 small">
-                <i class="fa-solid fa-check-circle"></i> Bu mijoz allaqachon ulangan.
-            </div>
-        {% endif %}
-    </div>
-</div>
-        {% endif %}
-    </div>
+    {% if not client %}
+    <p class="small text-center mb-3" style="color: var(--tg-hint);">
+        <i class="fa-brands fa-telegram"></i> Saqlangandan keyin mijoz sahifasidan uni botga taklif qilishingiz mumkin.
+    </p>
     {% endif %}
 
     <button type="submit" class="btn btn-primary w-100 py-3 rounded-3 fw-bold">
         <i class="fa-solid fa-floppy-disk"></i> SAQLASH
     </button>
 </form>
-
-<script>
-    function copyLink() {
-        var copyText = document.getElementById("inviteLink");
-        copyText.select();
-        copyText.setSelectionRange(0, 99999); 
-        navigator.clipboard.writeText(copyText.value);
-        document.getElementById("copyMsg").style.display = 'block';
-    }
-</script>
 {% endblock %}

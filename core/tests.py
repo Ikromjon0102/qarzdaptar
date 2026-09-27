@@ -209,3 +209,102 @@ class SaleAndPaymentFormTests(TestCase):
                             items=f"To'lov: Non (ID: {sale.id})", status='confirmed')
         call_command('mark_cash_sales', stdout=mock.Mock())
         self.assertEqual(Debt.objects.filter(is_cash_sale=True).count(), 2)
+
+
+def make_worker(shop, tg_id='333333'):
+    from .models import AllowedAdmin
+    user = User.objects.create_user(username=tg_id)
+    UserProfile.objects.create(user=user, shop=shop, role='worker')
+    AllowedAdmin.objects.create(shop=shop, name='Xodim', telegram_id=tg_id)
+    return user
+
+
+@mock.patch('requests.post')
+class NavigationAndRoleTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.worker = make_worker(self.shop)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
+
+    def test_worker_blocked_from_admin_sections(self, _post):
+        self.client.force_login(self.worker)
+        for name in ('settings', 'broadcast', 'admin_control'):
+            resp = self.client.get(reverse(name))
+            self.assertRedirects(resp, reverse('main_menu'), msg_prefix=name)
+
+    def test_worker_menu_hides_admin_links(self, _post):
+        self.client.force_login(self.worker)
+        resp = self.client.get(reverse('main_menu'))
+        self.assertContains(resp, 'XODIM')
+        self.assertNotContains(resp, reverse('settings'))
+        self.assertNotContains(resp, reverse('admin_control'))
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse('main_menu'))
+        self.assertContains(resp, reverse('admin_control'))
+        self.assertContains(resp, reverse('logout'))
+
+    def test_worker_cannot_delete_transactions(self, _post):
+        debt = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=100, items='x', status='confirmed')
+        self.client.force_login(self.worker)
+        self.client.get(reverse('manage_debt', args=[debt.uuid, 'delete']))
+        self.assertTrue(Debt.objects.filter(id=debt.id).exists())
+        self.client.force_login(self.owner)
+        self.client.get(reverse('manage_debt', args=[debt.uuid, 'delete']))
+        self.assertFalse(Debt.objects.filter(id=debt.id).exists())
+
+    def test_cannot_touch_other_shop_debt(self, _post):
+        other_owner, other_shop = make_shop(tg_id='444444', name='Boshqa')
+        other_client = Client.objects.create(shop=other_shop, full_name='X', phone='+998900000001')
+        debt = Debt.objects.create(shop=other_shop, client=other_client, amount_uzs=1, items='x')
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse('manage_debt', args=[debt.uuid, 'delete']))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_owner_cannot_be_removed_from_staff(self, _post):
+        from .models import AllowedAdmin
+        owner_admin = AllowedAdmin.objects.create(shop=self.shop, name='Egasi', telegram_id=int(self.owner.username))
+        worker_admin = AllowedAdmin.objects.get(telegram_id=333333)
+        self.client.force_login(self.owner)
+        self.client.get(reverse('manage_admins_id', args=['delete', owner_admin.id]))
+        self.assertTrue(User.objects.filter(id=self.owner.id).exists())
+        self.client.get(reverse('manage_admins_id', args=['delete', worker_admin.id]))
+        self.assertFalse(User.objects.filter(id=self.worker.id).exists())
+
+    def test_logout_requires_post(self, _post):
+        self.client.force_login(self.owner)
+        self.client.get(reverse('logout'))
+        self.assertIn('_auth_user_id', self.client.session)
+        resp = self.client.post(reverse('logout'))
+        self.assertRedirects(resp, reverse('landing_page'))
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_back_button_uses_real_url(self, _post):
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse('create_debt'))
+        self.assertContains(resp, f'href="{reverse("main_menu")}"')
+        self.assertNotContains(resp, 'history.back()')
+        resp = self.client.get(reverse('client_edit', args=[self.vali.id]))
+        self.assertContains(resp, f'href="{reverse("admin_client_detail", args=[self.vali.id])}"')
+
+    def test_client_list_and_new_client_flow(self, _post):
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=500000, items='x', status='confirmed')
+        Client.objects.create(shop=self.shop, full_name='Naqd Savdo (Kassa)', phone='000000000')
+        self.client.force_login(self.worker)
+        resp = self.client.get(reverse('client_list'))
+        self.assertContains(resp, '500 000')
+        self.assertNotContains(resp, 'Kassa')
+
+        resp = self.client.post(reverse('client_add'), {'full_name': 'Ali', 'phone': '90 123 45 67'})
+        ali = Client.objects.get(full_name='Ali')
+        self.assertEqual(ali.phone, '+998901234567')
+        self.assertRedirects(resp, reverse('admin_client_detail', args=[ali.id]))
+        resp = self.client.get(reverse('admin_client_detail', args=[ali.id]))
+        self.assertContains(resp, str(Client.objects.get(id=ali.id).invite_token))
+
+    def test_dashboard_shows_top_debtors_only(self, _post):
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=500000, items='x', status='confirmed')
+        Client.objects.create(shop=self.shop, full_name='Toza Mijoz', phone='+998900000002')
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse('dashboard'))
+        self.assertContains(resp, 'Vali')
+        self.assertNotContains(resp, 'Toza Mijoz')

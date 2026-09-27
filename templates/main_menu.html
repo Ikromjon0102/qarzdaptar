@@ -1,32 +1,31 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex flex-column justify-content-center min-vh-75">
+<div class="pt-3">
 
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-0 text-dark">{{ shop.name }}</h2>
-
-        <p class="text-muted small m-0 text-dark">
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div class="min-w-0">
+        <h2 class="fw-bold mb-0 text-dark text-truncate">{{ shop.name }}</h2>
+        <p class="small m-0" style="color: var(--tg-hint);">
             <i class="fa-solid fa-user-tie me-1"></i>
             {{ request.user.first_name|default:request.user.username }}
-
-            {% if request.user.profile.role == 'admin' %}
+            {% if is_shop_admin %}
                 <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">RAHBAR</span>
-            {% elif request.user.profile.role == 'worker' %}
-                <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">XODIM</span>
             {% else %}
-                <span class="badge bg-light text-muted border ms-1" style="font-size: 0.7em;">MEHMON</span>
+                <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">XODIM</span>
             {% endif %}
         </p>
     </div>
 
-
-<!--    <a href="{% url 'login_page' %}" class="btn btn-light shadow-sm rounded-circle text-danger">-->
-<!--        <i class="fa-solid fa-right-from-bracket"></i>-->
-<!--    </a>-->
+    <form method="POST" action="{% url 'logout' %}" onsubmit="return confirm('Tizimdan chiqasizmi?')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-light shadow-sm rounded-circle text-danger flex-shrink-0"
+                style="width: 42px; height: 42px;" aria-label="Chiqish" title="Chiqish">
+            <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+    </form>
 </div>
+
 {# Muddat belgilanmagan (eski) do'konlarga ogohlantirish ko'rsatilmaydi #}
 {% if shop.subscription_ends_at and shop.days_left <= 10 %}
     <div class="alert {% if shop.days_left <= 3 %}alert-danger
@@ -48,75 +47,60 @@
         </a>
     </div>
 {% endif %}
-    <div class="row g-3">
-        <div class="col-6">
-            <a href="{% url 'create_debt' %}" class="btn-menu bg-primary text-white">
-                <i class="fa-solid fa-cart-plus fa-2x mb-2"></i>
-                <span>Savdo</span>
-            </a>
-        </div>
 
-        <div class="col-6">
-            <a href="{% url 'dashboard' %}" class="btn-menu bg-success text-white">
-                <i class="fa-solid fa-users fa-2x mb-2"></i>
-                <span>Dashboard</span>
-            </a>
-        </div>
+<!-- Kundalik asosiy amallar -->
+<a href="{% url 'create_debt' %}" class="btn-menu btn-menu-main mb-3" style="background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%);">
+    <i class="fa-solid fa-cart-plus fa-2x"></i>
+    <div class="text-start">
+        <div class="menu-title">Savdo</div>
+        <div class="menu-sub">Nasiya yoki naqd sotuv</div>
+    </div>
+</a>
 
-        <div class="col-6">
-            <a href="{% url 'create_payment' %}" class="btn-menu bg-warning text-dark">
-                <i class="fa-solid fa-hand-holding-dollar fa-2x mb-2"></i>
-                <span>To'lov Olish</span>
-            </a>
-        </div>
-
-        <div class="col-6">
-            <a href="{% url 'settings' %}" class="btn-menu bg-secondary text-white">
-                <i class="fa-solid fa-gear fa-2x mb-2"></i>
-                <span>Sozlamalar</span>
-            </a>
-        </div>
-
-        <div class="col-6">
-            <a href="{% url 'broadcast' %}" class="btn-menu bg-indigo text-white">
-                <i class="fa-solid fa-paper-plane fa-2x mb-2"></i>
-                <span>Xabar yuborish</span>
-            </a>
-        </div>
-
-        <div class="col-6">
-            <a href="{% url 'admin_control' %}" class="btn-menu bg-dark text-white">
-                <i class="fa-solid fa-users-gear fa-2x mb-2"></i>
-                <span>Adminlar</span>
-            </a>
-        </div>
-        <div class="col-6 text-dark">
-            <a href="{% url 'client_add' %}" class="btn-menu bg-google text-white">
-                <i class="fa-solid fa-users fa-2x mb-2 text-dark"></i>
-                <span class=" text-dark">Mijoz qo'shish</span>
-            </a>
-        </div>
-        <div class="col-6 text-dark">
-            <a href="{% url 'reports_page' %}" style="background: linear-gradient(135deg, #20c997 0%, #0f7a63 100%);" class="btn-menu bg-google text-white">
-                <i class="fa-solid fa-chart-pie fa-2x mb-2"></i>
-                <span class="text-dark">Hisobotlar</span>
-            </a>
-        </div>
-
-<!--        <div class="col-6 mb-3">-->
-<!--            <a href="" class="card shadow-sm border-0 text-decoration-none h-100"-->
-<!--               style="background: linear-gradient(135deg, #20c997 0%, #0f7a63 100%);"> <div class="card-body text-center text-white d-flex flex-column justify-content-center align-items-center p-3">-->
-
-<!--                    <h6 class="fw-bold m-0" style="font-size: 0.9rem;"></h6>-->
-<!--                </div>-->
-<!--            </a>-->
-<!--        </div>-->
-
+<div class="row g-3 mb-4">
+    <div class="col-6">
+        <a href="{% url 'create_payment' %}" class="btn-menu" style="background: linear-gradient(135deg, #198754 0%, #0f5132 100%);">
+            <i class="fa-solid fa-hand-holding-dollar fa-2x mb-2"></i>
+            <span class="menu-title">To'lov olish</span>
+        </a>
+    </div>
+    <div class="col-6">
+        <a href="{% url 'client_list' %}" class="btn-menu" style="background: linear-gradient(135deg, #6f42c1 0%, #432874 100%);">
+            <i class="fa-solid fa-users fa-2x mb-2"></i>
+            <span class="menu-title">Mijozlar</span>
+        </a>
     </div>
 </div>
 
+<!-- Ikkinchi darajali bo'limlar -->
+<div class="menu-list">
+    <a href="{% url 'dashboard' %}" class="menu-row">
+        <i class="fa-solid fa-chart-line text-primary"></i><span>Statistika</span>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    <a href="{% url 'reports_page' %}" class="menu-row">
+        <i class="fa-solid fa-chart-pie text-success"></i><span>Oylik hisobot</span>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    {% if is_shop_admin %}
+    <a href="{% url 'broadcast' %}" class="menu-row">
+        <i class="fa-solid fa-paper-plane text-info"></i><span>Xabar yuborish</span>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    <a href="{% url 'admin_control' %}" class="menu-row">
+        <i class="fa-solid fa-users-gear text-warning"></i><span>Xodimlar</span>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    <a href="{% url 'settings' %}" class="menu-row">
+        <i class="fa-solid fa-gear" style="color: var(--tg-hint);"></i><span>Sozlamalar</span>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    {% endif %}
+</div>
+
+</div>
+
 <style>
-    /* Sizning stillaringiz... */
     .btn-menu {
         display: flex;
         flex-direction: column;
@@ -125,53 +109,42 @@
         padding: 20px;
         border-radius: 20px;
         text-decoration: none;
-        height: 140px;
-        transition: transform 0.2s ease-in-out;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border: none;
+        height: 120px;
+        color: #fff !important;
+        transition: transform 0.15s ease-in-out;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
     }
-    .btn-menu:hover {
-        transform: scale(1.03);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-        color: inherit;
+    .btn-menu:active { transform: scale(0.96); }
+    .btn-menu-main {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 18px;
+        height: 96px;
+        padding: 20px 24px;
     }
-    .btn-menu:active {
-        transform: scale(0.95);
+    .menu-title { font-weight: 700; font-size: 1.05rem; color: #fff; }
+    .menu-sub { font-size: 0.8rem; opacity: 0.8; color: #fff; }
+    .menu-list {
+        background: var(--tg-secondary);
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
     }
-    .btn-menu span {
+    .menu-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 15px 18px;
+        color: var(--tg-text);
+        text-decoration: none;
         font-weight: 600;
-        font-size: 0.9rem;
-        margin-top: 5px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     }
-    .bg-indigo {
-        background-color: #6610f2 !important;
-    }
-    .bg-google {
-        background-color: #1b6d85 !important;
-    }
+    .menu-row:last-child { border-bottom: none; }
+    .menu-row:active { background: rgba(0, 0, 0, 0.04); }
+    .menu-row > i:first-child { width: 22px; text-align: center; }
+    .menu-row span { flex: 1; }
+    .menu-row .chevron { color: var(--tg-hint); font-size: 0.8rem; }
+    .min-w-0 { min-width: 0; }
 </style>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    // 1. Agar user Telegram orqali kirgan bo'lsa
-    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-
-        // Bu userning Telegram ID si
-        const currentTgId = String(tg.initDataUnsafe.user.id);
-
-        // Django (Baza) dagi userning Telegram ID si (Agar modelda bor bo'lsa)
-        // Agar sizda user modelida 'telegram_id' bo'lmasa, buni ishlatish qiyinroq.
-        // Hozircha oddiy yechim:
-
-        console.log("Telegram User:", currentTgId);
-    }
-
-    // Agar Telegramdan kirilgan bo'lsa, lekin Serverda AnonymousUser bo'lsa
-    // Yoki Serverdagi sessiya boshqa odamniki bo'lib qolgan bo'lsa
-    // Buni backendda tekshirish ishonchliroq, lekin frontda Logout tugmasi borligi yaxshi.
-</script>
-
 {% endblock %}

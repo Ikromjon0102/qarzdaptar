@@ -4,14 +4,15 @@ import requests
 import threading
 import time
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Sum, Q
+from django.db.models import Count, Sum, Q
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
@@ -28,6 +29,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .utils import clean_phone_number, parse_amount
+from .permissions import is_shop_admin, shop_admin_required
 
 
 def get_current_shop(request):
@@ -124,6 +126,15 @@ def main_menu_view(request):
     return render(request, 'main_menu.html', {
         'shop': shop
     })
+
+
+def logout_view(request):
+    """Tizimdan chiqish (xodim ham, mijoz ham). Faqat POST - tasodifiy havola bilan chiqib ketmaslik uchun."""
+    if request.method == 'POST':
+        logout(request)  # sessiya to'liq tozalanadi (client_id ham)
+        messages.info(request, "Tizimdan chiqdingiz.")
+        return redirect('landing_page')
+    return redirect('main_menu')
 
 
 PAYMENT_METHODS = {'cash': 'Naqd', 'card': 'Karta', 'click': 'Click', 'transfer': "O'tkazma"}
@@ -397,8 +408,13 @@ def create_payment_view(request):
 
 @login_required(login_url='/login/')
 def manage_debt_view(request, debt_uuid, action):
-    debt = get_object_or_404(Debt, uuid=debt_uuid)
-    
+    shop = get_current_shop(request)
+    debt = get_object_or_404(Debt, uuid=debt_uuid, shop=shop)
+
+    if action in ('delete', 'force_confirm') and not is_shop_admin(request.user):
+        messages.error(request, "⛔ Yozuvni o'chirish va majburiy tasdiqlash faqat rahbar uchun.")
+        return redirect('admin_client_detail', client_id=debt.client.id)
+
     # 1. QAYTA YUBORISH (Agar xabar bormagan bo'lsa)
     if action == 'resend':
         if debt.status == 'pending':
@@ -504,17 +520,18 @@ def dashboard_view(request):
     # 1. DO'KON ADMINLARI
     allowed_admins = AllowedAdmin.objects.filter(shop=shop).order_by('-created_at')
 
-    # 2. CLIENTLAR VA BALANS (Kassa mijozisiz)
-    clients = Client.objects.filter(shop=shop).exclude(phone=CASH_CLIENT_PHONE).annotate(
+    # 2. ENG KATTA QARZDORLAR (to'liq ro'yxat "Mijozlar" bo'limida)
+    debtors = Client.objects.filter(shop=shop).exclude(phone=CASH_CLIENT_PHONE).annotate(
         total_debt_uzs=Sum('debt__amount_uzs', filter=Q(debt__status='confirmed')),
         total_debt_usd=Sum('debt__amount_usd', filter=Q(debt__status='confirmed'))
-    ).order_by('-total_debt_uzs')
+    ).filter(Q(total_debt_uzs__gt=0) | Q(total_debt_usd__gt=0)).order_by('-total_debt_uzs', '-total_debt_usd')
 
     # 3. STATISTIKA (JAMI DAVR UCHUN)
     stats = shop_stats(shop)
 
     return render(request, 'dashboard.html', {
-        'clients': clients,
+        'top_debtors': debtors[:10],
+        'debtor_count': debtors.count(),
         'stats': stats,
         'back_url': 'main_menu',
         'allowed_admins': allowed_admins,
@@ -532,12 +549,17 @@ def admin_client_detail_view(request, client_id):
     confirmed_debts = debts.filter(status='confirmed')
     stats = confirmed_debts.aggregate(sum_uzs=Sum('amount_uzs'), sum_usd=Sum('amount_usd'))
 
+    # Botga ulanmagan mijozga taklif havolasi bo'lishi shart
+    if not client.telegram_id and not client.invite_token:
+        client.invite_token = uuid.uuid4()
+        client.save(update_fields=['invite_token'])
+
     return render(request, 'admin_client_detail.html', {
         'client': client,
         'debts': debts,
         'total_uzs': stats['sum_uzs'] or 0,
         'total_usd': stats['sum_usd'] or 0,
-        'back_url': 'dashboard'
+        'back_url': 'client_list',
     })
 
 
@@ -805,7 +827,7 @@ def send_menu(chat_id, domain):
         print(f"Telegram menu error: {e}")
 
 
-@login_required(login_url='/login/')
+@shop_admin_required
 def settings_view(request):
     shop = get_current_shop(request)
     # Do'kon uchun alohida settings olamiz
@@ -850,24 +872,28 @@ def settings_view(request):
 
 @login_required(login_url='/login/')
 def client_list_view(request):
+    """"Mijozlar" bo'limi: qidiruv, filtrlar va har bir mijozning balansi."""
     shop = get_current_shop(request)
-    search_query = request.GET.get('q', '')
+    if not shop: return redirect('login_page')
 
-    clients = Client.objects.filter(shop=shop).exclude(phone=CASH_CLIENT_PHONE)  # Faqat o'z mijozlari
-
-    if search_query:
-        clients = clients.filter(
-            Q(full_name__icontains=search_query) |
-            Q(phone__icontains=search_query)
-        ).order_by('full_name')
-    else:
-        clients = clients.order_by('full_name')
+    clients = (
+        Client.objects.filter(shop=shop)
+        .exclude(phone=CASH_CLIENT_PHONE)
+        .annotate(
+            bal_uzs=Sum('debt__amount_uzs', filter=Q(debt__status='confirmed')),
+            bal_usd=Sum('debt__amount_usd', filter=Q(debt__status='confirmed')),
+            pending_count=Count('debt', filter=Q(debt__status='pending')),
+        )
+        .order_by('full_name')
+    )
 
     return render(request, 'client_list.html', {
         'clients': clients,
-        'search_query': search_query,
-        'back_url': 'settings'
+        'search_query': request.GET.get('q', ''),
+        'active_filter': request.GET.get('filter', 'all'),
+        'back_url': 'main_menu',
     })
+
 
 @login_required(login_url='/login/')
 def client_form_view(request, client_id=None):
@@ -876,47 +902,58 @@ def client_form_view(request, client_id=None):
     if client_id:
         client = get_object_or_404(Client, id=client_id, shop=shop)
 
-    if request.method == 'POST':
-        full_name = request.POST.get('full_name')
-        phone = request.POST.get('phone', '').replace(' ', '')
+    # Tahrirlashda orqaga - mijoz sahifasiga, yangi mijozda - ro'yxatga
+    back = {'back_href': reverse('admin_client_detail', args=[client.id])} if client else {'back_url': 'client_list'}
 
-        if full_name and phone:
+    if request.method == 'POST':
+        full_name = (request.POST.get('full_name') or '').strip()
+        raw_phone = request.POST.get('phone', '')
+        phone = clean_phone_number(raw_phone)
+
+        error = None
+        if not full_name:
+            error = "Mijoz ismini kiriting."
+        elif not phone:
+            error = "Telefon raqam noto'g'ri. Masalan: +998 90 123 45 67"
+        else:
             # Unikallikni faqat SHU DO'KON ichida tekshiramiz
             duplicates = Client.objects.filter(shop=shop, phone=phone)
             if client:
                 duplicates = duplicates.exclude(id=client.id)
             if duplicates.exists():
-                messages.error(request, f"Xatolik! Bu raqam do'koningizda mavjud.")
-                return render(request, 'client_form.html',
-                              {'client': {'full_name': full_name, 'phone': phone}, 'back_url': 'client_list'})
+                error = "Bu raqamli mijoz do'koningizda allaqachon bor."
 
-            if client:
-                client.full_name = full_name
-                client.phone = phone
-                client.save()
-                messages.success(request, "Mijoz yangilandi!")
-            else:
-                Client.objects.create(shop=shop, full_name=full_name, phone=phone)
-                messages.success(request, "Yangi mijoz qo'shildi!")
+        if error:
+            messages.error(request, error)
+            form_data = {'full_name': full_name, 'phone': raw_phone}
+            return render(request, 'client_form.html', {'client': client, 'form': form_data, **back})
 
-            return redirect('client_list')
+        if client:
+            client.full_name = full_name
+            client.phone = phone
+            client.save()
+            messages.success(request, "Mijoz yangilandi!")
+        else:
+            client = Client.objects.create(shop=shop, full_name=full_name, phone=phone)
+            messages.success(request, "Yangi mijoz qo'shildi! Endi uni botga taklif qilishingiz mumkin.")
 
-    return render(request, 'client_form.html', {
-        'client': client,
-        'back_url': 'client_list'
-    })
+        return redirect('admin_client_detail', client_id=client.id)
 
-@login_required(login_url='/login/')
+    return render(request, 'client_form.html', {'client': client, **back})
+
+
+@shop_admin_required
 def client_reset_telegram_view(request, client_id):
-    client = get_object_or_404(Client, id=client_id)
-    # Telegram ID ni o'chiramiz va Yangi Token beramiz
+    shop = get_current_shop(request)
+    client = get_object_or_404(Client, id=client_id, shop=shop)
+    # Telegram ID ni o'chiramiz va yangi taklif havolasi beramiz
     client.telegram_id = None
-    import uuid
-    client.invite_token = uuid.uuid4()  # Yangi ssilka bo'lishi uchun
+    client.invite_token = uuid.uuid4()
     client.save()
 
-    messages.warning(request, "Telegram bog'lanishi uzildi. Yangi ssilka yuboring!")
-    return redirect('client_edit', client_id=client.id)
+    messages.warning(request, "Telegram bog'lanishi uzildi. Mijozga yangi havola yuboring!")
+    return redirect('admin_client_detail', client_id=client.id)
+
 
 @login_required(login_url='/login/')
 def reports_view(request):

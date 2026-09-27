@@ -2,17 +2,21 @@
 {% load custom_filters %}
 {% block matn %}
 
-<div class="d-flex align-items-center mb-4 pt-2">
-    <div class="text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow"
-        style="width: 54px; height: 54px; font-size: 24px;">
-        {{ client.full_name|slice:":1" }}
+<div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
+    <div class="rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm flex-shrink-0"
+        style="width: 46px; height: 46px; font-size: 20px; background: var(--primary-gradient); color: #fff; -webkit-text-fill-color: #fff;">
+        {{ client.full_name|slice:":1"|upper }}
     </div>
-    <div>
-        <h5 class="fw-bold m-0">{{ client.full_name }}</h5>
-        <a href="tel:{{ client.phone }}" class="text-decoration-none text-muted small">
+    <div style="min-width: 0;">
+        <h5 class="fw-bold m-0 text-truncate">{{ client.full_name }}</h5>
+        <a href="tel:{{ client.phone }}" class="text-decoration-none small" style="color: var(--tg-hint); -webkit-text-fill-color: var(--tg-hint);">
             <i class="fa-solid fa-phone"></i> {{ client.phone }}
         </a>
     </div>
+    <a href="{% url 'client_edit' client.id %}" class="btn btn-sm btn-light rounded-circle ms-auto flex-shrink-0"
+       style="width: 36px; height: 36px; -webkit-text-fill-color: initial;" aria-label="Tahrirlash" title="Tahrirlash">
+        <i class="fa-solid fa-pen"></i>
+    </a>
 </div>
 
 {% endblock %}
@@ -40,19 +44,42 @@
     </div>
 </div>
 
-<div class="row g-2 mb-4">
+<div class="row g-2 mb-3">
     <div class="col-6">
         <a href="{% url 'create_debt' %}?client_id={{ client.id }}"
             class="btn btn-outline-primary w-100 py-2 border-2 fw-bold" style="border-radius: 12px;">
-            <i class="fa-solid fa-plus"></i> Sotuv
+            <i class="fa-solid fa-cart-plus"></i> Savdo
         </a>
     </div>
     <div class="col-6">
         <a href="{% url 'create_payment' %}?client_id={{ client.id }}"
             class="btn btn-outline-success w-100 py-2 border-2 fw-bold" style="border-radius: 12px;">
-            <i class="fa-solid fa-money-bill-wave"></i> Pul Olish
+            <i class="fa-solid fa-hand-holding-dollar"></i> To'lov olish
         </a>
     </div>
+</div>
+
+<!-- Telegram holati -->
+<div class="d-flex align-items-center justify-content-between gap-2 mb-4 p-3 rounded-3"
+     style="background: var(--tg-secondary); box-shadow: var(--card-shadow);">
+    {% if client.telegram_id %}
+        <div class="small fw-bold text-success"><i class="fa-brands fa-telegram"></i> Botga ulangan</div>
+        {% if is_shop_admin %}
+        <a href="{% url 'client_reset_tg' client.id %}" class="btn btn-sm btn-outline-danger"
+           onclick="return confirm('Telegram bog\'lanishini uzasizmi? Mijoz yangi havola orqali qayta ulanishi kerak bo\'ladi.')">
+            <i class="fa-solid fa-link-slash"></i> Uzish
+        </a>
+        {% endif %}
+    {% else %}
+        <div class="small">
+            <div class="fw-bold"><i class="fa-solid fa-triangle-exclamation" style="color:#e0a800"></i> Botga ulanmagan</div>
+            <div style="color: var(--tg-hint);">Nasiyalarni tasdiqlashi uchun havola yuboring</div>
+        </div>
+        <a href="https://t.me/share/url?url={{ 'https://t.me/QarzDaptarBot?start='|urlencode }}{{ client.invite_token }}&text={{ "Assalomu alaykum! Do'konimizdagi hisobingizni ko'rish uchun havolani bosing 👆"|urlencode }}"
+           target="_blank" class="btn btn-sm btn-primary fw-bold flex-shrink-0">
+            <i class="fa-brands fa-telegram"></i> Taklif qilish
+        </a>
+    {% endif %}
 </div>
 
 <h6 class="fw-bold mb-3 ps-1 text-muted text-dark">Operatsiyalar tarixi</h6>
@@ -109,26 +136,32 @@
                     {% endif %}
                 </div>
 
+                {% if is_shop_admin %}
                 <a href="{% url 'manage_debt' debt.uuid 'delete' %}"
                     class="btn btn-sm btn-light text-danger border shadow-none rounded-circle"
                     style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
                     onclick="return confirm('⚠️ DIQQAT!\n\nBu yozuvni o\'chirib tashlamoqchimisiz?\nBu amal balansga ta\'sir qiladi va ortga qaytarib bo\'lmaydi!')">
                     <i class="fa-solid fa-trash-can" style="font-size: 0.8rem;"></i>
                 </a>
+                {% endif %}
 
             </div>
         </div>
 
         {% if debt.status == 'pending' or debt.status == 'rejected' %}
         <div class="border-top mt-2 pt-2 d-flex justify-content-end gap-2">
+            {% if debt.status == 'pending' and client.telegram_id %}
             <a href="{% url 'manage_debt' debt.uuid 'resend' %}" class="btn btn-sm btn-outline-primary py-0"
                 style="font-size: 0.8rem;">
                 <i class="fa-regular fa-paper-plane"></i> Qayta yuborish
             </a>
+            {% endif %}
+            {% if is_shop_admin %}
             <a href="{% url 'manage_debt' debt.uuid 'force_confirm' %}" class="btn btn-sm btn-success text-white py-0"
                 style="font-size: 0.8rem;" onclick="return confirm('Tasdiqlaysizmi?')">
                 <i class="fa-solid fa-check"></i> Tasdiqlash
             </a>
+            {% endif %}
         </div>
         {% endif %}
 

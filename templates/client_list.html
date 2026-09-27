@@ -1,44 +1,166 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block matn %}
     <h4 class="fw-bold ps-1 m-0"><i class="fa-solid fa-users"></i> Mijozlar</h4>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<style>
+    .filter-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .filter-chips::-webkit-scrollbar { display: none; }
+    .chip {
+        flex-shrink: 0;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background: var(--tg-secondary);
+        color: var(--tg-text);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .chip.active { background: var(--tg-button); border-color: var(--tg-button); color: #fff; }
+    .chip .count { opacity: 0.7; margin-left: 4px; }
+    .client-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        margin-bottom: 8px;
+        background: var(--tg-secondary);
+        color: var(--tg-text);
+        border-radius: 14px;
+        box-shadow: var(--card-shadow);
+        text-decoration: none;
+    }
+    .client-row:active { transform: scale(0.99); }
+    .client-row small { color: var(--tg-hint); }
+</style>
 
+<div class="position-relative mb-3">
+    <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 16px; top: 50%; transform: translateY(-50%); color: var(--tg-hint);"></i>
+    <input type="search" id="clientSearch" class="form-control ps-5" placeholder="Ism yoki telefon..."
+           value="{{ search_query }}" autocomplete="off">
 </div>
 
-<form method="GET" class="mb-3">
-    <div class="input-group">
-        <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-search text-muted"></i></span>
-        <input type="text" name="q" class="form-control border-start-0" placeholder="Ism yoki telefon..." value="{{ search_query }}">
+<div class="d-flex justify-content-between align-items-center mb-3 gap-2">
+    <div class="filter-chips" id="filterChips">
+        <button type="button" class="chip" data-filter="all">Hammasi<span class="count" data-count="all"></span></button>
+        <button type="button" class="chip" data-filter="debtor">Qarzdorlar<span class="count" data-count="debtor"></span></button>
+        <button type="button" class="chip" data-filter="pending">Kutilmoqda<span class="count" data-count="pending"></span></button>
+        <button type="button" class="chip" data-filter="notg">Botga ulanmagan<span class="count" data-count="notg"></span></button>
     </div>
-</form>
+    <select id="sortSelect" class="form-select form-select-sm w-auto flex-shrink-0" style="padding: 6px 28px 6px 10px;" aria-label="Saralash">
+        <option value="name">A-Z</option>
+        <option value="debt">Qarz ↓</option>
+    </select>
+</div>
 
-<div class="pb-5">
+<div class="pb-5" id="clientRows">
     {% for client in clients %}
-    <div class="app-card d-flex justify-content-between align-items-center py-3 px-3 mb-2 shadow-sm bg-white rounded-3 border-0 text-dark"
-         style="cursor: pointer;"
-         onclick="location.href='{% url 'client_edit' client.id %}'">
-        <div>
-            <h6 class="fw-bold mb-0 text-dark">{{ client.full_name }}</h6>
-            <small class="text-muted text-dark">{{ client.phone }}</small>
+    <a href="{% url 'admin_client_detail' client.id %}" class="client-row"
+       data-name="{{ client.full_name|lower }}" data-phone="{{ client.phone }}"
+       data-debt="{{ client.bal_uzs|default:0|stringformat:'d' }}"
+       data-debt-usd="{{ client.bal_usd|default:0|stringformat:'f' }}"
+       data-tg="{% if client.telegram_id %}1{% else %}0{% endif %}"
+       data-pending="{{ client.pending_count }}">
+        <div class="min-w-0">
+            <div class="fw-bold text-truncate">
+                {{ client.full_name }}
+                {% if client.telegram_id %}<i class="fa-brands fa-telegram text-primary small"></i>{% endif %}
+            </div>
+            <small>{{ client.phone }}
+                {% if client.pending_count %}<span class="badge bg-warning text-dark ms-1">{{ client.pending_count }} kutilmoqda</span>{% endif %}
+            </small>
         </div>
-
-        <div class="d-flex align-items-center">
-            {% if client.telegram_id %}
-                <span class="badge bg-success bg-opacity-10 text-success me-2 text-dark"><i class="fa-brands fa-telegram text-dark"></i> Ulangan</span>
-            {% else %}
-                <span class="badge bg-secondary bg-opacity-10 text-muted me-2 text-dark"><i class="fa-solid fa-link-slash text-dark"></i> Yo'q</span>
-            {% endif %}
-            
-            <i class="fa-solid fa-chevron-right text-muted small"></i>
+        <div class="text-end fw-bold small flex-shrink-0">
+            {% if client.bal_uzs and client.bal_uzs > 0 %}<div class="text-danger">{{ client.bal_uzs|space_format }} so'm</div>{% endif %}
+            {% if client.bal_usd and client.bal_usd > 0 %}<div class="text-danger">${{ client.bal_usd|floatformat:2 }}</div>{% endif %}
+            {% if client.bal_uzs and client.bal_uzs < 0 %}<div class="text-success">+{{ client.bal_uzs|stringformat:"d"|cut:"-"|space_format }} so'm</div>{% endif %}
+            {% if client.bal_usd and client.bal_usd < 0 %}<div class="text-success">+${{ client.bal_usd|floatformat:2|cut:"-" }}</div>{% endif %}
+            {% if not client.bal_uzs and not client.bal_usd %}<small>Hisob toza</small>{% endif %}
         </div>
-
-    </div>
-    {% empty %}
-        <p class="text-center text-muted mt-5 text-dark">Mijozlar topilmadi</p>
+    </a>
     {% endfor %}
+    <div id="emptyState" class="text-center py-5 {% if clients %}d-none{% endif %}" style="color: var(--tg-hint);">
+        <i class="fa-solid fa-users-slash fa-2x mb-3 opacity-50"></i>
+        <p class="mb-2">{% if clients %}Mijoz topilmadi{% else %}Hali mijozlar yo'q{% endif %}</p>
+        <a href="{% url 'client_add' %}" class="btn btn-sm btn-primary rounded-pill">
+            <i class="fa-solid fa-user-plus"></i> Mijoz qo'shish
+        </a>
+    </div>
 </div>
+
+<a href="{% url 'client_add' %}" class="btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center"
+   style="position: fixed; bottom: 24px; right: 20px; width: 58px; height: 58px; font-size: 22px; z-index: 100;"
+   aria-label="Mijoz qo'shish">
+    <i class="fa-solid fa-user-plus"></i>
+</a>
+<style>.min-w-0 { min-width: 0; }</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        const rows = Array.from(document.querySelectorAll('.client-row'));
+        const container = document.getElementById('clientRows');
+        const search = document.getElementById('clientSearch');
+        const sortSelect = document.getElementById('sortSelect');
+        const emptyState = document.getElementById('emptyState');
+        let activeFilter = "{{ active_filter|escapejs }}" || 'all';
+
+        const tests = {
+            all: () => true,
+            debtor: r => +r.dataset.debt > 0 || parseFloat(r.dataset.debtUsd) > 0,
+            pending: r => +r.dataset.pending > 0,
+            notg: r => r.dataset.tg === '0',
+        };
+
+        if (!tests[activeFilter]) activeFilter = 'all';
+
+        // Filtrlar yonidagi sonlar
+        Object.keys(tests).forEach(key => {
+            const n = rows.filter(tests[key]).length;
+            const el = document.querySelector(`[data-count="${key}"]`);
+            if (el) el.textContent = n;
+        });
+
+        function apply() {
+            const q = search.value.trim().toLowerCase();
+            const qDigits = q.replace(/\D/g, '');
+            let visible = 0;
+            rows.forEach(r => {
+                const matchText = !q || r.dataset.name.includes(q) ||
+                    (qDigits.length >= 2 && r.dataset.phone.replace(/\D/g, '').includes(qDigits));
+                const show = matchText && tests[activeFilter](r);
+                r.classList.toggle('d-none', !show);
+                if (show) visible++;
+            });
+            emptyState.classList.toggle('d-none', visible > 0);
+            document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === activeFilter));
+        }
+
+        function sort() {
+            const byDebt = sortSelect.value === 'debt';
+            rows.sort((a, b) => byDebt
+                ? (+b.dataset.debt - +a.dataset.debt) || (parseFloat(b.dataset.debtUsd) - parseFloat(a.dataset.debtUsd))
+                : a.dataset.name.localeCompare(b.dataset.name));
+            rows.forEach(r => container.insertBefore(r, emptyState));
+        }
+
+        document.getElementById('filterChips').addEventListener('click', e => {
+            const chip = e.target.closest('.chip');
+            if (!chip) return;
+            activeFilter = chip.dataset.filter;
+            apply();
+        });
+        search.addEventListener('input', apply);
+        sortSelect.addEventListener('change', () => { sort(); apply(); });
+
+        if (activeFilter === 'debtor') sortSelect.value = 'debt';
+        sort();
+        apply();
+    })();
+</script>
 {% endblock %}
