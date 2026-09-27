@@ -1,0 +1,205 @@
+{% comment %}
+Mijoz tanlash komponenti (qidiruv + ro'yxat).
+Parametrlar:
+  picker_clients  - [{id, name, phone, tg, bal_uzs, bal_usd}, ...]
+  selected_client_id - oldindan tanlangan mijoz ID si (ixtiyoriy)
+  field_name      - yashirin input nomi ("client" yoki "client_id")
+  allow_add       - "Yangi mijoz" tugmasini ko'rsatish
+Tanlov o'zgarganda document ga "client-selected" hodisasi yuboriladi
+(detail: mijoz obyekti yoki null).
+{% endcomment %}
+{{ picker_clients|json_script:"pickerClientsData" }}
+
+<div class="client-picker position-relative" id="clientPicker">
+    <div class="input-group">
+        <span class="input-group-text picker-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="text" id="clientSearch" class="form-control form-control-lg fw-bold"
+               placeholder="Ism yoki telefon..." autocomplete="off" enterkeyhint="done">
+        <button type="button" class="btn picker-clear d-none" id="clientClear" aria-label="Tozalash">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        {% if allow_add %}
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal"
+                data-bs-target="#addClientModal" aria-label="Yangi mijoz">
+            <i class="fa-solid fa-user-plus"></i>
+        </button>
+        {% endif %}
+    </div>
+    <input type="hidden" name="{{ field_name }}" id="hiddenClientId" value="{{ selected_client_id|default:'' }}">
+    <div id="clientResults" class="picker-results d-none" role="listbox"></div>
+    <div id="clientError" class="picker-error d-none">
+        <i class="fa-solid fa-circle-exclamation"></i> Ro'yxatdan mijozni tanlang
+    </div>
+</div>
+
+<style>
+    .picker-icon, .picker-clear {
+        background: var(--tg-bg);
+        color: var(--tg-hint);
+        border: 2px solid rgba(0, 0, 0, 0.06);
+    }
+    .picker-results {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        z-index: 50;
+        max-height: 280px;
+        overflow-y: auto;
+        background: var(--tg-secondary);
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    .picker-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        color: var(--tg-text);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .picker-item:last-child { border-bottom: none; }
+    .picker-item:active, .picker-item.active { background: rgba(51, 144, 236, 0.12); }
+    .picker-item small { color: var(--tg-hint); }
+    .picker-empty { padding: 12px 14px; color: var(--tg-hint); font-size: 0.9rem; }
+    .picker-error { color: #dc3545; font-size: 0.85rem; margin-top: 6px; font-weight: 600; }
+    .picker-invalid { border-color: #dc3545 !important; }
+</style>
+
+<script>
+window.clientPicker = (function () {
+    const clients = JSON.parse(document.getElementById('pickerClientsData').textContent);
+    const search = document.getElementById('clientSearch');
+    const hidden = document.getElementById('hiddenClientId');
+    const results = document.getElementById('clientResults');
+    const clearBtn = document.getElementById('clientClear');
+    const errorBox = document.getElementById('clientError');
+    let selected = null;
+    let activeIndex = 0;
+
+    const fmt = n => Math.round(Math.abs(n)).toLocaleString('ru-RU').replace(/,/g, ' ');
+    const label = c => `${c.name} (${c.phone})`;
+    const digits = s => s.replace(/\D/g, '');
+
+    function balanceHtml(c) {
+        const parts = [];
+        if (c.bal_uzs > 0) parts.push(`<span class="text-danger">${fmt(c.bal_uzs)} so'm</span>`);
+        if (c.bal_usd > 0) parts.push(`<span class="text-danger">$${Math.abs(c.bal_usd).toFixed(2)}</span>`);
+        if (c.bal_uzs < 0) parts.push(`<span class="text-success">+${fmt(c.bal_uzs)} so'm</span>`);
+        if (c.bal_usd < 0) parts.push(`<span class="text-success">+$${Math.abs(c.bal_usd).toFixed(2)}</span>`);
+        return parts.length ? parts.join('<br>') : '<small>Hisob toza</small>';
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function matches(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return clients.slice(0, 30);
+        const qDigits = digits(q);
+        return clients.filter(c =>
+            c.name.toLowerCase().includes(q) ||
+            (qDigits.length >= 2 && digits(c.phone).includes(qDigits))
+        ).slice(0, 30);
+    }
+
+    function render() {
+        const list = matches(search.value);
+        activeIndex = 0;
+        if (!list.length) {
+            results.innerHTML = '<div class="picker-empty">Mijoz topilmadi. Yangi mijoz qo\'shing.</div>';
+        } else {
+            results.innerHTML = list.map((c, i) => `
+                <div class="picker-item${i === 0 ? ' active' : ''}" data-id="${c.id}" role="option">
+                    <div class="text-truncate">
+                        <div class="fw-bold text-truncate">${escapeHtml(c.name)}
+                            ${c.tg ? '<i class="fa-brands fa-telegram text-primary"></i>' : ''}</div>
+                        <small>${escapeHtml(c.phone)}</small>
+                    </div>
+                    <div class="text-end small fw-bold flex-shrink-0">${balanceHtml(c)}</div>
+                </div>`).join('');
+        }
+        results.classList.remove('d-none');
+    }
+
+    function select(client, silent) {
+        selected = client;
+        hidden.value = client ? client.id : '';
+        search.value = client ? label(client) : '';
+        results.classList.add('d-none');
+        clearBtn.classList.toggle('d-none', !client);
+        if (client) setError(false);
+        if (!silent) document.dispatchEvent(new CustomEvent('client-selected', {detail: client}));
+    }
+
+    function selectById(id) {
+        select(clients.find(c => String(c.id) === String(id)));
+    }
+
+    function setError(show) {
+        errorBox.classList.toggle('d-none', !show);
+        search.classList.toggle('picker-invalid', show);
+    }
+
+    search.addEventListener('focus', () => { if (!selected) render(); });
+    search.addEventListener('input', () => {
+        if (selected) {
+            selected = null;
+            hidden.value = '';
+            clearBtn.classList.add('d-none');
+            document.dispatchEvent(new CustomEvent('client-selected', {detail: null}));
+        }
+        render();
+    });
+    search.addEventListener('keydown', e => {
+        const items = results.querySelectorAll('.picker-item');
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!items.length) return;
+            items[activeIndex].classList.remove('active');
+            activeIndex = (activeIndex + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length;
+            items[activeIndex].classList.add('active');
+        } else if (e.key === 'Enter') {
+            // Enter formani yubormasin, balki mijozni tanlasin
+            e.preventDefault();
+            if (items.length && !results.classList.contains('d-none')) {
+                selectById(items[activeIndex].dataset.id);
+            }
+        }
+    });
+    search.addEventListener('blur', () => {
+        results.classList.add('d-none');
+        // Yozilgan matnga aynan bitta mijoz mos kelsa - avtomatik tanlaymiz
+        if (!selected && search.value.trim()) {
+            const list = matches(search.value);
+            if (list.length === 1) select(list[0]);
+        }
+    });
+    // mousedown - blur dan oldin ishlaydi
+    results.addEventListener('mousedown', e => {
+        const item = e.target.closest('.picker-item');
+        if (!item) return;
+        e.preventDefault();
+        selectById(item.dataset.id);
+    });
+    clearBtn.addEventListener('click', () => { select(null); search.focus(); });
+
+    // Oldindan tanlangan mijoz
+    if (hidden.value) {
+        const initial = clients.find(c => String(c.id) === hidden.value);
+        if (initial) select(initial, true);
+    }
+
+    return {
+        get selected() { return selected; },
+        select: c => select(c),
+        add(client) { clients.unshift(client); select(client); },
+        setError,
+    };
+})();
+</script>

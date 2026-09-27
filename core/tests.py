@@ -125,3 +125,87 @@ class ClientAndDebtTests(TestCase):
         resp = self.client.get(reverse('client_cabinet'))
         self.assertNotContains(resp, '#232E3C')
         self.assertContains(resp, 'var(--tg-secondary)')
+
+
+class ParseAmountTests(TestCase):
+    def test_formats(self):
+        from .utils import parse_amount
+        self.assertEqual(parse_amount('1 500 000'), 1500000)
+        self.assertEqual(parse_amount('1,500,000'), 1500000)
+        self.assertEqual(parse_amount('12,5'), 12.5)
+        self.assertEqual(parse_amount('abc'), 0)
+        self.assertEqual(parse_amount('-5'), 0)
+
+
+@mock.patch('requests.post')
+class SaleAndPaymentFormTests(TestCase):
+    def setUp(self):
+        self.user, self.shop = make_shop()
+        self.client.force_login(self.user)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
+
+    def sale(self, **extra):
+        data = {
+            'sale_mode': 'debt', 'payment_type': 'cash', 'no_tg_action': 'confirm',
+            'product_name[]': ['Shakar'], 'quantity[]': ['2'], 'price[]': ['1 500 000'], 'currency[]': ['uzs'],
+        }
+        data.update(extra)
+        return self.client.post(reverse('create_debt'), data)
+
+    def test_formatted_price_is_parsed(self, _post):
+        self.sale(client=self.vali.id)
+        self.assertEqual(Debt.objects.get(client=self.vali).amount_uzs, 3000000)
+
+    def test_missing_client_keeps_entered_items(self, _post):
+        resp = self.sale(client='')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "mijozni tanlang")
+        self.assertContains(resp, 'Shakar')  # prefill JSON ichida
+        self.assertFalse(Debt.objects.exists())
+
+    def test_sale_without_items_is_rejected(self, _post):
+        resp = self.sale(client=self.vali.id, **{'price[]': ['']})
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Debt.objects.exists())
+
+    def test_cash_sale_is_separate_from_credit_stats(self, _post):
+        from .views import shop_stats
+        self.sale(sale_mode='cash', payment_type='transfer')
+        self.sale(client=self.vali.id)
+        stats = shop_stats(self.shop)
+        self.assertEqual(stats['sales_uzs'], 3000000)   # faqat nasiya
+        self.assertEqual(stats['income_uzs'], 0)
+        self.assertEqual(stats['cash_uzs'], 3000000)
+        self.assertEqual(stats['cash_count'], 1)
+        self.assertTrue(Debt.objects.filter(is_cash_sale=True, payment_method='transfer').exists())
+
+    def test_cash_client_hidden_from_lists(self, _post):
+        self.sale(sale_mode='cash')
+        resp = self.client.get(reverse('create_payment'))
+        self.assertNotContains(resp, 'Naqd Savdo (Kassa)')
+        resp = self.client.get(reverse('dashboard'))
+        self.assertNotContains(resp, 'Naqd Savdo (Kassa)')
+
+    def test_payment_with_formatted_amount(self, _post):
+        resp = self.client.post(reverse('create_payment'), {
+            'client_id': self.vali.id, 'amount_uzs': '250 000', 'payment_method': 'transfer', 'note': 'avans',
+        })
+        self.assertRedirects(resp, reverse('admin_client_detail', args=[self.vali.id]))
+        payment = Debt.objects.get(client=self.vali)
+        self.assertEqual(payment.amount_uzs, -250000)
+        self.assertEqual(payment.payment_method, 'transfer')
+        self.assertIn('avans', payment.items)
+
+    def test_payment_error_keeps_input(self, _post):
+        resp = self.client.post(reverse('create_payment'), {'client_id': '', 'amount_uzs': '250 000'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '250 000')
+        self.assertFalse(Debt.objects.exists())
+
+    def test_mark_cash_sales_command(self, _post):
+        from django.core.management import call_command
+        sale = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=100, items='Non', status='confirmed')
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=-100, transaction_type='payment',
+                            items=f"To'lov: Non (ID: {sale.id})", status='confirmed')
+        call_command('mark_cash_sales', stdout=mock.Mock())
+        self.assertEqual(Debt.objects.filter(is_cash_sale=True).count(), 2)

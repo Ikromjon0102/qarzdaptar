@@ -53,6 +53,11 @@ class UserProfile(models.Model):
         return f"{self.user.username} - {self.shop.name}"
 
 
+# Naqd savdolar yoziladigan texnik "Kassa" mijozining telefoni.
+# U mijozlar ro'yxatlarida ko'rsatilmaydi.
+CASH_CLIENT_PHONE = '000000000'
+
+
 # --- 3. MIJOZ ---
 class Client(models.Model):
     # Har bir mijoz qaysidir do'konga tegishli bo'lishi shart
@@ -116,7 +121,7 @@ class Debt(models.Model):
         ('cash', 'Naqd'),
         ('card', 'Plastik (Humo/Uzcard)'),
         ('click', 'Click / Payme'),
-        ('transfer', 'Perechislenie'),
+        ('transfer', "O'tkazma (Perechislenie)"),
     )
     payment_method = models.CharField(
         max_length=20,
@@ -126,6 +131,8 @@ class Debt(models.Model):
         verbose_name="To'lov turi"
     )
     transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='debt')
+    # Naqd savdo (sotuv + darhol to'lov juftligi). Nasiya statistikasiga qo'shilmaydi.
+    is_cash_sale = models.BooleanField(default=False, verbose_name="Naqd savdo")
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     amount_uzs = models.DecimalField(max_digits=15, decimal_places=0, default=0, verbose_name="So'm qismi")
     amount_usd = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Dollar qismi")

@@ -1,0 +1,37 @@
+<script>
+// Pul maydonlari: yozish paytida "1 500 000" ko'rinishida formatlanadi.
+// Server probel va vergulni o'zi tozalaydi (core.utils.parse_amount).
+window.moneyInput = (function () {
+    function format(raw) {
+        let s = raw.replace(/[^\d.,]/g, '').replace(',', '.');
+        const dot = s.indexOf('.');
+        let intPart = dot === -1 ? s : s.slice(0, dot);
+        let frac = dot === -1 ? null : s.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+        intPart = intPart.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return frac === null ? intPart : `${intPart || '0'}.${frac}`;
+    }
+
+    function bind(input) {
+        input.addEventListener('input', () => {
+            // Kursor o'rnini oxiridan hisoblab saqlaymiz
+            const fromEnd = input.value.length - (input.selectionEnd || 0);
+            input.value = format(input.value);
+            const pos = Math.max(0, input.value.length - fromEnd);
+            input.setSelectionRange(pos, pos);
+        });
+    }
+
+    function value(input) {
+        return parseFloat((input.value || '').replace(/\s/g, '')) || 0;
+    }
+
+    function bindAll(root) {
+        (root || document).querySelectorAll('input.money-input:not([data-money-bound])').forEach(el => {
+            el.dataset.moneyBound = '1';
+            bind(el);
+        });
+    }
+
+    return {bindAll, value, format};
+})();
+</script>
