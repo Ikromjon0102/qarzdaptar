@@ -1,103 +1,122 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
+{% block header %}{% endblock %}
+
 {% block content %}
-<div class="d-flex flex-column align-items-center justify-content-center min-vh-75 mt-4">
+<div class="pt-3 has-action-bar">
 
-    <div class="receipt-card w-100 position-relative bg-white p-4 shadow-sm">
-        <div class="receipt-top-circles"></div>
-
-        <div class="text-center mb-3">
-            <i class="fa-solid fa-store fa-2x text-primary mb-2"></i>
-            <h5 class="fw-bold text-uppercase">Mahsulotlar</h5>
-            <p class="text-muted small text-dark">{{ debt.created_at|date:"d.m.Y H:i" }}</p>
-        </div>
-
-        <hr class="dashed-line">
-
-        <div class="items-list mb-3">
-            <div class="d-flex justify-content-between mb-1">
-                <span class="fw-bold text-dark">{{ debt.items }}</span>
-            </div>
-        </div>
-
-        <hr class="dashed-line">
-
-        <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="text-muted fs-5 text-dark">Jami summa:</span>
-            <div class="text-end">
-                {% if debt.amount_uzs > 0 %}
-                <div class="fs-2 fw-bold text-dark">{{ debt.amount_uzs|space_format }} so'm</div>
-                {% endif %}
-
-                {% if debt.amount_usd > 0 %}
-                <div class="fs-2 fw-bold text-success">${{ debt.amount_usd|space_format }}</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="alert alert-warning mt-3 small text-center text-warning">
-            <i class="fa-solid fa-triangle-exclamation text-warning"></i>
-            Tasdiqlash tugmasini bosishingiz bilan ushbu summa sizning balansingizga qarz bo'lib yoziladi.
-        </div>
+<div class="text-center mb-3">
+    <div class="row-icon blue mx-auto mb-2" style="width: 56px; height: 56px; border-radius: 16px; font-size: 24px;">
+        <i class="fa-solid fa-store"></i>
     </div>
+    <div class="fw-bold" style="font-size: 18px;">{{ debt.shop.name }}</div>
+    <div class="small text-muted">Yangi nasiya · {{ debt.created_at|date:"d.m.Y H:i" }}</div>
+</div>
 
-    <form method="POST" class="w-100 mt-4 d-grid gap-2">
-        {% csrf_token %}
-        <button type="submit" name="action" value="confirm" class="btn btn-success btn-lg py-3 rounded-4 shadow">
-            <i class="fa-solid fa-check-circle"></i> TASDIQLAYMAN
-        </button>
+<!-- Summa -->
+<div class="app-card text-center" style="padding: 20px;">
+    <div class="small text-muted">Jami summa</div>
+    {% if debt.amount_uzs %}<div class="fw-bold" style="font-size: 32px; line-height: 1.2;">{{ debt.amount_uzs|space_format }} <span style="font-size: 18px;">so'm</span></div>{% endif %}
+    {% if debt.amount_usd %}<div class="fw-bold" style="font-size: {% if debt.amount_uzs %}20px{% else %}32px{% endif %};">${{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
+</div>
 
-        <button type="submit" name="action" value="reject" class="btn btn-outline-danger py-3 rounded-4">
-            <i class="fa-solid fa-xmark"></i> Rad etaman
-        </button>
-    </form>
+<!-- Tovarlar -->
+<div class="section-title">Tovarlar</div>
+<div class="list-group-app">
+    {% for line in item_lines %}
+    <div class="list-row">
+        <span class="row-icon gray" style="width: 32px; height: 32px; font-size: 13px;">{{ forloop.counter }}</span>
+        <div class="row-main" style="white-space: normal;">{{ line }}</div>
+    </div>
+    {% empty %}
+    <div class="list-row"><div class="row-main text-muted">Tovarlar ko'rsatilmagan</div></div>
+    {% endfor %}
+</div>
+
+<!-- Qarz qanday o'zgaradi -->
+<div class="section-title">Qarzingiz</div>
+<div class="list-group-app">
+    <div class="list-row">
+        <div class="row-main"><div class="row-sub">Hozir</div></div>
+        <div class="row-end small">{{ balance_now }}</div>
+    </div>
+    <div class="list-row">
+        <div class="row-main"><div class="row-sub">Tasdiqlasangiz</div></div>
+        <div class="row-end small text-danger">{{ balance_after }}</div>
+    </div>
+</div>
+
+<p class="small text-muted text-center mt-3 px-3">
+    Summa yoki tovarlar noto'g'ri bo'lsa, «Rad etish»ni bosing — do'konga xabar boradi.
+</p>
 
 </div>
 
+<!-- Pastki panel -->
+<form method="POST" id="decisionForm">
+    {% csrf_token %}
+    <input type="hidden" name="reason" id="rejectReason">
+    <div class="action-bar">
+        <div class="inner d-flex gap-2">
+            <button type="button" class="btn btn-outline-danger py-3 flex-fill" data-bs-toggle="modal" data-bs-target="#rejectSheet">
+                Rad etish
+            </button>
+            <button type="submit" name="action" value="confirm" class="btn btn-success py-3 flex-fill" style="flex-grow: 2 !important;">
+                <i class="fa-solid fa-check"></i> Tasdiqlayman
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- Rad etish oynasi -->
+<div class="modal fade" id="rejectSheet" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog sheet">
+        <div class="modal-content">
+            <div class="modal-body p-4">
+                <div class="sheet-handle"></div>
+                <div class="fw-bold mb-1" style="font-size: 18px;">Nasiyani rad etasizmi?</div>
+                <div class="small text-muted mb-3">Sababini yozsangiz, do'kon tezroq tuzatadi (ixtiyoriy).</div>
+                <textarea class="form-control mb-3" id="reasonInput" rows="3" maxlength="200"
+                          placeholder="Masalan: summa noto'g'ri, bu tovarni olmaganman..."></textarea>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-danger py-3" id="rejectConfirm">Rad etish</button>
+                    <button type="button" class="btn" style="background: var(--tg-bg); color: var(--tg-text);" data-bs-dismiss="modal">Bekor qilish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
-    body {
-        background-color: #eee;
-        /* Orqa fon ajralib turishi uchun */
+    .modal-dialog.sheet {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        margin: 0 auto; max-width: 560px; width: 100%;
+        transform: translateY(100%); transition: transform 0.25s ease-out;
     }
-
-    .receipt-card {
-        border-radius: 0;
-        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-        /* Zigzag uchun joy */
-        background: #fff;
-    }
-
-    /* Chekning tepadagi teshikchalari (visual effect) */
-    .receipt-card::before {
-        content: "";
-        position: absolute;
-        top: -10px;
-        left: 0;
-        width: 100%;
-        height: 20px;
-        background: radial-gradient(circle, #eee 6px, transparent 7px);
-        background-size: 20px 20px;
-        background-position: bottom;
-    }
-
-    /* Chek pastki qismi zig-zag */
-    .receipt-card::after {
-        content: "";
-        position: absolute;
-        bottom: -10px;
-        left: 0;
-        width: 100%;
-        height: 20px;
-        background: linear-gradient(45deg, transparent 33.333%, #fff 33.333%, #fff 66.667%, transparent 66.667%),
-            linear-gradient(-45deg, transparent 33.333%, #fff 33.333%, #fff 66.667%, transparent 66.667%);
-        background-size: 20px 40px;
-        background-position: 0 -20px;
-    }
-
-    .dashed-line {
-        border: none;
-        border-top: 2px dashed #ccc;
-    }
+    .modal.show .modal-dialog.sheet { transform: none; }
+    .sheet .modal-content { border-radius: 20px 20px 0 0; border: none; padding-bottom: env(safe-area-inset-bottom); }
+    .sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: -8px auto 16px; }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const form = document.getElementById('decisionForm');
+
+    document.getElementById('rejectConfirm').addEventListener('click', () => {
+        document.getElementById('rejectReason').value = document.getElementById('reasonInput').value;
+        const action = document.createElement('input');
+        action.type = 'hidden';
+        action.name = 'action';
+        action.value = 'reject';
+        form.appendChild(action);
+        form.submit();
+    });
+
+    // Ikki marta bosishdan himoya (setTimeout: bosilgan tugma qiymati yuborilib bo'lgandan keyin)
+    form.addEventListener('submit', () => {
+        setTimeout(() => form.querySelectorAll('button').forEach(b => b.disabled = true), 0);
+    });
+</script>
 {% endblock %}

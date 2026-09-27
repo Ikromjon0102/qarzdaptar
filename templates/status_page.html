@@ -1,16 +1,35 @@
 {% extends 'base.html' %}
 
+{% block header %}{% endblock %}
+
 {% block content %}
-<div class="d-flex flex-column align-items-center justify-content-center" style="height: 80vh;">
+<div class="d-flex flex-column align-items-center justify-content-center text-center px-3" style="min-height: 80vh;">
 
-    <i class="fa-solid {{ icon }} fa-5x {{ color }} mb-4 animate__animated animate__bounceIn"></i>
+    <i class="fa-solid {{ icon }} {{ color }} mb-4" style="font-size: 72px;"></i>
 
-    <h2 class="fw-bold mb-3">{{ title }}</h2>
-    <p class="text-muted text-center px-4">{{ message }}</p>
+    <h2 class="fw-bold mb-2" style="font-size: 24px;">{{ title }}</h2>
+    <p class="text-muted mb-4" style="max-width: 360px;">{{ message|linebreaksbr }}</p>
 
-    <a href="#" onclick="window.Telegram.WebApp.close()" class="btn btn-secondary mt-4 rounded-pill px-4">
-        Yopish
-    </a>
-
+    <div class="d-grid gap-2 w-100" style="max-width: 360px;">
+        {% if cabinet_url %}
+        <a href="{{ cabinet_url }}" class="btn btn-primary py-3">
+            <i class="fa-solid fa-wallet"></i> Hisobimni ko'rish
+        </a>
+        {% endif %}
+        <button type="button" class="btn py-3 d-none" id="closeBtn"
+                style="background: var(--tg-secondary); color: var(--tg-text);"
+                onclick="window.Telegram.WebApp.close()">
+            Yopish
+        </button>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // "Yopish" faqat Telegram ichida ma'noga ega
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) {
+        document.getElementById('closeBtn').classList.remove('d-none');
+    }
+</script>
 {% endblock %}

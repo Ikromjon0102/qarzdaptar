@@ -454,42 +454,88 @@ def manage_debt_view(request, debt_uuid, action):
     # Ish bitgach, yana mijoz profiliga qaytamiz
     return redirect('admin_client_detail', client_id=debt.client.id)
 
+def amount_text(amount_uzs, amount_usd):
+    """"150 000 so'm + $20.00" (ishorasiz)"""
+    parts = []
+    if amount_uzs:
+        parts.append(f"{abs(amount_uzs):,.0f} so'm".replace(',', ' '))
+    if amount_usd:
+        parts.append(f"${abs(amount_usd):,.2f}")
+    return " + ".join(parts) or "0 so'm"
+
+
+def client_balance(client):
+    agg = Debt.objects.filter(client=client, status='confirmed').aggregate(
+        uzs=Sum('amount_uzs'), usd=Sum('amount_usd'))
+    return agg['uzs'] or 0, agg['usd'] or 0
+
+
+def notify_shop_staff(shop, text):
+    """Do'kon jamoasiga (egasi va xodimlar) Telegram xabar yuborish."""
+    ids = set(AllowedAdmin.objects.filter(shop=shop).values_list('telegram_id', flat=True))
+    if shop.owner.username.isdigit():
+        ids.add(int(shop.owner.username))
+    for chat_id in ids:
+        send_tg_msg(chat_id, text)
+
+
 def debt_detail_view(request, debt_uuid):
-    debt = get_object_or_404(Debt, uuid=debt_uuid)
-    
+    """Mijoz nasiyani ko'radi va tasdiqlaydi yoki rad etadi (bot tugmasi orqali ochiladi)."""
+    debt = get_object_or_404(Debt.objects.select_related('client', 'shop'), uuid=debt_uuid)
+    client = debt.client
+    cabinet_url = reverse('telegram_auth')  # Telegram orqali kirib, kabinetga o'tadi
+
+    if debt.status != 'pending':
+        done = 'tasdiqlangan' if debt.status == 'confirmed' else 'rad etilgan'
+        return render(request, 'status_page.html', {
+            'title': f"Bu nasiya allaqachon {done}",
+            'message': f"{amount_text(debt.amount_uzs, debt.amount_usd)} · {debt.created_at:%d.%m.%Y}",
+            'icon': 'fa-circle-info',
+            'color': 'text-primary',
+            'cabinet_url': cabinet_url,
+        })
+
     if request.method == 'POST':
         action = request.POST.get('action')
-        
-        if debt.status != 'pending':
-            # Agar allaqachon bosib bo'lgan bo'lsa
-            return render(request, 'status_page.html', {
-                'title': 'Eskirgan havola',
-                'message': f"Bu so'rov allaqachon {debt.get_status_display().lower()} bo'lgan.",
-                'icon': 'fa-circle-info',
-                'color': 'text-warning'
-            })
+        amount = amount_text(debt.amount_uzs, debt.amount_usd)
 
         if action == 'confirm':
             debt.status = 'confirmed'
             debt.save()
+            bal_uzs, bal_usd = client_balance(client)
+            notify_shop_staff(debt.shop, f"✅ <b>{client.full_name}</b> nasiyani tasdiqladi\n"
+                                         f"💰 {amount}\n📉 Joriy qarzi: {balance_text(bal_uzs, bal_usd)}")
             return render(request, 'status_page.html', {
-                'title': 'Muvaffaqiyatli!',
-                'message': 'Siz nasiyani tasdiqladingiz. Rahmat!',
+                'title': 'Tasdiqlandi',
+                'message': f"{amount} hisobingizga yozildi.\nJoriy holat: {balance_text(bal_uzs, bal_usd)}",
                 'icon': 'fa-circle-check',
-                'color': 'text-success'
+                'color': 'text-success',
+                'cabinet_url': cabinet_url,
             })
-            
-        elif action == 'reject':
+
+        if action == 'reject':
+            reason = (request.POST.get('reason') or '').strip()[:200]
             debt.status = 'rejected'
             debt.save()
+            msg = f"❌ <b>{client.full_name}</b> nasiyani rad etdi\n💰 {amount}"
+            if reason:
+                msg += f"\n📝 Sababi: {reason}"
+            notify_shop_staff(debt.shop, msg)
             return render(request, 'status_page.html', {
                 'title': 'Rad etildi',
-                'message': 'Siz nasiyani rad etdingiz.',
+                'message': "Do'konga xabar yuborildi. Savol bo'lsa, do'kon bilan bog'laning.",
                 'icon': 'fa-circle-xmark',
-                'color': 'text-danger'
+                'color': 'text-danger',
+                'cabinet_url': cabinet_url,
             })
-            
-    return render(request, 'debt_confirm.html', {'debt': debt})
+
+    bal_uzs, bal_usd = client_balance(client)
+    return render(request, 'debt_confirm.html', {
+        'debt': debt,
+        'item_lines': [line for line in debt.items.splitlines() if line.strip()],
+        'balance_now': balance_text(bal_uzs, bal_usd),
+        'balance_after': balance_text(bal_uzs + debt.amount_uzs, bal_usd + debt.amount_usd),
+    })
 
 
 def shop_stats(shop, **date_filter):
@@ -577,46 +623,27 @@ def admin_client_detail_view(request, client_id):
 
 def client_cabinet_view(request):
     client_id = request.session.get('client_id')
-    if not client_id: return redirect('login_page')  # Login page nomini tekshiring (telegram_auth bo'lishi mumkin)
+    if not client_id:
+        return redirect('login_page')
 
-    client = get_object_or_404(Client, id=client_id)
+    client = get_object_or_404(Client.objects.select_related('shop'), id=client_id)
+    confirmed = Debt.objects.filter(client=client, status='confirmed')
+    bal_uzs, bal_usd = client_balance(client)
 
-    # Sanalar
-    now = timezone.now()
-    month_start = now - timedelta(days=30)
+    # Shu kalendar oyi (naqd savdolarsiz - ular darhol to'langan)
+    month = confirmed.filter(created_at__date__gte=timezone.localdate().replace(day=1), is_cash_sale=False)
+    month_debt = month.filter(transaction_type='debt').aggregate(s=Sum('amount_uzs'))['s'] or 0
+    month_paid = abs(month.filter(transaction_type='payment').aggregate(s=Sum('amount_uzs'))['s'] or 0)
 
-    # Hamma qarzlari (Bu yerda 'debts' deb nomlangan o'zgaruvchi aslida butun tarix)
-    all_history = Debt.objects.filter(client=client, status='confirmed').order_by('-created_at')
-
-    # Jami qarz (Balans)
-    totals = all_history.aggregate(sum_uzs=Sum('amount_uzs'), sum_usd=Sum('amount_usd'))
-
-    # YANGI: Shu oydagi xarajatlari
-    month_totals = all_history.filter(created_at__gte=month_start).aggregate(
-        m_uzs=Sum('amount_uzs'),
-        m_usd=Sum('amount_usd')
-    )
-
-    search_query = request.GET.get('q', '')
-
-    if search_query:
-        all_history = all_history.filter(items__icontains=search_query)
-
-    context = {
+    return render(request, 'client_cabinet.html', {
         'client': client,
-
-        # --- O'ZGARISH SHU YERDA ---
-        # HTML fayl 'history' ni kutmoqda, 'debts' ni emas.
-        'history': all_history[:50],  # 20 ta kamlik qilishi mumkin, 50 qildim
-        # ---------------------------
-
-        'total_uzs': totals['sum_uzs'] or 0,
-        'total_usd': totals['sum_usd'] or 0,
-        'month_uzs': month_totals['m_uzs'] or 0,
-        'month_usd': month_totals['m_usd'] or 0,
-        'search_query': search_query,
-    }
-    return render(request, 'client_cabinet.html', context)
+        'total_uzs': bal_uzs,
+        'total_usd': bal_usd,
+        'month_debt': month_debt,
+        'month_paid': month_paid,
+        'pending': Debt.objects.filter(client=client, status='pending', transaction_type='debt').order_by('-created_at'),
+        'history': confirmed.order_by('-created_at')[:100],
+    })
 
 
 # Modellarni import qilamiz

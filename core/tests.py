@@ -114,7 +114,7 @@ class ClientAndDebtTests(TestCase):
         c = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
         d = Debt.objects.create(shop=self.shop, client=c, amount_uzs=1000, items='x', status='pending')
         resp = self.client.post(reverse('debt_detail', args=[d.uuid]), {'action': 'confirm'})
-        self.assertContains(resp, 'Siz nasiyani tasdiqladingiz')
+        self.assertContains(resp, 'hisobingizga yozildi')
 
     def test_confirmed_debt_card_uses_theme_background(self, _post):
         c = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
@@ -308,3 +308,57 @@ class NavigationAndRoleTests(TestCase):
         resp = self.client.get(reverse('dashboard'))
         self.assertContains(resp, 'Vali')
         self.assertNotContains(resp, 'Toza Mijoz')
+
+
+@mock.patch('core.views.send_tg_msg')
+class ClientSideTests(TestCase):
+    def setUp(self):
+        from .models import AllowedAdmin
+        self.owner, self.shop = make_shop()
+        AllowedAdmin.objects.create(shop=self.shop, name='Egasi', telegram_id=111111)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=100000, items='Un', status='confirmed')
+        with mock.patch('requests.post'):
+            self.debt = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=50000,
+                                            items="Non: 10 x 5 000\nChoy: 1 x 0", status='pending')
+
+    def test_confirm_page_shows_shop_items_and_balance(self, _send):
+        resp = self.client.get(reverse('debt_detail', args=[self.debt.uuid]))
+        self.assertContains(resp, "Test Do&#x27;kon")
+        self.assertContains(resp, 'Non: 10 x 5 000')
+        self.assertContains(resp, 'Choy: 1 x 0')
+        self.assertContains(resp, "150 000 so&#x27;m (Qarz)")  # tasdiqlangandan keyingi qarz
+
+    def test_confirm_notifies_shop(self, send):
+        self.client.post(reverse('debt_detail', args=[self.debt.uuid]), {'action': 'confirm'})
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.status, 'confirmed')
+        send.assert_called_once()
+        self.assertEqual(send.call_args[0][0], 111111)
+        self.assertIn('tasdiqladi', send.call_args[0][1])
+
+    def test_reject_with_reason_notifies_shop(self, send):
+        self.client.post(reverse('debt_detail', args=[self.debt.uuid]), {'action': 'reject', 'reason': 'summa xato'})
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.status, 'rejected')
+        self.assertIn('summa xato', send.call_args[0][1])
+
+    def test_processed_debt_shows_status_instead_of_form(self, _send):
+        self.debt.status = 'confirmed'
+        self.debt.save()
+        resp = self.client.get(reverse('debt_detail', args=[self.debt.uuid]))
+        self.assertContains(resp, 'allaqachon tasdiqlangan')
+        self.assertNotContains(resp, 'Tasdiqlayman')
+
+    def test_cabinet_shows_pending_and_month_purchases(self, _send):
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=-30000, items='tolov',
+                            status='confirmed', transaction_type='payment')
+        session = self.client.session
+        session['client_id'] = self.vali.id
+        session.save()
+        resp = self.client.get(reverse('client_cabinet'))
+        self.assertContains(resp, 'Tasdiqlashingiz kerak (1)')
+        self.assertContains(resp, reverse('debt_detail', args=[self.debt.uuid]))
+        self.assertContains(resp, "Test Do&#x27;kon")
+        self.assertEqual(resp.context['month_debt'], 100000)   # to'lov xaridlarga qo'shilmaydi
+        self.assertEqual(resp.context['month_paid'], 30000)
