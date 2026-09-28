@@ -1,9 +1,7 @@
 import requests
 from django.conf import settings
 
-# Webhook URL (o'zingizniki to'g'ri ekanligiga ishonch hosil qiling)
-WEBHOOK_URL = "https://telapp.tunl.uz/webhook/"
-# Tokenni settings.py dan olish maslahat beriladi, lekin hozircha shu yerda tursin
+# Token .env dan olinadi (config/settings.py)
 BOT_TOKEN = settings.BOT_TOKEN
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 

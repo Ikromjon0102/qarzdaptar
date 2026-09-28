@@ -2,6 +2,7 @@ import re
 import threading  # <--- YANGI KUCH
 import time
 from datetime import timedelta
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
@@ -109,7 +110,7 @@ def signup_view(request):
         try:
             with transaction.atomic():  # Agar bittasi o'xshamasa, hammasini bekor qiladi
                 # 1. User yaratamiz
-                user = User.objects.create_user(username=telegram_id, password='1')  # Parol shartli
+                user = User.objects.create_user(username=telegram_id, password=None)  # Kirish faqat Telegram orqali
 
                 # 2. Do'kon yaratamiz
                 shop = Shop.objects.create(
@@ -129,7 +130,7 @@ def signup_view(request):
             # Muvaffaqiyatli!
             return render(request, 'signup_success.html', {
                 'shop_name': shop_name,
-                'bot_username': 'QarzDaptarBot',  # Bot username shu yerga yoziladi
+                'bot_username': settings.BOT_USERNAME,
                 'trial_days': TRIAL_DAYS,
             })
 

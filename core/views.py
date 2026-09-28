@@ -1,3 +1,4 @@
+import hmac
 import json
 import uuid
 import requests
@@ -30,6 +31,7 @@ from django.utils import timezone
 
 from .utils import clean_phone_number, parse_amount
 from .permissions import is_shop_admin, shop_admin_required
+from .telegram_auth import verify_init_data
 
 
 def get_current_shop(request):
@@ -71,49 +73,47 @@ def login_page_view(request):
     return render(request, 'landing.html')
 
 
-# 1. LOGIN LOGIKASINI SODDALASHTIRAMIZ
-@csrf_exempt
 def telegram_auth_view(request):
     """
-    Telegram orqali kirishni tekshirish (SaaS versiya)
+    Telegram Mini App orqali kirish.
+    Foydalanuvchi ID si imzolangan initData'dan olinadi - brauzer yuborgan oddiy
+    "telegram_id" ga ishonilmaydi (aks holda istalgan odam boshqa birovning nomidan kira olardi).
     """
     if request.method == 'GET':
         return render(request, 'login_loader.html')
 
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            telegram_id = int(data.get('telegram_id'))
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error'}, status=405)
 
-            # 1. XODIM / ADMIN SIFATIDA KIRISH
-            # Biz "Admin qo'shish"da User username=telegram_id qilib ochganmiz
-            user = User.objects.filter(username=str(telegram_id)).first()
-            if user:
-                login(request, user)
-                return JsonResponse({'status': 'ok', 'redirect_url': '/'})
+    try:
+        data = json.loads(request.body or '{}')
+    except ValueError:
+        data = {}
+    tg_user = verify_init_data(data.get('init_data', ''))
+    if not tg_user:
+        return JsonResponse({
+            'status': 'error',
+            'msg': "Telegram orqali tasdiqlab bo'lmadi. Ilovani botdagi tugma orqali qayta oching.",
+        }, status=403)
+    telegram_id = int(tg_user['id'])
 
-            # 2. PLATFORMA EGASI (Superuser)
-            admins = AllowedAdmin.objects.filter(telegram_id=telegram_id)
-            if telegram_id in admins:
-                superuser = User.objects.filter(is_superuser=True).first()
-                if superuser:
-                    login(request, superuser)
-                    return JsonResponse({'status': 'ok', 'redirect_url': '/'})
+    # 1. Do'kon egasi yoki xodimi (User.username = telegram_id)
+    user = User.objects.filter(username=str(telegram_id), is_active=True).first()
+    if user:
+        login(request, user)
+        request.session.pop('client_id', None)
+        return JsonResponse({'status': 'ok', 'redirect_url': reverse('main_menu')})
 
-            # 3. MIJOZ SIFATIDA KIRISH
-            # Mijoz qaysi do'konniki bo'lsa ham kiraveradi,
-            # lekin client_cabinet faqat o'ziga tegishli narsani ko'rsatadi.
-            client = Client.objects.filter(telegram_id=telegram_id).first()
-            if client:
-                request.session['client_id'] = client.id
-                return JsonResponse({'status': 'ok', 'redirect_url': '/my-cabinet/'})
+    # 2. Mijoz
+    client = Client.objects.filter(telegram_id=telegram_id).first()
+    if client:
+        if request.user.is_authenticated:
+            logout(request)
+        request.session['client_id'] = client.id
+        return JsonResponse({'status': 'ok', 'redirect_url': reverse('client_cabinet')})
 
-            return JsonResponse({'status': 'ok', 'redirect_url': '/login/'}, status=200)
-
-        except Exception as e:
-            print(f"Auth error: {e}")
-            return JsonResponse({'status': 'error'}, status=400)
-    return JsonResponse({'status': 'error'}, status=405)
+    # 3. Ro'yxatdan o'tmagan
+    return JsonResponse({'status': 'ok', 'redirect_url': reverse('landing_page')})
 
 
 @login_required(login_url='/login/')
@@ -431,7 +431,7 @@ def manage_debt_view(request, debt_uuid, action):
     if action == 'resend':
         if debt.status == 'pending':
             # Telegramga signal yuboramiz
-            domain = request.get_host()
+            domain = settings.SITE_DOMAIN
             # bot_utils dagi funksiyani chaqiramiz
             from .bot_utils import send_confirmation_request
             if debt.client.telegram_id:
@@ -496,6 +496,23 @@ def debt_detail_view(request, debt_uuid):
         })
 
     if request.method == 'POST':
+        # Faqat shu nasiyaning mijozi hal qila oladi: Telegram imzosi (initData)
+        # yoki shu mijozning sessiyasi orqali. Havola boshqa odamga o'tib qolsa ham ishlamaydi.
+        tg_user = verify_init_data(request.POST.get('init_data', ''))
+        is_owner = (
+            (tg_user and client.telegram_id and int(tg_user['id']) == client.telegram_id)
+            or request.session.get('client_id') == client.id
+        )
+        if not is_owner:
+            return render(request, 'status_page.html', {
+                'title': "Tasdiqlab bo'lmadi",
+                'message': "Nasiyani faqat mijozning o'zi, Telegram'dagi bot tugmasi orqali tasdiqlay oladi.",
+                'icon': 'fa-lock',
+                'color': 'text-danger',
+            }, status=403)
+        if tg_user and not request.user.is_authenticated:
+            request.session['client_id'] = client.id  # "Hisobimni ko'rish" darhol ochilsin
+
         action = request.POST.get('action')
         amount = amount_text(debt.amount_uzs, debt.amount_usd)
 
@@ -653,6 +670,12 @@ from .models import Client, Debt
 
 @csrf_exempt
 def telegram_webhook(request):
+    # Telegram har so'rovga setWebhook'da berilgan secret_token ni sarlavhada qo'shadi
+    secret = settings.TELEGRAM_WEBHOOK_SECRET
+    if secret and not hmac.compare_digest(
+            request.headers.get('X-Telegram-Bot-Api-Secret-Token', ''), secret):
+        return JsonResponse({'status': 'forbidden'}, status=403)
+
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -665,7 +688,7 @@ def telegram_webhook(request):
                     token = text.split(' ', 1)[1].strip()
                     if token == 'login':
                         # Do'kon egasi ro'yxatdan o'tgach shu yerga keladi
-                        send_menu(chat_id, request.get_host())
+                        send_menu(chat_id, settings.SITE_DOMAIN)
                     elif token == 'id':
                         # Landing sahifadagi "ID olish" tugmasi
                         send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>\n\n"
@@ -682,11 +705,11 @@ def telegram_webhook(request):
                             client.invite_token = None
                             client.save()
                             send_tg_msg(chat_id, f"🎉 {client.shop.name}: Xush kelibsiz, {client.full_name}!")
-                            send_menu(chat_id, request.get_host())
+                            send_menu(chat_id, settings.SITE_DOMAIN)
                         else:
                             send_tg_msg(chat_id, "❌ Havola eskirgan yoki noto'g'ri. Do'kondan yangi havola so'rang.")
                 elif text == '/start':
-                    send_menu(chat_id, request.get_host())
+                    send_menu(chat_id, settings.SITE_DOMAIN)
                 elif text in ['/id', '/myid']:
                     send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>")
 
@@ -889,7 +912,7 @@ def settings_view(request):
             if name and tg_id:
                 # 1. User yaratamiz (Login uchun)
                 if not User.objects.filter(username=str(tg_id)).exists():
-                    user = User.objects.create_user(username=str(tg_id), password='worker_password')
+                    user = User.objects.create_user(username=str(tg_id), password=None)
                     # 2. Uni shu do'konga bog'laymiz
                     UserProfile.objects.create(user=user, shop=shop, role='worker')
                     # 3. Ro'yxatga (Whitelist) qo'shamiz

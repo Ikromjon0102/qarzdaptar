@@ -3,18 +3,52 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-BASE_URL = 'https://telapp.tunl.uz'
-SECRET_KEY = 'django-insecure-%4k_!kn#$x4!+o5b_9jvri9)g#8qww0a)0=y9^^#@#16#chqmy'
 
-DEBUG = True
-BOT_TOKEN = "5315308944:AAFUS_AAZ_otSJwktgWkTWGEm43IQvSMPzo"
-ALLOWED_HOSTS = ["*", "telapp.tunl.uz"]
-# ALLOWED_HOSTS = ['164.90.162.22', 'qarzdaptar.uz', 'www.qarzdaptar.uz', '*']
 
-CSRF_TRUSTED_ORIGINS = ['https://qarzdaptar.uz','https://*.tunl.uz']
+def _load_env_file(path):
+    """
+    .env faylidagi KEY=VALUE qatorlarini muhit o'zgaruvchilariga yuklaydi
+    (serverda haqiqiy muhit o'zgaruvchilari ustun turadi).
+    """
+    if not path.exists():
+        return
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
+
+def _env_list(name, default=''):
+    # Bo'sh qiymat ham "berilmagan" deb hisoblanadi
+    return [item.strip() for item in (os.environ.get(name) or default).split(',') if item.strip()]
+
+
+_load_env_file(BASE_DIR / '.env')
+
+# --- Maxfiy qiymatlar: faqat .env yoki muhit o'zgaruvchilaridan (repoga yozilmaydi) ---
+# Namuna: .env.example
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or 'django-insecure-dev-only-change-me'
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
+# Telegram webhook'ga yuboradigan maxfiy kalit (setWebhook secret_token). Bo'sh bo'lsa tekshirilmaydi.
+TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
+
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
+
+# --- Sayt va bot sozlamalari ---
+SITE_DOMAIN = os.environ.get('SITE_DOMAIN') or 'telapp.tunl.uz'
+BASE_URL = f'https://{SITE_DOMAIN}'
+BOT_USERNAME = os.environ.get('BOT_USERNAME') or 'QarzDaptarBot'
+SUPPORT_USERNAME = os.environ.get('SUPPORT_USERNAME') or 'ergashev_ikromjon'
+
+# Standart qiymatlar avvalgidek (server buzilmasligi uchun); productionda .env da aniq domen yozing
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', '*')
+CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS',
+                                 f'https://{SITE_DOMAIN},https://qarzdaptar.uz,https://*.tunl.uz')
+
+# Telegram Web (web.telegram.org) Mini App'ni iframe ichida ochadi
 X_FRAME_OPTIONS = 'ALLOWALL'
-
 
 
 INSTALLED_APPS = [

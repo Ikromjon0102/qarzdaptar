@@ -2,11 +2,24 @@ import json
 from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import Client, Debt, Shop, UserProfile
+from .telegram_auth import sign_init_data, verify_init_data
+
+TEST_BOT_TOKEN = '123456:TEST-token'
+
+
+def signed_init(telegram_id, auth_date=None, token=TEST_BOT_TOKEN):
+    """Telegram imzolagandek initData (test uchun)."""
+    import time
+    return sign_init_data({
+        'auth_date': str(int(auth_date or time.time())),
+        'query_id': 'AAE',
+        'user': json.dumps({'id': telegram_id, 'first_name': 'Test'}),
+    }, bot_token=token)
 
 
 def make_shop(tg_id='111111', name="Test Do'kon"):
@@ -113,6 +126,9 @@ class ClientAndDebtTests(TestCase):
     def test_status_page_shows_message(self, _post):
         c = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
         d = Debt.objects.create(shop=self.shop, client=c, amount_uzs=1000, items='x', status='pending')
+        session = self.client.session
+        session['client_id'] = c.id  # mijozning o'z sessiyasi
+        session.save()
         resp = self.client.post(reverse('debt_detail', args=[d.uuid]), {'action': 'confirm'})
         self.assertContains(resp, 'hisobingizga yozildi')
 
@@ -310,6 +326,7 @@ class NavigationAndRoleTests(TestCase):
         self.assertNotContains(resp, 'Toza Mijoz')
 
 
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
 @mock.patch('core.views.send_tg_msg')
 class ClientSideTests(TestCase):
     def setUp(self):
@@ -330,7 +347,8 @@ class ClientSideTests(TestCase):
         self.assertContains(resp, "150 000 so&#x27;m (Qarz)")  # tasdiqlangandan keyingi qarz
 
     def test_confirm_notifies_shop(self, send):
-        self.client.post(reverse('debt_detail', args=[self.debt.uuid]), {'action': 'confirm'})
+        self.client.post(reverse('debt_detail', args=[self.debt.uuid]),
+                         {'action': 'confirm', 'init_data': signed_init(77)})
         self.debt.refresh_from_db()
         self.assertEqual(self.debt.status, 'confirmed')
         send.assert_called_once()
@@ -338,7 +356,8 @@ class ClientSideTests(TestCase):
         self.assertIn('tasdiqladi', send.call_args[0][1])
 
     def test_reject_with_reason_notifies_shop(self, send):
-        self.client.post(reverse('debt_detail', args=[self.debt.uuid]), {'action': 'reject', 'reason': 'summa xato'})
+        self.client.post(reverse('debt_detail', args=[self.debt.uuid]),
+                         {'action': 'reject', 'reason': 'summa xato', 'init_data': signed_init(77)})
         self.debt.refresh_from_db()
         self.assertEqual(self.debt.status, 'rejected')
         self.assertIn('summa xato', send.call_args[0][1])
@@ -362,3 +381,73 @@ class ClientSideTests(TestCase):
         self.assertContains(resp, "Test Do&#x27;kon")
         self.assertEqual(resp.context['month_debt'], 100000)   # to'lov xaridlarga qo'shilmaydi
         self.assertEqual(resp.context['month_paid'], 30000)
+
+
+class InitDataTests(TestCase):
+    def test_valid_signature(self):
+        self.assertEqual(verify_init_data(signed_init(42), TEST_BOT_TOKEN)['id'], 42)
+
+    def test_wrong_token_or_tampered_data_rejected(self):
+        self.assertIsNone(verify_init_data(signed_init(42, token='999:other'), TEST_BOT_TOKEN))
+        tampered = signed_init(42).replace('42', '43')
+        self.assertIsNone(verify_init_data(tampered, TEST_BOT_TOKEN))
+        self.assertIsNone(verify_init_data('', TEST_BOT_TOKEN))
+        self.assertIsNone(verify_init_data('garbage', TEST_BOT_TOKEN))
+
+    def test_expired_rejected(self):
+        self.assertIsNone(verify_init_data(signed_init(42, auth_date=1), TEST_BOT_TOKEN))
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class SecurityTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop(tg_id='555555')
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+
+    def auth(self, payload):
+        return self.client.post(reverse('telegram_auth'), data=json.dumps(payload), content_type='application/json')
+
+    def test_login_with_plain_telegram_id_is_rejected(self, _post):
+        resp = self.auth({'telegram_id': 555555})
+        self.assertEqual(resp.status_code, 403)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    def test_login_with_signed_init_data(self, _post):
+        resp = self.auth({'init_data': signed_init(555555)})
+        self.assertEqual(resp.json()['redirect_url'], reverse('main_menu'))
+        self.assertEqual(self.client.session['_auth_user_id'], str(self.owner.id))
+
+    def test_client_login_with_signed_init_data(self, _post):
+        resp = self.auth({'init_data': signed_init(77)})
+        self.assertEqual(resp.json()['redirect_url'], reverse('client_cabinet'))
+        self.assertEqual(self.client.session['client_id'], self.vali.id)
+
+    def test_login_requires_csrf_token(self, _post):
+        from django.test import Client as HttpClient
+        strict = HttpClient(enforce_csrf_checks=True)
+        resp = strict.post(reverse('telegram_auth'), data=json.dumps({'init_data': signed_init(555555)}),
+                           content_type='application/json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_stranger_cannot_confirm_debt(self, _post):
+        debt = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=100, items='x', status='pending')
+        url = reverse('debt_detail', args=[debt.uuid])
+        self.assertEqual(self.client.post(url, {'action': 'confirm'}).status_code, 403)
+        self.assertEqual(self.client.post(url, {'action': 'confirm', 'init_data': signed_init(99)}).status_code, 403)
+        debt.refresh_from_db()
+        self.assertEqual(debt.status, 'pending')
+        with mock.patch('core.views.send_tg_msg'):
+            self.client.post(url, {'action': 'confirm', 'init_data': signed_init(77)})
+        debt.refresh_from_db()
+        self.assertEqual(debt.status, 'confirmed')
+
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='s3cret')
+    def test_webhook_requires_secret(self, _post):
+        body = json.dumps({'message': {'chat': {'id': 1}, 'text': '/id'}})
+        resp = self.client.post(reverse('telegram_webhook'), data=body, content_type='application/json')
+        self.assertEqual(resp.status_code, 403)
+        with mock.patch('core.views.send_tg_msg'):
+            resp = self.client.post(reverse('telegram_webhook'), data=body, content_type='application/json',
+                                    HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='s3cret')
+        self.assertEqual(resp.status_code, 200)

@@ -26,7 +26,7 @@
 
 {# Muddat belgilanmagan (eski) do'konlarga ogohlantirish ko'rsatilmaydi #}
 {% if shop.subscription_ends_at and shop.days_left <= 10 %}
-<a href="https://t.me/ergashev_ikromjon?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank"
+<a href="https://t.me/{{ support_username }}?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank"
    class="app-toast {% if shop.days_left <= 3 %}error{% else %}warning{% endif %} text-decoration-none mb-3">
     <i class="fa-solid fa-clock mt-1"></i>
     <div>

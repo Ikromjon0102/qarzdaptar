@@ -8,83 +8,81 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
-            background-color: var(--tg-theme-bg-color, #fff);
-            color: var(--tg-theme-text-color, #000);
+            background-color: var(--tg-theme-secondary-bg-color, #f2f3f7);
+            color: var(--tg-theme-text-color, #111);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            font-family: sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             flex-direction: column;
+            text-align: center;
         }
-
         .loader {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
+            border: 4px solid rgba(128, 128, 128, 0.2);
+            border-top-color: var(--tg-theme-button-color, #2f7ff0);
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
+            width: 44px;
+            height: 44px;
+            animation: spin 0.8s linear infinite;
             margin-bottom: 20px;
         }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #statusText { font-size: 18px; font-weight: 600; margin: 0 0 8px; }
+        #hint { color: var(--tg-theme-hint-color, #8a8f98); font-size: 14px; max-width: 320px; margin: 0 0 20px; }
+        .btn {
+            display: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color, #2f7ff0);
+            color: var(--tg-theme-button-text-color, #fff);
+            text-decoration: none;
+            font-weight: 600;
         }
     </style>
 </head>
 
 <body>
-
-    <div class="loader"></div>
-    <h3 id="statusText">Tizimga kirilmoqda...</h3>
+    {% csrf_token %}
+    <div class="loader" id="loader"></div>
+    <p id="statusText">Tizimga kirilmoqda...</p>
+    <p id="hint"></p>
+    <a class="btn" id="actionBtn" href="https://t.me/{{ bot_username }}">Botni ochish</a>
 
     <script>
-        window.Telegram.WebApp.expand();
+        const tg = window.Telegram && window.Telegram.WebApp;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        // 1. Telegram ID ni olish
-        const tg = window.Telegram.WebApp;
-        const user = tg.initDataUnsafe.user;
+        function showError(title, hint, withButton) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('statusText').innerText = title;
+            document.getElementById('hint').innerText = hint || '';
+            if (withButton) document.getElementById('actionBtn').style.display = 'inline-block';
+        }
 
-        if (user) {
-            // 2. Serverga yuborish
-            fetch('/auth/telegram-login/', {
+        if (tg && tg.initData) {
+            tg.expand();
+            // initData Telegram tomonidan imzolangan - server uni tekshiradi
+            fetch("{% url 'telegram_auth' %}", {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ telegram_id: user.id })
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                body: JSON.stringify({init_data: tg.initData})
             })
-                .then(response => response.json()) // JSON qilib o'qiymiz
+                .then(response => response.json())
                 .then(data => {
                     if (data.status === 'ok') {
-                        // Server qayerga buyursa, o'sha yoqqa ketamiz (/ yoki /my-cabinet/)
                         window.location.href = data.redirect_url;
                     } else {
-                        document.getElementById('statusText').innerText = "❌ " + (data.msg || "Ruxsat yo'q");
-                        document.getElementById('statusText').style.color = "red";
-                        document.querySelector('.loader').style.display = 'none';
+                        showError("Kirib bo'lmadi", data.msg || "Qayta urinib ko'ring.", false);
                     }
                 })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById('statusText').innerText = "Xatolik yuz berdi.";
-                });
+                .catch(() => showError("Aloqa xatosi", "Internetni tekshirib, qayta oching.", false));
         } else {
-            // Agar Telegramdan tashqarida ochilsa
-            document.getElementById('statusText').innerText = "Iltimos, Telegram orqali kiring.";
-            document.querySelector('.loader').style.display = 'none';
-
-            // Test uchun vaqtincha login sahifasiga yo'naltiramiz
-            setTimeout(() => {
-                window.location.href = "/admin/login/";
-            }, 2000);
+            showError("Telegram orqali oching",
+                "Bu sahifa faqat Telegram'dagi bot ichida ishlaydi. Botga o'ting va «Kirish» tugmasini bosing.", true);
         }
     </script>
 </body>

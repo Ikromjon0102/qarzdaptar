@@ -57,6 +57,7 @@
 <form method="POST" id="decisionForm">
     {% csrf_token %}
     <input type="hidden" name="reason" id="rejectReason">
+    <input type="hidden" name="init_data" id="initData">
     <div class="action-bar">
         <div class="inner d-flex gap-2">
             <button type="button" class="btn btn-outline-danger py-3 flex-fill" data-bs-toggle="modal" data-bs-target="#rejectSheet">
@@ -103,6 +104,8 @@
 {% block scripts %}
 <script>
     const form = document.getElementById('decisionForm');
+    // Telegram imzosi: server shu orqali tasdiqlayotgan odam aynan shu mijoz ekanini tekshiradi
+    document.getElementById('initData').value = (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || '';
 
     document.getElementById('rejectConfirm').addEventListener('click', () => {
         document.getElementById('rejectReason').value = document.getElementById('reasonInput').value;
