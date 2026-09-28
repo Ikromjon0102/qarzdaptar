@@ -1,49 +1,69 @@
 {% extends 'base.html' %}
 
-{% block matn %}
-    <h3 class="fw-bold m-0"><i class="fa-solid fa-bullhorn text-primary"></i> Ommaviy Xabar</h3>
-{% endblock %}
+{% block matn %}<h3>Xabar yuborish</h3>{% endblock %}
 
 {% block content %}
+<form method="post" id="broadcastForm" class="has-action-bar">
+    {% csrf_token %}
 
-<div class="container mt-4" style="max-width: 600px;">
-    <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
-        <div class="card-body p-4">
-            
-            <div class="alert alert-info d-flex align-items-center rounded-3 ">
-                <i class="fa-solid fa-circle-info me-3 fa-lg"></i>
-                <div >
-                    Bu xabar botga ulangan <b>BARCHA</b> mijozlarga yuboriladi. 
-
-                </div>
+    <div class="list-group-app mb-3">
+        <div class="list-row">
+            <span class="row-icon blue"><i class="fa-brands fa-telegram"></i></span>
+            <div class="row-main">
+                <div class="row-title">{{ recipients }} ta mijozga boradi</div>
+                <div class="row-sub">Botga ulangan barcha mijozlaringizga</div>
             </div>
-
-            <form method="post">
-                {% csrf_token %}
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-muted">Xabar matni:</label>
-                    <textarea name="message" 
-                              class="form-control form-control-lg bg-light border-0 rounded-3" 
-                              rows="6" 
-                              placeholder="Assalomu alaykum! Hurmatli mijoz..." 
-                              required></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100 py-3 rounded-3 fw-bold shadow-sm send-btn">
-                    <i class="fa-regular fa-paper-plane me-2"></i> Yuborish
-                </button>
-            </form>
-
         </div>
     </div>
-</div>
 
+    <div class="app-card">
+        <label class="form-label" for="messageText">Xabar matni</label>
+        <textarea name="message" id="messageText" class="form-control" rows="6" maxlength="3500" required
+                  placeholder="Masalan: Hurmatli mijoz! Ertadan yangi mahsulotlar keladi..."></textarea>
+        <div class="d-flex justify-content-between small text-muted mt-2">
+            <span>Xabar bot nomidan boradi, shuning uchun do'kon nomini yozing.</span>
+            <span id="charCount" class="flex-shrink-0 ms-2">0/3500</span>
+        </div>
+    </div>
+
+    <div class="section-title">Tayyor shablonlar</div>
+    <div class="list-group-app">
+        <button type="button" class="list-row border-0 w-100 text-start bg-transparent tpl"
+                data-text="Hurmatli mijoz! {{ shop.name }} do'konidagi qarzingizni imkon bo'lganda to'lab qo'yishingizni so'raymiz. Rahmat!">
+            <span class="row-icon orange"><i class="fa-solid fa-bell"></i></span>
+            <div class="row-main"><div class="row-title">Qarz eslatmasi</div></div>
+        </button>
+        <button type="button" class="list-row border-0 w-100 text-start bg-transparent tpl"
+                data-text="{{ shop.name }}: do'konimizga yangi mahsulotlar keldi. Kutib qolamiz!">
+            <span class="row-icon green"><i class="fa-solid fa-box"></i></span>
+            <div class="row-main"><div class="row-title">Yangi mahsulotlar</div></div>
+        </button>
+    </div>
+
+    <div class="action-bar">
+        <div class="inner">
+            <button type="submit" class="btn btn-primary w-100 py-3" id="sendBtn" {% if not recipients %}disabled{% endif %}>
+                <i class="fa-regular fa-paper-plane"></i> Yuborish
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    document.querySelector('form').onsubmit = function() {
-        var btn = document.querySelector('.send-btn');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Yuborilmoqda...';
-        btn.disabled = true;
-    };
+    const text = document.getElementById('messageText');
+    const counter = () => document.getElementById('charCount').innerText = `${text.value.length}/3500`;
+    text.addEventListener('input', counter);
+    document.querySelectorAll('.tpl').forEach(b => b.addEventListener('click', () => {
+        text.value = b.dataset.text;
+        counter();
+        text.focus();
+    }));
+    document.getElementById('broadcastForm').addEventListener('submit', e => {
+        if (!confirm('Xabar {{ recipients }} ta mijozga yuborilsinmi?')) { e.preventDefault(); return; }
+        const btn = document.getElementById('sendBtn');
+        setTimeout(() => { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Yuborilmoqda...'; }, 0);
+    });
 </script>
 {% endblock %}

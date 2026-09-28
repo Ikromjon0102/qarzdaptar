@@ -668,3 +668,46 @@ class BackupTests(TransactionTestCase):
             Command().rotate(Path(tmp), keep=2)
             self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
                              ['boshqa-fayl.txt', 'db-20260104-030000.sqlite3.gz', 'db-20260105-030000.sqlite3.gz'])
+
+
+@mock.patch('requests.post')
+class RedesignedPagesTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.client.force_login(self.owner)
+
+    def test_settings_updates_rate_and_name(self, _post):
+        from .models import Settings
+        self.client.post(reverse('settings'), {'action': 'update_rate', 'usd_rate': '12 950'})
+        self.assertEqual(Settings.objects.get(shop=self.shop).usd_rate, 12950)
+        self.client.post(reverse('settings'), {'action': 'update_rate', 'usd_rate': '5'})  # noto'g'ri
+        self.assertEqual(Settings.objects.get(shop=self.shop).usd_rate, 12950)
+        self.client.post(reverse('settings'), {'action': 'update_shop', 'shop_name': 'Yangi nom'})
+        self.shop.refresh_from_db()
+        self.assertEqual(self.shop.name, 'Yangi nom')
+
+    def test_broadcast_shows_recipient_count(self, _post):
+        Client.objects.create(shop=self.shop, full_name='A', phone='+998900000001', telegram_id=11)
+        Client.objects.create(shop=self.shop, full_name='B', phone='+998900000002')
+        resp = self.client.get(reverse('broadcast'))
+        self.assertContains(resp, '1 ta mijozga boradi')
+
+    def test_super_dashboard_and_extend(self, _post):
+        self.assertRedirects(self.client.get(reverse('super_dashboard')),
+                             '/admin/login/?next=' + reverse('super_dashboard'), fetch_redirect_response=False)
+        admin = User.objects.create_superuser('root', password='x')
+        self.client.force_login(admin)
+        c = Client.objects.create(shop=self.shop, full_name='A', phone='+998900000001')
+        Debt.objects.create(shop=self.shop, client=c, amount_uzs=300, items='x', status='confirmed')
+        Debt.objects.create(shop=self.shop, client=c, amount_uzs=-100, items='t', status='confirmed',
+                            transaction_type='payment')
+        resp = self.client.get(reverse('super_dashboard'))
+        row = resp.context['rows'][0]
+        self.assertEqual((row['shop'].client_count, row['outstanding']), (1, 200))
+
+        self.shop.subscription_ends_at = timezone.now() - timezone.timedelta(days=5)  # tugagan
+        self.shop.save()
+        self.assertEqual(self.client.get(reverse('extend_subscription', args=[self.shop.id])).status_code, 405)
+        self.client.post(reverse('extend_subscription', args=[self.shop.id]))
+        self.shop.refresh_from_db()
+        self.assertEqual(self.shop.days_left, 29)  # bugundan 30 kun

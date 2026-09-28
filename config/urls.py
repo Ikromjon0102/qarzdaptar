@@ -2,13 +2,14 @@ from django.conf import settings
 from django.views.static import serve
 from django.contrib import admin
 from django.urls import path, include, re_path
-from core.admin_views import super_dashboard
+from core.admin_views import extend_subscription, super_dashboard
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
     path('shop/', include('store.urls')), # <--- YANGI
     path('super-control/', super_dashboard, name='super_dashboard'),
+    path('super-control/extend/<int:shop_id>/', extend_subscription, name='extend_subscription'),
 ]
 
 

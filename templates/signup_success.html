@@ -1,25 +1,43 @@
 {% extends 'base.html' %}
 
+{% block header %}{% endblock %}
+
 {% block content %}
-<div class="container d-flex flex-column align-items-center justify-content-center min-vh-100 text-center">
-    
-    <div class="mb-4">
-        <i class="fa-solid fa-circle-check text-success" style="font-size: 5rem;"></i>
-    </div>
-
-    <h1 class="fw-bold mb-3">Tabriklaymiz!</h1>
-    <h4 class="text-muted mb-2">"{{ shop_name }}" do'koni muvaffaqiyatli yaratildi.</h4>
-    <p class="mb-4"><span class="badge bg-success fs-6">🎁 {{ trial_days }} kunlik bepul sinov davri boshlandi</span></p>
-
-    <div class="card border-0 shadow-sm p-4 rounded-4 bg-light mb-4" style="max-width: 500px;">
-        <p class="mb-3">Tizimdan foydalanishni boshlash uchun Telegram botga o'ting va <b>/start</b> tugmasini bosing.</p>
-        
-        <a href="https://t.me/{{ bot_username }}?start=login" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold shadow-sm">
-            <i class="fa-brands fa-telegram me-2"></i> Botga o'tish
-        </a>
-    </div>
-
-    <p class="small text-muted">Yoki login sahifasiga qayting: <a href="{% url 'login_page' %}">Kirish</a></p>
-
+<div class="pt-5 text-center">
+    <i class="fa-solid fa-circle-check text-success mb-3" style="font-size: 64px;"></i>
+    <h1 class="fw-bold mb-1" style="font-size: 24px;">Do'koningiz tayyor!</h1>
+    <div class="text-muted mb-3">«{{ shop_name }}»</div>
+    <span class="badge rounded-pill px-3 py-2 mb-4" style="background: rgba(31,157,85,0.12); color: var(--success); font-size: 14px;">
+        🎁 {{ trial_days }} kunlik bepul sinov boshlandi
+    </span>
 </div>
+
+<div class="section-title">Keyingi qadamlar</div>
+<div class="list-group-app mb-4">
+    <div class="list-row">
+        <span class="row-icon blue fw-bold">1</span>
+        <div class="row-main" style="white-space: normal;">
+            <div class="row-title">Botga o'ting</div>
+            <div class="row-sub" style="white-space: normal;">Pastdagi tugmani bosing — @{{ bot_username }} ochiladi</div>
+        </div>
+    </div>
+    <div class="list-row">
+        <span class="row-icon blue fw-bold">2</span>
+        <div class="row-main">
+            <div class="row-title">«Start» ni bosing</div>
+        </div>
+    </div>
+    <div class="list-row">
+        <span class="row-icon blue fw-bold">3</span>
+        <div class="row-main" style="white-space: normal;">
+            <div class="row-title">«Do'konni ochish» tugmasini bosing</div>
+            <div class="row-sub" style="white-space: normal;">Birinchi savdoni yozing va mijozlarni botga taklif qiling</div>
+        </div>
+    </div>
+</div>
+
+<a href="https://t.me/{{ bot_username }}?start=login" class="btn btn-primary w-100 py-3">
+    <i class="fa-brands fa-telegram"></i> Botga o'tish
+</a>
+<p class="small text-muted text-center mt-3">Kirish faqat Telegram orqali — parol kerak emas.</p>
 {% endblock %}

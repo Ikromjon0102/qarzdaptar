@@ -32,7 +32,9 @@ def broadcast_view(request):
             messages.success(request, f"📨 Xabar {len(chat_ids)} ta mijozga yuborilmoqda.")
             return redirect('main_menu')
 
-    return render(request, 'broadcast.html', {'back_url': 'main_menu',})
+    recipients = (Client.objects.filter(shop=shop, telegram_id__isnull=False).exclude(telegram_id=0)
+                  .values('telegram_id').distinct().count())
+    return render(request, 'broadcast.html', {'back_url': 'main_menu', 'recipients': recipients, 'shop': shop})
 
 
 @shop_admin_required

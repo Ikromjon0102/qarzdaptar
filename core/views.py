@@ -902,34 +902,27 @@ def settings_view(request):
         action = request.POST.get('action')
 
         if action == 'update_rate':
-            new_rate = request.POST.get('usd_rate')
-            if new_rate:
-                settings_obj.usd_rate = new_rate
-                settings_obj.save()
-                messages.success(request, f"Kurs yangilandi: {new_rate}")
+            rate = parse_amount(request.POST.get('usd_rate'))
+            if 1000 <= rate <= 1000000:
+                settings_obj.usd_rate = round(rate)
+                settings_obj.save(update_fields=['usd_rate'])
+                messages.success(request, f"✅ Kurs saqlandi: 1$ = {format_number(round(rate))} so'm")
+            else:
+                messages.error(request, "Kursni to'g'ri kiriting (masalan: 12 800).")
 
-        elif action == 'add_admin':
-            # YANGI ADMIN (XODIM) QO'SHISH
-            name = request.POST.get('name')
-            tg_id = request.POST.get('telegram_id')
-            if name and tg_id:
-                # 1. User yaratamiz (Login uchun)
-                if not User.objects.filter(username=str(tg_id)).exists():
-                    user = User.objects.create_user(username=str(tg_id), password=None)
-                    # 2. Uni shu do'konga bog'laymiz
-                    UserProfile.objects.create(user=user, shop=shop, role='worker')
-                    # 3. Ro'yxatga (Whitelist) qo'shamiz
-                    AllowedAdmin.objects.create(shop=shop, name=name, telegram_id=tg_id)
-                    messages.success(request, f"Xodim {name} qo'shildi!")
-                else:
-                    messages.error(request, "Bu Telegram ID band!")
-
-    # Shu do'kon adminlari
-    allowed_admins = AllowedAdmin.objects.filter(shop=shop)
+        elif action == 'update_shop':
+            name = (request.POST.get('shop_name') or '').strip()
+            if name:
+                shop.name = name[:100]
+                shop.save(update_fields=['name'])
+                messages.success(request, "✅ Do'kon nomi saqlandi.")
+            else:
+                messages.error(request, "Do'kon nomini kiriting.")
+        return redirect('settings')
 
     return render(request, 'settings.html', {
+        'shop': shop,
         'settings': settings_obj,
-        'allowed_admins': allowed_admins,
         'back_url': 'main_menu',
     })
 
