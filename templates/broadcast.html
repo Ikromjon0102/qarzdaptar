@@ -1,37 +1,79 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block matn %}<h3>Xabar yuborish</h3>{% endblock %}
 
 {% block content %}
+<style>
+    .recipient-row { cursor: pointer; }
+    .recipient-row .form-check-input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; }
+    .ph-chip { border: 1px dashed var(--tg-button); color: var(--tg-button); background: transparent;
+               border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+    .preview { background: var(--tg-bg); border-radius: 12px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; }
+</style>
+
 <form method="post" id="broadcastForm" class="has-action-bar">
     {% csrf_token %}
+    <input type="hidden" name="mode" id="modeInput" value="{{ initial_mode }}">
 
-    <div class="list-group-app mb-3">
-        <div class="list-row">
-            <span class="row-icon blue"><i class="fa-brands fa-telegram"></i></span>
-            <div class="row-main">
-                <div class="row-title">{{ recipients }} ta mijozga boradi</div>
-                <div class="row-sub">Botga ulangan barcha mijozlaringizga</div>
-            </div>
+    <!-- 1. Kimga -->
+    <div class="section-title mt-0">Kimga</div>
+    <div class="segmented" id="modeTabs">
+        <a href="#" data-mode="all">Hammasi <small>({{ clients|length }})</small></a>
+        <a href="#" data-mode="debtors">Qarzdorlar <small>({{ debtor_count }})</small></a>
+        <a href="#" data-mode="selected">Tanlash</a>
+    </div>
+
+    <div id="pickBox" class="d-none mb-3">
+        <div class="d-flex gap-2 mb-2">
+            <input type="search" id="pickSearch" class="form-control" placeholder="Ism yoki telefon..." style="background-color: var(--tg-secondary);">
+            <button type="button" class="btn btn-sm flex-shrink-0" id="pickDebtors" style="background: var(--tg-secondary); color: var(--tg-button);">Qarzdorlar</button>
+            <button type="button" class="btn btn-sm flex-shrink-0" id="pickNone" style="background: var(--tg-secondary); color: var(--tg-hint);">Tozalash</button>
+        </div>
+        <div class="list-group-app" style="max-height: 360px; overflow-y: auto;">
+            {% for c in clients %}
+            <label class="list-row recipient-row m-0" data-name="{{ c.full_name|lower }}" data-phone="{{ c.phone }}"
+                   data-debtor="{% if c.is_debtor %}1{% else %}0{% endif %}">
+                <input type="checkbox" class="form-check-input" name="client_ids" value="{{ c.id }}"
+                       data-name="{{ c.full_name }}" data-debt="{% if c.bal_uzs > 0 %}{{ c.bal_uzs|space_format }} so'm{% endif %}{% if c.bal_uzs > 0 and c.bal_usd > 0 %} + {% endif %}{% if c.bal_usd > 0 %}${{ c.bal_usd|floatformat:2 }}{% endif %}"
+                       {% if c.id|stringformat:"s" in preselected %}checked{% endif %}>
+                <div class="row-main">
+                    <div class="row-title">{{ c.full_name }}</div>
+                    <div class="row-sub">{{ c.phone }}</div>
+                </div>
+                <div class="row-end small {% if c.is_debtor %}text-danger{% else %}text-muted{% endif %}">
+                    {% if c.bal_uzs > 0 %}{{ c.bal_uzs|space_format }}{% elif c.bal_usd > 0 %}${{ c.bal_usd|floatformat:2 }}{% else %}—{% endif %}
+                </div>
+            </label>
+            {% empty %}
+            <div class="text-center py-4 text-muted">Botga ulangan mijozlar yo'q</div>
+            {% endfor %}
         </div>
     </div>
 
+    <!-- 2. Xabar -->
+    <div class="section-title">Xabar</div>
     <div class="app-card">
-        <label class="form-label" for="messageText">Xabar matni</label>
-        <textarea name="message" id="messageText" class="form-control" rows="6" maxlength="3500" required
-                  placeholder="Masalan: Hurmatli mijoz! Ertadan yangi mahsulotlar keladi..."></textarea>
-        <div class="d-flex justify-content-between small text-muted mt-2">
-            <span>Xabar bot nomidan boradi, shuning uchun do'kon nomini yozing.</span>
-            <span id="charCount" class="flex-shrink-0 ms-2">0/3500</span>
+        <textarea name="message" id="messageText" class="form-control" rows="5" maxlength="3500" required
+                  placeholder="Masalan: Hurmatli {ism}! Qarzingiz {qarz}. Imkon bo'lganda to'lab qo'ying."></textarea>
+        <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+            <span class="small text-muted">Qo'shish:</span>
+            <button type="button" class="ph-chip" data-ph="{ism}">{ism} — ismi</button>
+            <button type="button" class="ph-chip" data-ph="{qarz}">{qarz} — qarzi</button>
+            <span id="charCount" class="small text-muted ms-auto">0/3500</span>
+        </div>
+        <div id="previewBox" class="mt-3 d-none">
+            <div class="small text-muted mb-1">Ko'rinishi (<span id="previewName"></span> uchun):</div>
+            <div class="preview" id="previewText"></div>
         </div>
     </div>
 
     <div class="section-title">Tayyor shablonlar</div>
     <div class="list-group-app">
         <button type="button" class="list-row border-0 w-100 text-start bg-transparent tpl"
-                data-text="Hurmatli mijoz! {{ shop.name }} do'konidagi qarzingizni imkon bo'lganda to'lab qo'yishingizni so'raymiz. Rahmat!">
+                data-text="Hurmatli {ism}! {{ shop.name }} do'konidagi qarzingiz: {qarz}. Imkon bo'lganda to'lab qo'yishingizni so'raymiz. Rahmat!">
             <span class="row-icon orange"><i class="fa-solid fa-bell"></i></span>
-            <div class="row-main"><div class="row-title">Qarz eslatmasi</div></div>
+            <div class="row-main"><div class="row-title">Qarz eslatmasi</div><div class="row-sub">Ism va qarz bilan</div></div>
         </button>
         <button type="button" class="list-row border-0 w-100 text-start bg-transparent tpl"
                 data-text="{{ shop.name }}: do'konimizga yangi mahsulotlar keldi. Kutib qolamiz!">
@@ -42,8 +84,8 @@
 
     <div class="action-bar">
         <div class="inner">
-            <button type="submit" class="btn btn-primary w-100 py-3" id="sendBtn" {% if not recipients %}disabled{% endif %}>
-                <i class="fa-regular fa-paper-plane"></i> Yuborish
+            <button type="submit" class="btn btn-primary w-100 py-3" id="sendBtn">
+                <i class="fa-regular fa-paper-plane"></i> <span id="sendLabel">Yuborish</span>
             </button>
         </div>
     </div>
@@ -52,18 +94,88 @@
 
 {% block scripts %}
 <script>
+(function () {
+    const form = document.getElementById('broadcastForm');
+    const modeInput = document.getElementById('modeInput');
     const text = document.getElementById('messageText');
-    const counter = () => document.getElementById('charCount').innerText = `${text.value.length}/3500`;
-    text.addEventListener('input', counter);
+    const boxes = Array.from(document.querySelectorAll('input[name=client_ids]'));
+    const rows = Array.from(document.querySelectorAll('.recipient-row'));
+    const sendBtn = document.getElementById('sendBtn');
+
+    function recipients() {
+        const mode = modeInput.value;
+        if (mode === 'selected') return boxes.filter(b => b.checked);
+        if (mode === 'debtors') return boxes.filter(b => b.closest('.recipient-row').dataset.debtor === '1');
+        return boxes;
+    }
+
+    function render(s, box) {
+        return s.replaceAll('{ism}', box.dataset.name).replaceAll('{qarz}', box.dataset.debt || "0 so'm");
+    }
+
+    function refresh() {
+        const list = recipients();
+        document.getElementById('sendLabel').innerText = `${list.length} ta mijozga yuborish`;
+        sendBtn.disabled = list.length === 0;
+        document.getElementById('charCount').innerText = `${text.value.length}/3500`;
+        const showPreview = list.length > 0 && /\{ism\}|\{qarz\}/.test(text.value);
+        document.getElementById('previewBox').classList.toggle('d-none', !showPreview);
+        if (showPreview) {
+            document.getElementById('previewName').innerText = list[0].dataset.name;
+            document.getElementById('previewText').innerText = render(text.value, list[0]);
+        }
+    }
+
+    function setMode(mode) {
+        modeInput.value = mode;
+        document.querySelectorAll('#modeTabs a').forEach(a => a.classList.toggle('active', a.dataset.mode === mode));
+        document.getElementById('pickBox').classList.toggle('d-none', mode !== 'selected');
+        refresh();
+    }
+
+    document.querySelectorAll('#modeTabs a').forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        setMode(a.dataset.mode);
+    }));
+    boxes.forEach(b => b.addEventListener('change', refresh));
+    text.addEventListener('input', refresh);
+
+    document.getElementById('pickSearch').addEventListener('input', e => {
+        const q = e.target.value.trim().toLowerCase();
+        const digits = q.replace(/\D/g, '');
+        rows.forEach(r => {
+            const show = !q || r.dataset.name.includes(q) || (digits.length >= 2 && r.dataset.phone.replace(/\D/g, '').includes(digits));
+            r.classList.toggle('d-none', !show);
+        });
+    });
+    document.getElementById('pickDebtors').addEventListener('click', () => {
+        boxes.forEach(b => b.checked = b.closest('.recipient-row').dataset.debtor === '1');
+        refresh();
+    });
+    document.getElementById('pickNone').addEventListener('click', () => {
+        boxes.forEach(b => b.checked = false);
+        refresh();
+    });
+
+    document.querySelectorAll('.ph-chip').forEach(chip => chip.addEventListener('click', () => {
+        const pos = text.selectionStart ?? text.value.length;
+        text.value = text.value.slice(0, pos) + chip.dataset.ph + text.value.slice(text.selectionEnd ?? pos);
+        text.focus();
+        refresh();
+    }));
     document.querySelectorAll('.tpl').forEach(b => b.addEventListener('click', () => {
         text.value = b.dataset.text;
-        counter();
+        refresh();
         text.focus();
     }));
-    document.getElementById('broadcastForm').addEventListener('submit', e => {
-        if (!confirm('Xabar {{ recipients }} ta mijozga yuborilsinmi?')) { e.preventDefault(); return; }
-        const btn = document.getElementById('sendBtn');
-        setTimeout(() => { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Yuborilmoqda...'; }, 0);
+
+    form.addEventListener('submit', e => {
+        const n = recipients().length;
+        if (!n || !confirm(`Xabar ${n} ta mijozga yuborilsinmi?`)) { e.preventDefault(); return; }
+        setTimeout(() => { sendBtn.disabled = true; sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Yuborilmoqda...'; }, 0);
     });
+
+    setMode(modeInput.value);
+})();
 </script>
 {% endblock %}

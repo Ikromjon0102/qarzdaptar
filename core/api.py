@@ -1,3 +1,4 @@
+import html
 import re
 from datetime import timedelta
 from django.conf import settings
@@ -7,34 +8,73 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 from .models import Client, UserProfile, Shop, Settings
+from .reminders import balance_line
 from . import telegram
 from .views import get_current_shop
 from .permissions import shop_admin_required
 from django.db import transaction
+from django.db.models import Q, Sum
 from .models import AllowedAdmin, StaffInvite
 
 # Yangi do'kon uchun bepul sinov muddati (kun)
 TRIAL_DAYS = 14
 
 
+def personalize(text, client, bal_uzs, bal_usd):
+    """{ism} va {qarz} o'rniga mijozning ismi va qarzini qo'yadi. Matn HTML sifatida xavfsizlanadi."""
+    debt = balance_line(bal_uzs, bal_usd) or "0 so'm"
+    return (html.escape(text)
+            .replace('{ism}', html.escape(client.full_name))
+            .replace('{qarz}', debt))
+
+
 @shop_admin_required
 def broadcast_view(request):
     shop = get_current_shop(request)
+    # Botga ulangan mijozlar, qarzi bilan (katta qarz tepada)
+    linked = list(
+        Client.objects.filter(shop=shop, telegram_id__isnull=False).exclude(telegram_id=0)
+        .annotate(bal_uzs=Sum('debt__amount_uzs', filter=Q(debt__status='confirmed')),
+                  bal_usd=Sum('debt__amount_usd', filter=Q(debt__status='confirmed')))
+        .order_by('-bal_uzs', 'full_name')
+    )
+    for c in linked:
+        c.bal_uzs, c.bal_usd = c.bal_uzs or 0, c.bal_usd or 0
+        c.is_debtor = c.bal_uzs > 0 or c.bal_usd > 0
+
     if request.method == 'POST':
-        text = request.POST.get('message')
-        if text:
-            # Faqat shu do'kon mijozlariga. ID lar oldindan olinadi - fon oqimi bazaga murojaat qilmaydi,
-            # xabarlar esa telegram modulining navbati orqali (bir vaqtda 4 tadan) yuboriladi.
-            chat_ids = list(Client.objects.filter(shop=shop, telegram_id__isnull=False)
-                            .exclude(telegram_id=0).values_list('telegram_id', flat=True).distinct())
-            for chat_id in chat_ids:
-                telegram.send_message(chat_id, text)
-            messages.success(request, f"📨 Xabar {len(chat_ids)} ta mijozga yuborilmoqda.")
+        text = (request.POST.get('message') or '').strip()
+        mode = request.POST.get('mode')
+        if mode == 'debtors':
+            recipients = [c for c in linked if c.is_debtor]
+        elif mode == 'selected':
+            chosen = set(request.POST.getlist('client_ids'))
+            recipients = [c for c in linked if str(c.id) in chosen]  # faqat o'z do'koni mijozlari
+        else:
+            recipients = linked
+
+        if not text:
+            messages.error(request, "Xabar matnini yozing.")
+        elif not recipients:
+            messages.error(request, "Hech kim tanlanmagan.")
+        else:
+            sent_to = set()
+            for c in recipients:
+                if c.telegram_id in sent_to:  # bitta odam bir necha yozuvda bo'lsa
+                    continue
+                sent_to.add(c.telegram_id)
+                telegram.send_message(c.telegram_id, personalize(text, c, c.bal_uzs, c.bal_usd))
+            messages.success(request, f"📨 Xabar {len(sent_to)} ta mijozga yuborilmoqda.")
             return redirect('main_menu')
 
-    recipients = (Client.objects.filter(shop=shop, telegram_id__isnull=False).exclude(telegram_id=0)
-                  .values('telegram_id').distinct().count())
-    return render(request, 'broadcast.html', {'back_url': 'main_menu', 'recipients': recipients, 'shop': shop})
+    return render(request, 'broadcast.html', {
+        'back_url': 'main_menu',
+        'shop': shop,
+        'clients': linked,
+        'debtor_count': sum(c.is_debtor for c in linked),
+        'initial_mode': request.GET.get('to') if request.GET.get('to') in ('debtors', 'selected') else 'all',
+        'preselected': request.GET.getlist('id'),
+    })
 
 
 @shop_admin_required

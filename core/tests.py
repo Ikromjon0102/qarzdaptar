@@ -690,7 +690,7 @@ class RedesignedPagesTests(TestCase):
         Client.objects.create(shop=self.shop, full_name='A', phone='+998900000001', telegram_id=11)
         Client.objects.create(shop=self.shop, full_name='B', phone='+998900000002')
         resp = self.client.get(reverse('broadcast'))
-        self.assertContains(resp, '1 ta mijozga boradi')
+        self.assertEqual(len(resp.context['clients']), 1)  # faqat botga ulangan
 
     def test_super_dashboard_and_extend(self, _post):
         self.assertRedirects(self.client.get(reverse('super_dashboard')),
@@ -801,3 +801,38 @@ class ExcelExportTests(TestCase):
         self.assertTrue(any('sendDocument' in c.args[0] for c in post.call_args_list))
         self.client.force_login(make_worker(self.shop))
         self.assertRedirects(self.client.get(reverse('export_clients')), reverse('main_menu'))
+
+
+class TargetedBroadcastTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.clients = []
+        for i, debt in enumerate([500000, 200000, 0, 0]):
+            c = Client.objects.create(shop=self.shop, full_name=f'Mijoz{i}', phone=f'+99890000000{i}', telegram_id=100 + i)
+            if debt:
+                with mock.patch('requests.post'):
+                    Debt.objects.create(shop=self.shop, client=c, amount_uzs=debt, items='x', status='confirmed')
+            self.clients.append(c)
+        _, other = make_shop(tg_id='999999', name='Boshqa')
+        self.foreign = Client.objects.create(shop=other, full_name='Begona', phone='+998909999999', telegram_id=555)
+        self.client.force_login(self.owner)
+
+    def send(self, **data):
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('broadcast'), dict({'message': 'Salom {ism}, qarzingiz {qarz}'}, **data))
+        return {c.args[0]: c.args[1] for c in send.call_args_list}
+
+    def test_debtors_only(self):
+        self.assertEqual(sorted(self.send(mode='debtors')), [100, 101])
+
+    def test_selected_only_and_foreign_ids_ignored(self):
+        ids = [str(self.clients[1].id), str(self.clients[3].id), str(self.foreign.id)]
+        sent = self.send(mode='selected', client_ids=ids)
+        self.assertEqual(sorted(sent), [101, 103])
+
+    def test_personalized_and_escaped(self):
+        sent = self.send(mode='selected', client_ids=[str(self.clients[0].id)], message='<b>{ism}</b>: {qarz}')
+        self.assertEqual(sent[100], "&lt;b&gt;Mijoz0&lt;/b&gt;: 500 000 so'm")
+
+    def test_nothing_selected(self):
+        self.assertEqual(self.send(mode='selected'), {})

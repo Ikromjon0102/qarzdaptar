@@ -55,6 +55,12 @@
     <button type="button" class="chip" data-filter="notg">Botga ulanmagan<span class="count" data-count="notg"></span></button>
 </div>
 
+{% if is_shop_admin %}
+<a href="{% url 'broadcast' %}?to=debtors" class="d-flex align-items-center gap-2 small fw-bold text-decoration-none mb-3 px-1">
+    <i class="fa-solid fa-paper-plane"></i> Qarzdorlarga yoki tanlangan mijozlarga xabar yuborish
+</a>
+{% endif %}
+
 <div class="pb-5" id="clientRows">
     {% for client in clients %}
     <a href="{% url 'admin_client_detail' client.id %}" class="client-row"
