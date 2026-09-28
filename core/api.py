@@ -13,7 +13,7 @@ from .models import Client, UserProfile, Shop, Settings
 from .views import send_tg_msg, get_current_shop
 from .permissions import shop_admin_required
 from django.db import transaction
-from .models import AllowedAdmin
+from .models import AllowedAdmin, StaffInvite
 from django.db.models import Q
 
 # Yangi do'kon uchun bepul sinov muddati (kun)
@@ -47,8 +47,22 @@ def broadcast_view(request):
 @shop_admin_required
 def manage_admins_view(request, action=None, admin_id=None):
     shop = get_current_shop(request)
-    # Xodim qo'shish
-    if action == 'add' and request.method == 'POST':
+    # Taklif havolasi yaratish (asosiy usul - Telegram ID so'ralmaydi)
+    if action == 'invite' and request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            messages.error(request, "❌ Xodim ismini kiriting.")
+        else:
+            StaffInvite.objects.create(shop=shop, name=name[:100])
+            messages.success(request, f"✅ {name} uchun taklif havolasi tayyor. Uni xodimga yuboring.")
+
+    # Taklifni bekor qilish
+    elif action == 'cancel_invite' and admin_id and request.method == 'POST':
+        StaffInvite.objects.filter(id=admin_id, shop=shop, used_at__isnull=True).delete()
+        messages.info(request, "Taklif bekor qilindi.")
+
+    # Xodimni Telegram ID bilan qo'shish (zaxira usul)
+    elif action == 'add' and request.method == 'POST':
         name = (request.POST.get('name') or '').strip()
         tg_id = (request.POST.get('telegram_id') or '').strip()
         if not name or not re.fullmatch(r'\d{5,15}', tg_id):
@@ -63,7 +77,7 @@ def manage_admins_view(request, action=None, admin_id=None):
             messages.success(request, f"✅ {name} xodimlarga qo'shildi.")
 
     # Xodimni o'chirish (faqat o'z do'konidan, o'zini emas)
-    elif action == 'delete' and admin_id:
+    elif action == 'delete' and admin_id and request.method == 'POST':
         admin = AllowedAdmin.objects.filter(id=admin_id, shop=shop).first()
         if not admin:
             messages.error(request, "❌ Xodim topilmadi.")
@@ -81,9 +95,12 @@ def manage_admins_view(request, action=None, admin_id=None):
 def admin_control(request):
     shop = get_current_shop(request)
     allowed_admins = AllowedAdmin.objects.filter(shop=shop).order_by('-created_at')
+    invites = [inv for inv in StaffInvite.objects.filter(shop=shop, used_at__isnull=True).order_by('-created_at')
+               if inv.is_valid]
     return render(request, 'admin_control.html', {
         'back_url': 'main_menu',
         'allowed_admins': allowed_admins,
+        'invites': invites,
         'owner_tg_id': shop.owner.username if shop else '',
     })
 

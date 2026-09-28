@@ -18,6 +18,28 @@
     </div>
 </div>
 
+{% if accounts %}
+<!-- Bir nechta do'kondagi hisoblar -->
+<div class="shop-switch mb-3">
+    {% for acc in accounts %}
+    <a href="{% url 'client_switch' acc.id %}" class="shop-chip {% if acc.active %}active{% endif %}">
+        <span class="fw-bold">{{ acc.shop }}</span>
+        <small>{% if acc.debt_uzs > 0 %}{{ acc.debt_uzs|space_format }} so'm{% elif acc.debt_usd > 0 %}${{ acc.debt_usd|floatformat:2 }}{% else %}qarz yo'q{% endif %}</small>
+    </a>
+    {% endfor %}
+</div>
+<style>
+    .shop-switch { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    .shop-switch::-webkit-scrollbar { display: none; }
+    .shop-chip {
+        flex-shrink: 0; display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px;
+        background: var(--tg-secondary); color: var(--tg-text); text-decoration: none; border: 1.5px solid transparent;
+    }
+    .shop-chip small { color: var(--tg-hint); }
+    .shop-chip.active { border-color: var(--tg-button); }
+</style>
+{% endif %}
+
 <!-- Balans -->
 <div class="app-card text-white" style="background: var(--primary-gradient); padding: 20px;">
     {% if total_uzs > 0 or total_usd > 0 %}
@@ -44,6 +66,17 @@
         </div>
     </div>
 </div>
+
+{% if shop_has_products %}
+<a href="{% url 'shop_home' %}" class="list-group-app list-row mb-2">
+    <span class="row-icon blue"><i class="fa-solid fa-store"></i></span>
+    <div class="row-main">
+        <div class="row-title">Do'kondan buyurtma berish</div>
+        <div class="row-sub">Mahsulotlarni tanlang, do'kon nasiyaga yozadi</div>
+    </div>
+    <i class="fa-solid fa-chevron-right chevron"></i>
+</a>
+{% endif %}
 
 <!-- Tasdiqlash kutilayotgan nasiyalar -->
 {% if pending %}

@@ -130,6 +130,11 @@
 {% if is_shop_admin %}
 <div class="section-title">Boshqaruv</div>
 <div class="list-group-app">
+    <a href="{% url 'manage_products' %}" class="list-row">
+        <span class="row-icon green"><i class="fa-solid fa-store"></i></span>
+        <div class="row-main"><div class="row-title">Mahsulotlar va buyurtmalar</div></div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
     <a href="{% url 'broadcast' %}" class="list-row">
         <span class="row-icon blue"><i class="fa-solid fa-paper-plane"></i></span>
         <div class="row-main"><div class="row-title">Xabar yuborish</div></div>

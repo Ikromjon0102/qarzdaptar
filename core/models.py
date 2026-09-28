@@ -1,5 +1,6 @@
 # core/models.py
 import uuid
+from datetime import timedelta
 
 
 from django.db import models
@@ -156,3 +157,24 @@ class Settings(models.Model):
     # get_solo va save metodlarini o'chiramiz, chunki endi bu Singleton emas.
     def __str__(self):
         return f"{self.shop.name} Sozlamalari"
+
+# --- 7. XODIMNI TAKLIF QILISH ---
+class StaffInvite(models.Model):
+    """
+    Xodimni Telegram ID so'ramasdan qo'shish: rahbar havola yuboradi,
+    xodim botda /start bosganda o'zi ro'yxatga olinadi.
+    """
+    VALID_DAYS = 7
+
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='staff_invites')
+    name = models.CharField(max_length=100, verbose_name="Xodim ismi")
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.shop.name})"
+
+    @property
+    def is_valid(self):
+        return self.used_at is None and timezone.now() - self.created_at < timedelta(days=self.VALID_DAYS)

@@ -281,9 +281,11 @@ class NavigationAndRoleTests(TestCase):
         owner_admin = AllowedAdmin.objects.create(shop=self.shop, name='Egasi', telegram_id=int(self.owner.username))
         worker_admin = AllowedAdmin.objects.get(telegram_id=333333)
         self.client.force_login(self.owner)
-        self.client.get(reverse('manage_admins_id', args=['delete', owner_admin.id]))
+        self.client.post(reverse('manage_admins_id', args=['delete', owner_admin.id]))
         self.assertTrue(User.objects.filter(id=self.owner.id).exists())
-        self.client.get(reverse('manage_admins_id', args=['delete', worker_admin.id]))
+        self.client.get(reverse('manage_admins_id', args=['delete', worker_admin.id]))  # GET bilan o'chmaydi
+        self.assertTrue(User.objects.filter(id=self.worker.id).exists())
+        self.client.post(reverse('manage_admins_id', args=['delete', worker_admin.id]))
         self.assertFalse(User.objects.filter(id=self.worker.id).exists())
 
     def test_logout_requires_post(self, _post):
@@ -451,3 +453,135 @@ class SecurityTests(TestCase):
             resp = self.client.post(reverse('telegram_webhook'), data=body, content_type='application/json',
                                     HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN='s3cret')
         self.assertEqual(resp.status_code, 200)
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class StaffInviteTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop(tg_id='555555')
+
+    def start(self, token, chat_id=888):
+        return self.client.post(reverse('telegram_webhook'), content_type='application/json', data=json.dumps(
+            {'message': {'chat': {'id': chat_id}, 'from': {'id': chat_id, 'first_name': 'Ali'}, 'text': f'/start {token}'}}))
+
+    def test_invite_flow(self, _post):
+        from .models import StaffInvite
+        self.client.force_login(self.owner)
+        self.client.post(reverse('manage_admins', args=['invite']), {'name': 'Ali'})
+        invite = StaffInvite.objects.get(shop=self.shop)
+        resp = self.client.get(reverse('admin_control'))
+        self.assertContains(resp, f'staff_{invite.token}')
+
+        with mock.patch('core.views.send_tg_msg'), mock.patch('core.views.send_menu'):
+            self.start(f'staff_{invite.token}')
+        user = User.objects.get(username='888')
+        self.assertEqual(user.profile.shop, self.shop)
+        self.assertEqual(user.profile.role, 'worker')
+        invite.refresh_from_db()
+        self.assertIsNotNone(invite.used_at)
+
+        # Ikkinchi marta ishlatib bo'lmaydi
+        with mock.patch('core.views.send_tg_msg') as send, mock.patch('core.views.send_menu'):
+            self.start(f'staff_{invite.token}', chat_id=999)
+        self.assertFalse(User.objects.filter(username='999').exists())
+        self.assertIn('eskirgan', send.call_args[0][1])
+
+    def test_expired_invite(self, _post):
+        from .models import StaffInvite
+        invite = StaffInvite.objects.create(shop=self.shop, name='Ali')
+        StaffInvite.objects.filter(id=invite.id).update(created_at=timezone.now() - timezone.timedelta(days=8))
+        with mock.patch('core.views.send_tg_msg'), mock.patch('core.views.send_menu'):
+            self.start(f'staff_{invite.token}')
+        self.assertFalse(User.objects.filter(username='888').exists())
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class MultiShopClientTests(TestCase):
+    def setUp(self):
+        _, self.shop_a = make_shop(tg_id='111', name='Alfa')
+        _, self.shop_b = make_shop(tg_id='222', name='Beta')
+        self.a = Client.objects.create(shop=self.shop_a, full_name='Vali', phone='+998901112233', telegram_id=77)
+        self.b = Client.objects.create(shop=self.shop_b, full_name='Vali', phone='+998901112233', telegram_id=77)
+        self.stranger = Client.objects.create(shop=self.shop_b, full_name='Boshqa', phone='+998900000009', telegram_id=55)
+
+    def test_cabinet_lists_both_shops_and_switches(self, _post):
+        self.client.post(reverse('telegram_auth'), data=json.dumps({'init_data': signed_init(77)}),
+                         content_type='application/json')
+        resp = self.client.get(reverse('client_cabinet'))
+        self.assertContains(resp, 'Alfa')
+        self.assertContains(resp, 'Beta')
+        self.client.get(reverse('client_switch', args=[self.b.id]))
+        self.assertEqual(self.client.session['client_id'], self.b.id)
+        # Boshqa odamning hisobiga o'tib bo'lmaydi
+        self.client.get(reverse('client_switch', args=[self.stranger.id]))
+        self.assertEqual(self.client.session['client_id'], self.b.id)
+
+    def test_login_remembers_last_selected_shop(self, _post):
+        session = self.client.session
+        session['client_id'] = self.b.id
+        session.save()
+        self.client.post(reverse('telegram_auth'), data=json.dumps({'init_data': signed_init(77)}),
+                         content_type='application/json')
+        self.assertEqual(self.client.session['client_id'], self.b.id)
+
+
+@mock.patch('requests.post')
+class StoreTests(TestCase):
+    def setUp(self):
+        from .models import AllowedAdmin
+        from store.models import Product
+        self.owner, self.shop = make_shop(tg_id='555555')
+        AllowedAdmin.objects.create(shop=self.shop, name='Egasi', telegram_id=555555)
+        _, self.other_shop = make_shop(tg_id='666666', name='Boshqa')
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+        self.p1 = Product.objects.create(shop=self.shop, name='Un', price=50000)
+        self.foreign = Product.objects.create(shop=self.other_shop, name='Begona', price=1)
+        session = self.client.session
+        session['client_id'] = self.vali.id
+        session.save()
+
+    def test_only_own_shop_products(self, _post):
+        resp = self.client.get(reverse('shop_home'))
+        self.assertContains(resp, 'Un')
+        self.assertNotContains(resp, 'Begona')
+        self.assertEqual(self.client.post(reverse('add_to_cart', args=[self.foreign.id])).status_code, 404)
+
+    def test_checkout_and_accept_creates_debt(self, post):
+        from store.models import Order
+        self.client.post(reverse('add_to_cart', args=[self.p1.id]))
+        self.client.post(reverse('add_to_cart', args=[self.p1.id]))
+        self.client.post(reverse('checkout'))
+        order = Order.objects.get()
+        self.assertEqual(order.shop, self.shop)
+        self.assertEqual(order.total_price, 100000)
+        sent_to = {c.kwargs['json']['chat_id'] for c in post.call_args_list if 'reply_markup' in c.kwargs.get('json', {})}
+        self.assertEqual(sent_to, {555555})
+
+        from .views import handle_order_accept
+        with mock.patch('core.views.send_tg_msg'), mock.patch('core.views.edit_tg_message'):
+            handle_order_accept(999, 1, order.id)          # begona odam
+            self.assertFalse(Debt.objects.filter(client=self.vali).exists())
+            handle_order_accept(555555, 1, order.id)
+            handle_order_accept(555555, 1, order.id)       # ikkinchi bosish
+        debts = Debt.objects.filter(client=self.vali)
+        self.assertEqual(debts.count(), 1)
+        self.assertEqual(debts[0].shop, self.shop)
+        self.assertEqual(debts[0].amount_uzs, 100000)
+
+    def test_owner_manages_products_worker_cannot(self, _post):
+        from store.models import Product
+        self.client.force_login(self.owner)
+        self.client.post(reverse('product_add'), {'name': 'Shakar', 'price': '15 000', 'category': 'Oziq', 'is_active': 'on'})
+        p = Product.objects.get(name='Shakar')
+        self.assertEqual((p.shop, p.price, p.category.name), (self.shop, 15000, 'Oziq'))
+        worker = make_worker(self.shop)
+        self.client.force_login(worker)
+        self.assertRedirects(self.client.get(reverse('manage_products')), reverse('main_menu'))
+
+    def test_pricing_page_is_honest(self, _post):
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse('pricing_page'))
+        self.assertNotContains(resp, 'SMS')
+        self.assertContains(resp, '100 000')

@@ -6,36 +6,14 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>QarzDaptar - Nasiya Savdoning Zamonaviy Tizimi</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind oldindan build qilingan (tailwind.config.js, npm run build:css) -->
+    <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
     <link
         href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&family=Noto+Sans:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/60/60484.png" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#30e87a",
-                        "background-light": "#f6f8f7",
-                        "background-dark": "#0d1a12",
-                        "card-dark": "#1a3224",
-                        "border-green": "#244732",
-                    },
-                    fontFamily: {
-                        display: ["Spline Sans", "sans-serif"],
-                        body: ["Noto Sans", "sans-serif"],
-                    },
-                    animation: {
-                        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-                    },
-                },
-            },
-        };
-    </script>
     <style>
         html {
             scroll-behavior: smooth;

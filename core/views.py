@@ -5,6 +5,7 @@ import requests
 import threading
 import time
 from django.shortcuts import render, get_object_or_404, redirect
+from django.db import transaction
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -20,7 +21,7 @@ from django.shortcuts import render, redirect
 from .models import Shop, UserProfile
 from store.models import Order
 # Modellar
-from .models import Client, Debt, Settings, AllowedAdmin, Shop, UserProfile, CASH_CLIENT_PHONE
+from .models import Client, Debt, Settings, AllowedAdmin, Shop, UserProfile, StaffInvite, CASH_CLIENT_PHONE
 # from store.models import Order, Product  # Agar kerak bo'lsa
 import json
 import requests
@@ -29,7 +30,7 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.utils import timezone
 
-from .utils import clean_phone_number, parse_amount
+from .utils import clean_phone_number, parse_amount, shop_staff_ids
 from .permissions import is_shop_admin, shop_admin_required
 from .telegram_auth import verify_init_data
 
@@ -104,11 +105,13 @@ def telegram_auth_view(request):
         request.session.pop('client_id', None)
         return JsonResponse({'status': 'ok', 'redirect_url': reverse('main_menu')})
 
-    # 2. Mijoz
-    client = Client.objects.filter(telegram_id=telegram_id).first()
-    if client:
+    # 2. Mijoz (bir nechta do'konda bo'lishi mumkin - oxirgi tanlangani saqlanadi)
+    clients = list(Client.objects.filter(telegram_id=telegram_id).order_by('id'))
+    if clients:
+        previous = request.session.get('client_id')
         if request.user.is_authenticated:
             logout(request)
+        client = next((c for c in clients if c.id == previous), clients[0])
         request.session['client_id'] = client.id
         return JsonResponse({'status': 'ok', 'redirect_url': reverse('client_cabinet')})
 
@@ -470,12 +473,9 @@ def client_balance(client):
     return agg['uzs'] or 0, agg['usd'] or 0
 
 
-def notify_shop_staff(shop, text):
-    """Do'kon jamoasiga (egasi va xodimlar) Telegram xabar yuborish."""
-    ids = set(AllowedAdmin.objects.filter(shop=shop).values_list('telegram_id', flat=True))
-    if shop.owner.username.isdigit():
-        ids.add(int(shop.owner.username))
-    for chat_id in ids:
+def notify_shop_staff(shop, text, exclude=None):
+    """Do'kon jamoasiga Telegram xabar yuborish."""
+    for chat_id in shop_staff_ids(shop) - {exclude}:
         send_tg_msg(chat_id, text)
 
 
@@ -652,8 +652,18 @@ def client_cabinet_view(request):
     month_debt = month.filter(transaction_type='debt').aggregate(s=Sum('amount_uzs'))['s'] or 0
     month_paid = abs(month.filter(transaction_type='payment').aggregate(s=Sum('amount_uzs'))['s'] or 0)
 
+    # Shu Telegram akkauntning boshqa do'konlardagi hisoblari
+    accounts = []
+    if client.telegram_id:
+        for acc in Client.objects.filter(telegram_id=client.telegram_id).select_related('shop').order_by('id'):
+            acc_uzs, acc_usd = client_balance(acc)
+            accounts.append({'id': acc.id, 'shop': acc.shop.name, 'debt_uzs': acc_uzs, 'debt_usd': acc_usd,
+                             'active': acc.id == client.id})
+
     return render(request, 'client_cabinet.html', {
         'client': client,
+        'accounts': accounts if len(accounts) > 1 else [],
+        'shop_has_products': client.shop.products.filter(is_active=True).exists() if client.shop else False,
         'total_uzs': bal_uzs,
         'total_usd': bal_usd,
         'month_debt': month_debt,
@@ -661,6 +671,16 @@ def client_cabinet_view(request):
         'pending': Debt.objects.filter(client=client, status='pending', transaction_type='debt').order_by('-created_at'),
         'history': confirmed.order_by('-created_at')[:100],
     })
+
+
+def client_switch_view(request, client_id):
+    """Mijoz kabinetida boshqa do'kondagi hisobiga o'tish (faqat o'zining Telegram akkauntidagi)."""
+    current = Client.objects.filter(id=request.session.get('client_id')).first()
+    target = Client.objects.filter(id=client_id).first()
+    if current and target and current.telegram_id and target.telegram_id == current.telegram_id:
+        request.session['client_id'] = target.id
+        request.session.pop('cart', None)  # savat do'konga tegishli
+    return redirect('client_cabinet')
 
 
 # Modellarni import qilamiz
@@ -689,6 +709,8 @@ def telegram_webhook(request):
                     if token == 'login':
                         # Do'kon egasi ro'yxatdan o'tgach shu yerga keladi
                         send_menu(chat_id, settings.SITE_DOMAIN)
+                    elif token.startswith('staff_'):
+                        accept_staff_invite(chat_id, token[len('staff_'):], data['message'].get('from', {}))
                     elif token == 'id':
                         # Landing sahifadagi "ID olish" tugmasi
                         send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>\n\n"
@@ -735,65 +757,93 @@ def telegram_webhook(request):
     return JsonResponse({'status': 'error'}, status=405)
 # --- LOGIKA FUNKSIYALARI ---
 
-def handle_order_accept(chat_id, message_id, order_id):
+def accept_staff_invite(chat_id, token, tg_from):
+    """Xodim taklif havolasini bosdi: foydalanuvchini do'konga xodim qilib qo'shamiz."""
     try:
-        order = Order.objects.get(id=order_id)
-        if order.status != 'new':
-            return
+        invite = StaffInvite.objects.select_related('shop').filter(token=uuid.UUID(token)).first()
+    except ValueError:
+        invite = None
+    if not invite or not invite.is_valid:
+        send_tg_msg(chat_id, "❌ Taklif havolasi eskirgan yoki ishlatilgan. Rahbardan yangi havola so'rang.")
+        return
+    if User.objects.filter(username=str(chat_id)).exists():
+        send_tg_msg(chat_id, "ℹ️ Bu Telegram akkaunt allaqachon tizimda ro'yxatdan o'tgan.")
+        send_menu(chat_id, settings.SITE_DOMAIN)
+        return
 
-        order.status = 'accepted'
-        order.save()
+    with transaction.atomic():
+        user = User.objects.create_user(username=str(chat_id), password=None,
+                                        first_name=(tg_from.get('first_name') or '')[:150])
+        UserProfile.objects.create(user=user, shop=invite.shop, role='worker')
+        AllowedAdmin.objects.update_or_create(telegram_id=chat_id,
+                                              defaults={'shop': invite.shop, 'name': invite.name})
+        invite.used_at = timezone.now()
+        invite.save(update_fields=['used_at'])
 
-        items_desc = f"🛒 Buyurtma #{order.id}:\n"
-        for item in order.orderitem_set.all():
-            p_name = item.product.name if item.product else "Noma'lum"
-            items_desc += f"- {p_name} ({item.qty}x)\n"
+    send_tg_msg(chat_id, f"🎉 Siz «{invite.shop.name}» do'koniga xodim sifatida qo'shildingiz!")
+    send_menu(chat_id, settings.SITE_DOMAIN)
+    notify_shop_staff(invite.shop, f"👤 <b>{invite.name}</b> taklifni qabul qildi va xodimlarga qo'shildi.",
+                      exclude=chat_id)
 
-        # DEBT YARATISH (shop ni qo'shamiz)
-        Debt.objects.create(
-            shop=order.shop,  # <--- MUHIM
-            client=order.client,
-            amount_uzs=order.total_price,
-            items=items_desc,
-            status='confirmed',
-            transaction_type='debt'
-        )
 
-        edit_tg_message(chat_id, message_id, f"✅ Qabul qilindi\n👤 {order.client.full_name}")
-        if order.client.telegram_id:
-            send_tg_msg(order.client.telegram_id, f"✅ Buyurtmangiz (#{order.id}) qabul qilindi.")
+def _order_for_staff(chat_id, message_id, order_id):
+    """Buyurtmani faqat o'sha do'kon jamoasi a'zosi boshqara oladi."""
+    order = Order.objects.select_related('client', 'shop').filter(id=order_id).first()
+    if not order:
+        edit_tg_message(chat_id, message_id, "❌ Buyurtma topilmadi.")
+        return None
+    if not order.shop or int(chat_id) not in shop_staff_ids(order.shop):
+        send_tg_msg(chat_id, "⛔ Bu buyurtmani boshqarishga ruxsatingiz yo'q.")
+        return None
+    return order
 
-    except Order.DoesNotExist:
-        pass
-    except Exception as e:
-        print(e)
+
+def handle_order_accept(chat_id, message_id, order_id):
+    order = _order_for_staff(chat_id, message_id, order_id)
+    if not order:
+        return
+    # Bir vaqtda ikki xodim bossa ham bir marta yoziladi
+    if not Order.objects.filter(id=order.id, status='new').update(status='accepted'):
+        order.refresh_from_db()
+        edit_tg_message(chat_id, message_id, f"ℹ️ Buyurtma #{order.id} allaqachon {order.get_status_display().lower()}.")
+        return
+
+    lines = []
+    for item in order.orderitem_set.select_related('product'):
+        name = item.product.name if item.product else "Noma'lum tovar"
+        lines.append(f"{name}: {format_number(item.qty)} x {format_number(item.price)} = {format_number(item.total)} so'm")
+
+    Debt.objects.create(
+        shop=order.shop,
+        client=order.client,
+        amount_uzs=order.total_price,
+        items=f"Buyurtma #{order.id}\n" + "\n".join(lines),
+        status='confirmed',  # buyurtmani mijozning o'zi bergan
+        transaction_type='debt',
+    )
+
+    edit_tg_message(chat_id, message_id, f"✅ Buyurtma #{order.id} nasiyaga yozildi\n👤 {order.client.full_name}\n"
+                                         f"💰 {amount_text(order.total_price, 0)}")
+    if order.client.telegram_id:
+        bal_uzs, bal_usd = client_balance(order.client)
+        send_tg_msg(order.client.telegram_id,
+                    f"✅ Buyurtmangiz #{order.id} qabul qilindi va nasiyaga yozildi.\n"
+                    f"💰 {amount_text(order.total_price, 0)}\n📉 Joriy qarzingiz: {balance_text(bal_uzs, bal_usd)}")
 
 
 def handle_order_reject(chat_id, message_id, order_id):
-    print(f"❌ Order #{order_id} bekor qilinmoqda...")
-    try:
-        order = Order.objects.get(id=order_id)
+    order = _order_for_staff(chat_id, message_id, order_id)
+    if not order:
+        return
+    if not Order.objects.filter(id=order.id, status='new').update(status='rejected'):
+        order.refresh_from_db()
+        edit_tg_message(chat_id, message_id, f"ℹ️ Buyurtma #{order.id} allaqachon {order.get_status_display().lower()}.")
+        return
 
-        if order.status != 'new':
-            edit_tg_message(chat_id, message_id, f"⚠️ Bu buyurtma allaqachon {order.get_status_display()} bo'lgan!")
-            return
-
-        # 1. Statusni bekor qilish
-        order.status = 'rejected'
-        order.save()
-
-        # 2. Xabarni yangilash
-        new_text = (
-            f"❌ <b>BEKOR QILINDI</b>\n"
-            f"👤 {order.client.full_name}\n"
-            f"Buyurtma rad etildi."
-        )
-        edit_tg_message(chat_id, message_id, new_text)
-
-    except Order.DoesNotExist:
-        edit_tg_message(chat_id, message_id, "❌ Buyurtma topilmadi.")
-    except Exception as e:
-        print(f"❌ handle_order_reject ichida xato: {e}")
+    edit_tg_message(chat_id, message_id, f"❌ <b>Buyurtma #{order.id} bekor qilindi</b>\n👤 {order.client.full_name}")
+    if order.client.telegram_id:
+        send_tg_msg(order.client.telegram_id,
+                    f"❌ Buyurtmangiz #{order.id} do'kon tomonidan bekor qilindi. Savol bo'lsa, do'kon bilan bog'laning.")
 
 
 # --- TELEGRAM API YORDAMCHILARI ---
@@ -1111,4 +1161,9 @@ def create_client_ajax(request):
 @login_required(login_url='/login/')
 def pricing_view(request):
     shop = get_current_shop(request)
-    return render(request, 'subs/pricing.html', {'shop': shop})
+    return render(request, 'subs/pricing.html', {
+        'shop': shop,
+        'price': settings.SUBSCRIPTION_PRICE,
+        'expired': bool(shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()),
+        'back_url': None if (shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()) else 'main_menu',
+    })

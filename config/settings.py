@@ -41,6 +41,8 @@ SITE_DOMAIN = os.environ.get('SITE_DOMAIN') or 'telapp.tunl.uz'
 BASE_URL = f'https://{SITE_DOMAIN}'
 BOT_USERNAME = os.environ.get('BOT_USERNAME') or 'QarzDaptarBot'
 SUPPORT_USERNAME = os.environ.get('SUPPORT_USERNAME') or 'ergashev_ikromjon'
+# Oylik obuna narxi (so'm) - obuna sahifasida ko'rsatiladi
+SUBSCRIPTION_PRICE = int(os.environ.get('SUBSCRIPTION_PRICE') or 100000)
 
 # Standart qiymatlar avvalgidek (server buzilmasligi uchun); productionda .env da aniq domen yozing
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', '*')

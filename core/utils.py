@@ -35,3 +35,13 @@ def parse_amount(value):
     except ValueError:
         return 0.0
     return number if number > 0 else 0.0
+
+
+def shop_staff_ids(shop):
+    """Do'kon jamoasining (egasi va xodimlar) Telegram ID lari."""
+    from .models import AllowedAdmin
+
+    ids = set(AllowedAdmin.objects.filter(shop=shop).values_list('telegram_id', flat=True))
+    if shop.owner.username.isdigit():
+        ids.add(int(shop.owner.username))
+    return ids

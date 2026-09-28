@@ -12,6 +12,7 @@ urlpatterns = [
     path('signup/', api.signup_view, name='signup'),
 
     path('my-cabinet/', views.client_cabinet_view, name='client_cabinet'),
+    path('my-cabinet/switch/<int:client_id>/', views.client_switch_view, name='client_switch'),
     path('client/<int:client_id>/', views.admin_client_detail_view, name='admin_client_detail'),
     path('api/create-client/', views.create_client_ajax, name='create_client_ajax'),
 

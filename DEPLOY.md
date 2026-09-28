@@ -56,6 +56,7 @@ Keyin serverni (gunicorn / uwsgi / runserver) qayta ishga tushiring.
 | `SUPPORT_USERNAME` | Obuna to'lovi uchun Telegram akkaunt | `ergashev_ikromjon` |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook maxfiy kaliti (A-Z a-z 0-9 _ -) | `k3J9_x...` |
 | `ALLOWED_HOSTS` | Vergul bilan domenlar | `qarzdaptar.uz,www.qarzdaptar.uz` |
+| `SUBSCRIPTION_PRICE` | Oylik obuna narxi (so'm) | `100000` |
 | `SERVE_MEDIA` | Rasmlarni Django bersinmi (nginx bersa `False`) | `True` |
 
 **Domen yoki bot almashsa:** faqat `.env` ni o'zgartiring, serverni qayta ishga
@@ -67,7 +68,22 @@ tushiring va `python manage.py set_webhook` ni bajaring. Kodga tegish shart emas
 - Yuklangan rasmlar (`media/`) — `SERVE_MEDIA=True` bo'lsa Django beradi.
   Trafik oshsa, nginx'da `/media/` ni to'g'ridan-to'g'ri berib, `SERVE_MEDIA=False` qiling.
 
-## 5. Tekshirish
+## 5. Obuna to'lovini qabul qilish
+
+To'lov admin bilan Telegram orqali kelishiladi. Pul tushgach: `/admin/` → **Shops** →
+do'konni belgilang → **Action: «Obunani 30 kunga uzaytirish»** → Go.
+
+## 6. Landing sahifa dizayni (Tailwind)
+
+`static/css/landing.css` oldindan build qilingan va repoda turadi — serverda Node.js kerak emas.
+Faqat `templates/landing.html` dagi klasslarni o'zgartirsangiz, qayta build qiling:
+
+```bash
+npm install
+npm run build:css
+```
+
+## 7. Tekshirish
 
 ```bash
 python manage.py test core      # avtomatik testlar

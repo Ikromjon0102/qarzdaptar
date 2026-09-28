@@ -8,4 +8,8 @@ urlpatterns = [
     path('clear/', views.clear_cart, name='clear_cart'),
     path('decrease/<int:product_id>/', views.decrease_cart, name='decrease_cart'),
     path('checkout/', views.checkout, name='checkout'),
+    # Do'kon rahbari uchun
+    path('manage/', views.manage_products, name='manage_products'),
+    path('manage/new/', views.product_form, name='product_add'),
+    path('manage/<int:product_id>/', views.product_form, name='product_edit'),
 ]
