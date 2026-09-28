@@ -2,6 +2,7 @@ import hmac
 import json
 import logging
 import uuid
+from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -14,12 +15,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 from store.models import Order
-from . import telegram
+from . import exports, telegram
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
 from .permissions import is_shop_admin, shop_admin_required
+from .reminders import send_reminder
 from .telegram_auth import verify_init_data
 from .utils import clean_phone_number, parse_amount, shop_staff_ids
 
@@ -910,6 +913,17 @@ def settings_view(request):
             else:
                 messages.error(request, "Kursni to'g'ri kiriting (masalan: 12 800).")
 
+        elif action == 'update_reminders':
+            settings_obj.reminder_enabled = request.POST.get('reminder_enabled') == 'on'
+            try:
+                settings_obj.reminder_days = min(max(int(request.POST.get('reminder_days') or 7), 1), 60)
+            except ValueError:
+                settings_obj.reminder_days = 7
+            settings_obj.reminder_min_debt = round(parse_amount(request.POST.get('reminder_min_debt')))
+            settings_obj.save(update_fields=['reminder_enabled', 'reminder_days', 'reminder_min_debt'])
+            messages.success(request, "✅ Eslatma sozlamalari saqlandi." if settings_obj.reminder_enabled
+                             else "Avtomatik eslatma o'chirildi.")
+
         elif action == 'update_shop':
             name = (request.POST.get('shop_name') or '').strip()
             if name:
@@ -998,6 +1012,40 @@ def client_form_view(request, client_id=None):
         return redirect('admin_client_detail', client_id=client.id)
 
     return render(request, 'client_form.html', {'client': client, **back})
+
+
+@shop_admin_required
+def export_clients_view(request):
+    wb, filename = exports.clients_export(get_current_shop(request))
+    return exports.deliver(request, wb, filename, reverse('dashboard'))
+
+
+@shop_admin_required
+def export_month_view(request):
+    try:
+        year, month = map(int, (request.GET.get('date') or '').split('-'))
+    except ValueError:
+        today = timezone.localdate()
+        year, month = today.year, today.month
+    wb, filename = exports.month_export(get_current_shop(request), year, month)
+    return exports.deliver(request, wb, filename, f"{reverse('reports_page')}?date={year}-{month:02d}")
+
+
+@login_required(login_url='/login/')
+@require_POST
+def remind_client_view(request, client_id):
+    """Mijozga qarz eslatmasini hozir yuborish (bir soatda bir martadan ko'p emas)."""
+    shop = get_current_shop(request)
+    client = get_object_or_404(Client, id=client_id, shop=shop)
+    if client.last_reminded_at and timezone.now() - client.last_reminded_at < timedelta(hours=1):
+        messages.info(request, "Bu mijozga yaqinda eslatma yuborilgan. Keyinroq urinib ko'ring.")
+    else:
+        bal_uzs, bal_usd = client_balance(client)
+        if send_reminder(client, bal_uzs, bal_usd):
+            messages.success(request, f"🔔 {client.full_name}ga eslatma yuborildi.")
+        else:
+            messages.error(request, "Eslatma yuborilmadi: mijozning qarzi yo'q yoki botga ulanmagan.")
+    return redirect('admin_client_detail', client_id=client.id)
 
 
 @shop_admin_required
@@ -1106,10 +1154,19 @@ def create_client_ajax(request):
 
 @login_required(login_url='/login/')
 def pricing_view(request):
+    from billing.models import SubscriptionPayment
+    from billing.views import PLANS, providers_enabled
+
     shop = get_current_shop(request)
+    returned = None
+    if request.GET.get('payment', '').isdigit() and shop:
+        returned = SubscriptionPayment.objects.filter(id=int(request.GET['payment']), shop=shop).first()
     return render(request, 'subs/pricing.html', {
         'shop': shop,
         'price': settings.SUBSCRIPTION_PRICE,
+        'plans': [{'months': m, 'amount': settings.SUBSCRIPTION_PRICE * m} for m in PLANS],
+        'providers': providers_enabled(),
+        'returned_payment': returned,
         'expired': bool(shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()),
         'back_url': None if (shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()) else 'main_menu',
     })

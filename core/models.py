@@ -35,6 +35,15 @@ class Shop(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
 
+    def extend_subscription(self, days=30):
+        """Obunani uzaytirish: muddat tugagan bo'lsa bugundan, aks holda joriy muddat oxiridan."""
+        now = timezone.now()
+        start = self.subscription_ends_at if self.subscription_ends_at and self.subscription_ends_at > now else now
+        self.subscription_ends_at = start + timedelta(days=days)
+        self.is_active = True
+        self.save(update_fields=['subscription_ends_at', 'is_active'])
+        return self.subscription_ends_at
+
     @property
     def days_left(self):
         """Qolgan kunlarni hisoblash"""
@@ -71,6 +80,7 @@ class Client(models.Model):
     telegram_id = models.BigIntegerField(null=True, blank=True)
 
     invite_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, null=True, blank=True)
+    last_reminded_at = models.DateTimeField(null=True, blank=True, verbose_name="Oxirgi eslatma")
 
     class Meta:
         # Bitta do'kon ichida telefon raqam takrorlanmasin (boshqa do'konda bo'lishi mumkin)
@@ -153,6 +163,12 @@ class Settings(models.Model):
     # Har bir do'konning o'z sozlamasi bo'ladi
     shop = models.OneToOneField(Shop, on_delete=models.CASCADE, related_name='settings', null=True, blank=True)
     usd_rate = models.DecimalField(max_digits=10, decimal_places=2, default=12800, verbose_name="Dollar kursi")
+
+    # Qarzdorlarga avtomatik eslatma (manage.py send_reminders - cron orqali har kuni)
+    reminder_enabled = models.BooleanField(default=False, verbose_name="Avtomatik eslatma")
+    reminder_days = models.PositiveSmallIntegerField(default=7, verbose_name="Necha kunda bir")
+    reminder_min_debt = models.DecimalField(max_digits=15, decimal_places=0, default=0,
+                                            verbose_name="Eng kam qarz (so'm)")
 
     # get_solo va save metodlarini o'chiramiz, chunki endi bu Singleton emas.
     def __str__(self):

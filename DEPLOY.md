@@ -70,8 +70,27 @@ tushiring va `python manage.py set_webhook` ni bajaring. Kodga tegish shart emas
 
 ## 5. Obuna to'lovini qabul qilish
 
-To'lov admin bilan Telegram orqali kelishiladi. Pul tushgach: `/admin/` → **Shops** →
-do'konni belgilang → **Action: «Obunani 30 kunga uzaytirish»** → Go.
+**Qo'lda (har doim ishlaydi):** to'lov admin bilan Telegram orqali kelishiladi. Pul tushgach
+`/super-control/` → do'kon yonidagi **«+30 kun»**.
+
+**Avtomatik — Payme va Click** (kalitlar `.env` da bo'lmasa, tugmalar ko'rinmaydi):
+
+*Payme* ([business.paycom.uz](https://business.paycom.uz)):
+1. Kassa yarating, turi — **«Merchant API»**.
+2. Kassa sozlamalarida **Endpoint URL**: `https://<SITE_DOMAIN>/billing/payme/`
+3. **Hisob (account) maydoni**: `order_id` (turi: raqam).
+4. `.env`: `PAYME_MERCHANT_ID` (kassa ID), `PAYME_KEY` (kalit). Avval test kassasi bilan:
+   `PAYME_TEST_MODE=True` va test kalitini yozing, [test.paycom.uz](https://test.paycom.uz) da
+   barcha stsenariylarni o'tkazing, keyin haqiqiy kalitga almashtiring.
+
+*Click* ([merchant.click.uz](https://merchant.click.uz)):
+1. Servis yarating, **Prepare URL** va **Complete URL** — ikkalasiga ham:
+   `https://<SITE_DOMAIN>/billing/click/`
+2. `.env`: `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY`.
+
+To'lov o'tgach obuna avtomatik uzaytiriladi (1/3/6 oy) va do'kon egasiga Telegram'da xabar keladi.
+Barcha to'lovlar: `/admin/` → **Obuna to'lovlari**. Muvaffaqiyatli Payme to'lovini bekor qilish
+so'ralsa, tizim rad etadi (-31007) — pulni qaytarish Payme kabineti va admin orqali qo'lda qilinadi.
 
 ## 6. Landing sahifa dizayni (Tailwind)
 
@@ -106,14 +125,25 @@ gunzip -c backups/db-YYYYMMDD-HHMMSS.sqlite3.gz > db.sqlite3
 tar xzf backups/media-YYYYMMDD-HHMMSS.tar.gz        # media/ ni tiklaydi
 ```
 
-## 8. Loglar
+## 8. Qarzdorlarga avtomatik eslatma
+
+Do'kon rahbari **Sozlamalar → Qarzdorlarga eslatma** da yoqadi (necha kunda bir, eng kam summa).
+Yuborishni cron bajaradi (kuniga bir marta):
+
+```
+0 10 * * * cd /path/to/qarzdaptar && venv/bin/python manage.py send_reminders >> logs/reminders.log 2>&1
+```
+
+Kimga borishini oldindan ko'rish: `python manage.py send_reminders --dry-run`
+
+## 9. Loglar
 
 Xatolar `logs/qarzdaptar.log` ga yoziladi (5 MB dan oshsa yangi faylga o'tadi, 5 ta saqlanadi).
 Telegram'ga xabar ketmasa, avval shu faylni ko'ring: `tail -n 50 logs/qarzdaptar.log`
 
-## 9. Tekshirish
+## 10. Tekshirish
 
 ```bash
-python manage.py test core      # avtomatik testlar
+python manage.py test core billing   # avtomatik testlar
 python manage.py check          # sozlamalar
 ```

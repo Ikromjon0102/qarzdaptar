@@ -7,6 +7,7 @@ from core.admin_views import extend_subscription, super_dashboard
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
+    path('', include('billing.urls')),
     path('shop/', include('store.urls')), # <--- YANGI
     path('super-control/', super_dashboard, name='super_dashboard'),
     path('super-control/extend/<int:shop_id>/', extend_subscription, name='extend_subscription'),

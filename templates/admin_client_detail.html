@@ -69,6 +69,12 @@
                 <div class="row-title">Botga ulangan</div>
                 <div class="row-sub">Nasiyalarni o'zi tasdiqlaydi</div>
             </div>
+            {% if total_uzs > 0 or total_usd > 0 %}
+            <form method="POST" action="{% url 'client_remind' client.id %}" class="flex-shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-bell"></i> Eslatish</button>
+            </form>
+            {% endif %}
             {% if is_shop_admin %}
             <a href="{% url 'client_reset_tg' client.id %}" class="small fw-bold text-danger text-decoration-none"
                onclick="return confirm('Telegram bog\'lanishini uzasizmi? Mijoz yangi havola orqali qayta ulanishi kerak bo\'ladi.')">

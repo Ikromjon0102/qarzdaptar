@@ -48,6 +48,14 @@ SUPPORT_USERNAME = os.environ.get('SUPPORT_USERNAME') or 'ergashev_ikromjon'
 # Oylik obuna narxi (so'm) - obuna sahifasida ko'rsatiladi
 SUBSCRIPTION_PRICE = int(os.environ.get('SUBSCRIPTION_PRICE') or 100000)
 
+# --- Obuna to'lovi: Payme va Click (kalitlar berilmasa - tugmalar ko'rinmaydi, faqat qo'lda to'lov) ---
+PAYME_MERCHANT_ID = os.environ.get('PAYME_MERCHANT_ID', '')
+PAYME_KEY = os.environ.get('PAYME_KEY', '')
+PAYME_TEST_MODE = (os.environ.get('PAYME_TEST_MODE') or 'False').lower() in ('1', 'true', 'yes')
+CLICK_SERVICE_ID = os.environ.get('CLICK_SERVICE_ID', '')
+CLICK_MERCHANT_ID = os.environ.get('CLICK_MERCHANT_ID', '')
+CLICK_SECRET_KEY = os.environ.get('CLICK_SECRET_KEY', '')
+
 # Standart qiymatlar avvalgidek (server buzilmasligi uchun); productionda .env da aniq domen yozing
 ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', '*')
 CSRF_TRUSTED_ORIGINS = _env_list('CSRF_TRUSTED_ORIGINS',
@@ -67,6 +75,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'core',
     'store',
+    'billing',
 
 
 ]

@@ -711,3 +711,93 @@ class RedesignedPagesTests(TestCase):
         self.client.post(reverse('extend_subscription', args=[self.shop.id]))
         self.shop.refresh_from_db()
         self.assertEqual(self.shop.days_left, 29)  # bugundan 30 kun
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+class ReminderTests(TestCase):
+    def setUp(self):
+        from .models import Settings
+        self.owner, self.shop = make_shop()
+        self.cfg = Settings.objects.create(shop=self.shop, reminder_enabled=True, reminder_days=7, reminder_min_debt=10000)
+        self.debtor = Client.objects.create(shop=self.shop, full_name='Qarzdor', phone='+998900000001', telegram_id=11)
+        self.small = Client.objects.create(shop=self.shop, full_name='Kichik', phone='+998900000002', telegram_id=12)
+        self.nobot = Client.objects.create(shop=self.shop, full_name='Botsiz', phone='+998900000003')
+        with mock.patch('requests.post'):
+            for c, amount in [(self.debtor, 50000), (self.small, 5000), (self.nobot, 90000)]:
+                Debt.objects.create(shop=self.shop, client=c, amount_uzs=amount, items='x', status='confirmed')
+
+    def run_command(self):
+        from django.core.management import call_command
+        with mock.patch('core.telegram.send_message') as send, mock.patch('time.sleep'):
+            call_command('send_reminders', stdout=mock.Mock())
+        return send
+
+    def test_only_due_debtors_with_bot_get_reminder(self):
+        send = self.run_command()
+        self.assertEqual([c.args[0] for c in send.call_args_list], [11])
+        self.assertIn('50 000', send.call_args.args[1])
+        # Ertasi kuni - yana yuborilmaydi (7 kun o'tmagan)
+        self.assertEqual(self.run_command().call_count, 0)
+        # 8 kundan keyin - yana
+        Client.objects.filter(id=self.debtor.id).update(last_reminded_at=timezone.now() - timezone.timedelta(days=8))
+        self.assertEqual(self.run_command().call_count, 1)
+
+    def test_disabled_or_expired_shop_gets_nothing(self):
+        self.cfg.reminder_enabled = False
+        self.cfg.save()
+        self.assertEqual(self.run_command().call_count, 0)
+        self.cfg.reminder_enabled = True
+        self.cfg.save()
+        self.shop.subscription_ends_at = timezone.now() - timezone.timedelta(days=1)
+        self.shop.save()
+        self.assertEqual(self.run_command().call_count, 0)
+
+    def test_manual_remind_button_with_cooldown(self):
+        self.client.force_login(self.owner)
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('client_remind', args=[self.debtor.id]))
+            self.client.post(reverse('client_remind', args=[self.debtor.id]))  # 1 soat o'tmagan
+        self.assertEqual(send.call_count, 1)
+
+    def test_settings_form_saves_reminder_options(self):
+        self.client.force_login(self.owner)
+        self.client.post(reverse('settings'), {'action': 'update_reminders', 'reminder_days': '3',
+                                               'reminder_min_debt': '20 000'})
+        self.cfg.refresh_from_db()
+        self.assertEqual((self.cfg.reminder_enabled, self.cfg.reminder_days, self.cfg.reminder_min_debt), (False, 3, 20000))
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class ExcelExportTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=5)
+        Debt.objects.create(shop=self.shop, client=vali, amount_uzs=300000, items='Un\nShakar', status='confirmed')
+        Debt.objects.create(shop=self.shop, client=vali, amount_uzs=-100000, items="To'lov", status='confirmed',
+                            transaction_type='payment', payment_method='card')
+        self.client.force_login(self.owner)
+
+    def load(self, resp):
+        from io import BytesIO
+        from openpyxl import load_workbook
+        self.assertEqual(resp['Content-Type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        return load_workbook(BytesIO(resp.content))
+
+    def test_clients_export(self, _post):
+        ws = self.load(self.client.get(reverse('export_clients'))).active
+        self.assertEqual([c.value for c in ws[2]][:3], ['Vali', '+998901112233', 200000])
+
+    def test_month_export(self, _post):
+        today = timezone.localdate()
+        wb = self.load(self.client.get(reverse('export_month') + f'?date={today:%Y-%m}'))
+        ops = list(wb['Operatsiyalar'].iter_rows(min_row=2, values_only=True))
+        self.assertEqual([(r[2], r[4]) for r in ops], [('Nasiya', 300000), ("To'lov", 100000)])
+        self.assertEqual(list(wb['Mijozlar kesimida'].iter_rows(min_row=2, values_only=True))[0][:3], ('Vali', 300000, 100000))
+
+    def test_send_to_telegram_and_worker_blocked(self, post):
+        resp = self.client.get(reverse('export_clients') + '?send=1')
+        self.assertRedirects(resp, reverse('dashboard'))
+        self.assertTrue(any('sendDocument' in c.args[0] for c in post.call_args_list))
+        self.client.force_login(make_worker(self.shop))
+        self.assertRedirects(self.client.get(reverse('export_clients')), reverse('main_menu'))

@@ -28,8 +28,11 @@ urlpatterns = [
     path('clients/add/', views.client_form_view, name='client_add'),
     path('clients/<int:client_id>/edit/', views.client_form_view, name='client_edit'),
     path('clients/<int:client_id>/reset-tg/', views.client_reset_telegram_view, name='client_reset_tg'),
+    path('clients/<int:client_id>/remind/', views.remind_client_view, name='client_remind'),
 
     path('reports/', views.reports_view, name='reports_page'),
+    path('export/clients.xlsx', views.export_clients_view, name='export_clients'),
+    path('export/month.xlsx', views.export_month_view, name='export_month'),
 
     path('webhook/', views.telegram_webhook, name='telegram_webhook'),
 

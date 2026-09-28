@@ -9,9 +9,15 @@
     <a href="{% url 'reports_page' %}" class="active">Oylik</a>
 </div>
 
-<form method="get" class="mb-3">
+<form method="get" class="mb-3 d-flex gap-2">
     <input type="month" name="date" value="{{ selected_date }}" class="form-control fw-bold text-center"
            onchange="this.form.submit()" aria-label="Oyni tanlang">
+    {% if is_shop_admin %}
+    <a href="{% url 'export_month' %}?date={{ selected_date }}" data-export class="btn flex-shrink-0 d-flex align-items-center gap-1"
+       style="background: var(--tg-secondary); color: var(--success);" title="Excel'ga yuklab olish">
+        <i class="fa-solid fa-file-excel"></i> Excel
+    </a>
+    {% endif %}
 </form>
 
 <div class="list-group-app">

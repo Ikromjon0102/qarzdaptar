@@ -46,6 +46,17 @@
     </div>
 </div>
 
+{% if is_shop_admin %}
+<a href="{% url 'export_clients' %}" data-export class="list-group-app list-row mt-3">
+    <span class="row-icon green"><i class="fa-solid fa-file-excel"></i></span>
+    <div class="row-main">
+        <div class="row-title">Mijozlar va qarzlar — Excel</div>
+        <div class="row-sub">Barcha mijozlar, telefon va joriy qarzi</div>
+    </div>
+    <i class="fa-solid fa-download chevron"></i>
+</a>
+{% endif %}
+
 <div class="d-flex justify-content-between align-items-center">
     <div class="section-title">Eng katta qarzdorlar</div>
     <a href="{% url 'client_list' %}?filter=debtor" class="small fw-bold text-decoration-none mt-3">

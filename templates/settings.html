@@ -30,6 +30,29 @@
     <div class="small text-muted mt-2">Savdo oynasida dollardagi summalar shu kurs bo'yicha so'mga aylantirib ko'rsatiladi.</div>
 </form>
 
+<div class="section-title">Qarzdorlarga eslatma</div>
+<form method="POST" class="app-card">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_reminders">
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" name="reminder_enabled" id="remEnabled" {% if settings.reminder_enabled %}checked{% endif %}>
+        <label class="form-check-label fw-bold" for="remEnabled">Avtomatik eslatma yuborish</label>
+    </div>
+    <div class="small text-muted mb-3">Bot qarzi bor va botga ulangan mijozlarga qarzini eslatib turadi.</div>
+    <div class="row g-2">
+        <div class="col-6">
+            <label class="form-label">Har necha kunda</label>
+            <input type="number" name="reminder_days" min="1" max="60" class="form-control" value="{{ settings.reminder_days }}">
+        </div>
+        <div class="col-6">
+            <label class="form-label">Qarz kamida (so'm)</label>
+            <input type="text" inputmode="numeric" name="reminder_min_debt" class="form-control money-input"
+                   value="{{ settings.reminder_min_debt|space_format }}">
+        </div>
+    </div>
+    <button type="submit" class="btn btn-primary w-100 mt-3">Saqlash</button>
+</form>
+
 <div class="section-title">Boshqa</div>
 <div class="list-group-app">
     <a href="{% url 'pricing_page' %}" class="list-row">

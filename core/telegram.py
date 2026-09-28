@@ -56,6 +56,33 @@ def send_message(chat_id, text, reply_markup=None, background=None):
     return call("sendMessage", payload, background)
 
 
+def _post_document(chat_id, filename, content, caption):
+    if not settings.BOT_TOKEN:
+        logger.warning("BOT_TOKEN sozlanmagan, hujjat yuborilmadi")
+        return None
+    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendDocument"
+    try:
+        response = requests.post(url, data={"chat_id": chat_id, "caption": caption},
+                                 files={"document": (filename, content)}, timeout=30)
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Telegram sendDocument xatosi (chat=%s): %s", chat_id, exc)
+        return None
+    if not data.get('ok'):
+        logger.warning("Telegram sendDocument rad etdi (chat=%s): %s", chat_id, data.get('description'))
+    return data
+
+
+def send_document(chat_id, filename, content, caption='', background=None):
+    """Fayl yuborish (masalan Excel hisobot). content - bytes."""
+    if background is None:
+        background = settings.TELEGRAM_ASYNC
+    if background:
+        _executor.submit(_post_document, chat_id, filename, content, caption)
+        return None
+    return _post_document(chat_id, filename, content, caption)
+
+
 def edit_message(chat_id, message_id, text, background=None):
     return call("editMessageText", {"chat_id": chat_id, "message_id": message_id,
                                     "text": text, "parse_mode": "HTML"}, background)

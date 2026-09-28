@@ -18,11 +18,53 @@
 </div>
 {% endif %}
 
+{% if returned_payment %}
+<div class="app-toast {% if returned_payment.status == 'paid' %}success{% elif returned_payment.status == 'cancelled' %}error{% else %}warning{% endif %} mb-3">
+    <i class="fa-solid {% if returned_payment.status == 'paid' %}fa-circle-check{% else %}fa-clock{% endif %} mt-1"></i>
+    <div>
+        {% if returned_payment.status == 'paid' %}To'lov qabul qilindi — obuna uzaytirildi. Rahmat!
+        {% elif returned_payment.status == 'cancelled' %}To'lov bekor qilindi. Qayta urinib ko'ring.
+        {% else %}To'lov tekshirilmoqda. Bir necha daqiqada obuna avtomatik uzaytiriladi — sahifani yangilang.{% endif %}
+    </div>
+</div>
+{% endif %}
+
 <div class="app-card text-center" style="padding: 24px;">
     <div class="small text-muted">{{ shop.name }}</div>
     <div class="fw-bold" style="font-size: 32px;">{{ price|space_format }} <span style="font-size: 17px;">so'm</span></div>
     <div class="text-muted small">oyiga</div>
 </div>
+
+{% if providers.payme or providers.click %}
+<div class="section-title">Onlayn to'lash</div>
+<form method="POST" action="{% url 'start_payment' %}" class="app-card">
+    {% csrf_token %}
+    <div class="segmented mb-3" id="planPicker">
+        {% for plan in plans %}
+        <label class="flex-fill text-center m-0">
+            <input type="radio" name="months" value="{{ plan.months }}" class="d-none" {% if forloop.first %}checked{% endif %}>
+            <span class="d-block py-2 rounded-3 fw-bold plan-opt">{{ plan.months }} oy<br><small class="fw-normal text-muted">{{ plan.amount|space_format }}</small></span>
+        </label>
+        {% endfor %}
+    </div>
+    <div class="d-grid gap-2">
+        {% if providers.payme %}
+        <button type="submit" name="provider" value="payme" class="btn py-3 fw-bold" style="background: #00CCCC; color: #fff;">
+            Payme orqali to'lash
+        </button>
+        {% endif %}
+        {% if providers.click %}
+        <button type="submit" name="provider" value="click" class="btn py-3 fw-bold" style="background: #0066FF; color: #fff;">
+            Click orqali to'lash
+        </button>
+        {% endif %}
+    </div>
+    <div class="small text-muted mt-2 text-center">To'lovdan keyin obuna darhol, avtomatik uzaytiriladi.</div>
+</form>
+<style>
+    #planPicker input:checked + .plan-opt { background: var(--tg-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--tg-button); }
+</style>
+{% endif %}
 
 <div class="section-title">Nimalar kiradi</div>
 <div class="list-group-app">
@@ -38,7 +80,7 @@
         <div class="row-main"><div class="row-title">Onlayn buyurtma</div><div class="row-sub">Mijozlar mahsulotlaringizdan buyurtma beradi</div></div></div>
 </div>
 
-<div class="section-title">Qanday to'lanadi</div>
+<div class="section-title">{% if providers.payme or providers.click %}Yoki admin orqali{% else %}Qanday to'lanadi{% endif %}</div>
 <div class="list-group-app">
     <div class="list-row"><span class="row-icon gray fw-bold">1</span>
         <div class="row-main" style="white-space: normal;">Pastdagi tugmani bosing — admin bilan Telegram chat ochiladi.</div></div>

@@ -383,6 +383,13 @@
             }
         });
 
+        // Telegram ichida fayl yuklab bo'lmaydi - eksport havolalari faylni bot chatiga yuboradi
+        if (tg && tg.initData) {
+            document.querySelectorAll('a[data-export]').forEach(a => {
+                a.href += (a.href.includes('?') ? '&' : '?') + 'send=1';
+            });
+        }
+
         // Muvaffaqiyat xabarlari 4 soniyadan keyin o'zi yopiladi
         document.querySelectorAll('.app-toast.success, .app-toast.info').forEach(el => {
             setTimeout(() => {

@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count, Q, Sum
@@ -51,10 +49,6 @@ def super_dashboard(request):
 def extend_subscription(request, shop_id):
     """To'lov qabul qilingach obunani 30 kunga uzaytirish (muddat tugagan bo'lsa - bugundan)."""
     shop = get_object_or_404(Shop, id=shop_id)
-    now = timezone.now()
-    start = shop.subscription_ends_at if shop.subscription_ends_at and shop.subscription_ends_at > now else now
-    shop.subscription_ends_at = start + timedelta(days=30)
-    shop.is_active = True
-    shop.save(update_fields=['subscription_ends_at', 'is_active'])
+    shop.extend_subscription(30)
     messages.success(request, f"✅ «{shop.name}» obunasi {shop.subscription_ends_at:%d.%m.%Y} gacha uzaytirildi.")
     return redirect('super_dashboard')
