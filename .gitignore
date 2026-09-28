@@ -13,13 +13,19 @@ build/
 dist/
 
 # Django
-db.sqlite3
+*.sqlite3
+static-files/
+staticfiles/
 local_settings.py
 media/
 
 # IDEs and OS
-.idea/  # For PyCharm
-.vscode/ # For VS Code
-.DS_Store # For macOS
-Thumbs.db # For Windows
+# (izohlar alohida qatorda bo'lishi shart - aks holda qoida ishlamaydi)
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
 *.log
+
+# Boshqa
+*.exe

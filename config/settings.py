@@ -67,6 +67,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # statik fayllar (DEBUG=False da ham)
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -158,8 +159,18 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static-files')
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# Statik fayllarni WhiteNoise beradi (nginx sozlash shart emas).
+# USE_FINDERS: `collectstatic` qilinmagan bo'lsa ham fayllar topiladi.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
+}
+WHITENOISE_USE_FINDERS = True
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# Yuklangan fayllarni (mahsulot rasmlari) Django o'zi beradi. Nginx beradigan bo'lsa: SERVE_MEDIA=False
+SERVE_MEDIA = (os.environ.get('SERVE_MEDIA') or 'True').lower() in ('1', 'true', 'yes')
 
 
 
