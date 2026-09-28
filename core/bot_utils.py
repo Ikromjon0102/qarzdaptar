@@ -1,9 +1,5 @@
-import requests
-from django.conf import settings
+from . import telegram
 
-# Token .env dan olinadi (config/settings.py)
-BOT_TOKEN = settings.BOT_TOKEN
-BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 def send_confirmation_request(telegram_id,  debt_obj, domain):
     """
@@ -32,43 +28,11 @@ def send_confirmation_request(telegram_id,  debt_obj, domain):
     # ---------------------------
 
     text = (
-        f"🆕 <b>Yangi xarid!!</b>\n\n"
+        f"🆕 <b>Yangi xarid!</b>\n\n"
         f"🛒 <b>Tovarlar:</b>\n{debt_obj.items}\n\n"
         f"➖➖➖➖➖➖➖➖\n"
         f"💰 <b>Jami:</b> {total_str}\n\n"
         f"Iltimos, pastdagi tugmani bosib tasdiqlang yoki rad eting."
     )
-
-    payload = {
-        "chat_id": telegram_id,
-        "text": text,
-        "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": [[
-                {
-                    "text": "📝 Ko'rish va Tasdiqlash",
-                    "web_app": {"url": web_app_url}
-                }
-            ]]
-        }
-    }
-    
-    try:
-        response = requests.post(f"{BASE_URL}/sendMessage", json=payload)
-        # Log uchun natijani ko'rish
-        if response.status_code != 200:
-            print(f"Telegramga yuborishda xatolik: {response.text}")
-    except Exception as e:
-        print(f"Error sending msg: {e}")
-
-def send_telegram_message(chat_id, text):
-    """Oddiy xabar yuborish uchun (masalan 'Start' bosganda)"""
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }
-    try:
-        requests.post(f"{BASE_URL}/sendMessage", json=payload)
-    except Exception as e:
-        print(f"Error sending simple msg: {e}")
+    reply_markup = {"inline_keyboard": [[{"text": "📝 Ko'rish va Tasdiqlash", "web_app": {"url": web_app_url}}]]}
+    telegram.send_message(telegram_id, text, reply_markup=reply_markup)

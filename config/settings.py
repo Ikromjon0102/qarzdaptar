@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 
@@ -31,6 +32,9 @@ _load_env_file(BASE_DIR / '.env')
 # Namuna: .env.example
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or 'django-insecure-dev-only-change-me'
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
+# Telegram xabarlari fonda yuboriladi (testlarda - sinxron, natijani tekshirish uchun)
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+TELEGRAM_ASYNC = not TESTING
 # Telegram webhook'ga yuboradigan maxfiy kalit (setWebhook secret_token). Bo'sh bo'lsa tekshirilmaydi.
 TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
 
@@ -181,3 +185,33 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 USE_THOUSAND_SEPARATOR = True
 THOUSAND_SEPARATOR = ' '
+
+
+# --- LOGLAR ---
+# Xatolar konsolga va logs/qarzdaptar.log ga yoziladi (5 MB dan oshsa aylanadi, 5 ta fayl saqlanadi)
+LOG_DIR = Path(os.environ.get('LOG_DIR') or BASE_DIR / 'logs')
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple'},
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOG_DIR / 'qarzdaptar.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'simple',
+            'encoding': 'utf-8',
+        },
+    },
+    'root': {'handlers': ['console', 'file'], 'level': 'WARNING'},
+    'loggers': {
+        'core': {'level': 'INFO'},
+        'store': {'level': 'INFO'},
+        'django.request': {'level': 'ERROR'},
+    },
+}

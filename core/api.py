@@ -1,6 +1,4 @@
 import re
-import threading  # <--- YANGI KUCH
-import time
 from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
@@ -8,13 +6,12 @@ from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.contrib.auth.decorators import login_required
 from .models import Client, UserProfile, Shop, Settings
-from .views import send_tg_msg, get_current_shop
+from . import telegram
+from .views import get_current_shop
 from .permissions import shop_admin_required
 from django.db import transaction
 from .models import AllowedAdmin, StaffInvite
-from django.db.models import Q
 
 # Yangi do'kon uchun bepul sinov muddati (kun)
 TRIAL_DAYS = 14
@@ -26,19 +23,13 @@ def broadcast_view(request):
     if request.method == 'POST':
         text = request.POST.get('message')
         if text:
-            # Faqat shu do'kon mijozlariga
-            clients = Client.objects.filter(shop=shop, telegram_id__isnull=False).exclude(telegram_id=0)
-
-            def send_thread(txt, cl_list):
-                for c in cl_list:
-                    try:
-                        send_tg_msg(c.telegram_id, txt)
-                        time.sleep(0.05)
-                    except:
-                        pass
-
-            threading.Thread(target=send_thread, args=(text, clients)).start()
-            messages.success(request, f"📨 Xabar {clients.count()} ta mijozga yuborilmoqda.")
+            # Faqat shu do'kon mijozlariga. ID lar oldindan olinadi - fon oqimi bazaga murojaat qilmaydi,
+            # xabarlar esa telegram modulining navbati orqali (bir vaqtda 4 tadan) yuboriladi.
+            chat_ids = list(Client.objects.filter(shop=shop, telegram_id__isnull=False)
+                            .exclude(telegram_id=0).values_list('telegram_id', flat=True).distinct())
+            for chat_id in chat_ids:
+                telegram.send_message(chat_id, text)
+            messages.success(request, f"📨 Xabar {len(chat_ids)} ta mijozga yuborilmoqda.")
             return redirect('main_menu')
 
     return render(request, 'broadcast.html', {'back_url': 'main_menu',})

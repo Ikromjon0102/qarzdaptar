@@ -1,6 +1,4 @@
-import requests
-from django.conf import settings
-
+from core import telegram
 from core.utils import shop_staff_ids
 
 
@@ -25,10 +23,5 @@ def send_order_to_shop(order, items):
         [{"text": "❌ Bekor qilish", "callback_data": f"order_reject_{order.id}"}],
     ]}
 
-    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
     for chat_id in shop_staff_ids(order.shop):
-        try:
-            requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML",
-                                     "reply_markup": reply_markup}, timeout=10)
-        except Exception as e:
-            print(f"Telegram error: {e}")
+        telegram.send_message(chat_id, text, reply_markup=reply_markup)

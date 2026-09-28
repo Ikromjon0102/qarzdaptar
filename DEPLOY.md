@@ -83,7 +83,35 @@ npm install
 npm run build:css
 ```
 
-## 7. Tekshirish
+## 7. Zaxira nusxa (backup) — albatta sozlang
+
+```bash
+python manage.py backup_db --media        # backups/ ga; oxirgi 14 ta nusxa saqlanadi
+```
+
+Har kuni avtomatik (`crontab -e`):
+
+```
+0 3 * * * cd /path/to/qarzdaptar && venv/bin/python manage.py backup_db --media >> logs/backup.log 2>&1
+```
+
+Nusxalarni **boshqa joyga** ham ko'chirib turing (server diski buzilsa, u yerdagi nusxa ham yo'qoladi):
+`BACKUP_DIR=/mnt/disk2/backups` yoki `rclone`/`scp` bilan tashqi xotiraga.
+
+**Tiklash:** serverni to'xtating, so'ng
+
+```bash
+cp db.sqlite3 db.sqlite3.broken
+gunzip -c backups/db-YYYYMMDD-HHMMSS.sqlite3.gz > db.sqlite3
+tar xzf backups/media-YYYYMMDD-HHMMSS.tar.gz        # media/ ni tiklaydi
+```
+
+## 8. Loglar
+
+Xatolar `logs/qarzdaptar.log` ga yoziladi (5 MB dan oshsa yangi faylga o'tadi, 5 ta saqlanadi).
+Telegram'ga xabar ketmasa, avval shu faylni ko'ring: `tail -n 50 logs/qarzdaptar.log`
+
+## 9. Tekshirish
 
 ```bash
 python manage.py test core      # avtomatik testlar

@@ -1,38 +1,29 @@
 import hmac
 import json
+import logging
 import uuid
-import requests
-import threading
-import time
-from django.shortcuts import render, get_object_or_404, redirect
-from django.db import transaction
-from django.urls import reverse
+from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-from datetime import timedelta
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Count, Sum, Q
-from django.conf import settings
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render, redirect
-from .models import Shop, UserProfile
-from store.models import Order
-# Modellar
-from .models import Client, Debt, Settings, AllowedAdmin, Shop, UserProfile, StaffInvite, CASH_CLIENT_PHONE
-# from store.models import Order, Product  # Agar kerak bo'lsa
-import json
-import requests
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from django.conf import settings
+from django.db import transaction
+from django.db.models import Count, Q, Sum
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
-from .utils import clean_phone_number, parse_amount, shop_staff_ids
+from store.models import Order
+from . import telegram
+from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
+                     UserProfile)
 from .permissions import is_shop_admin, shop_admin_required
 from .telegram_auth import verify_init_data
+from .utils import clean_phone_number, parse_amount, shop_staff_ids
+
+logger = logging.getLogger(__name__)
 
 
 def get_current_shop(request):
@@ -406,15 +397,15 @@ def create_payment_view(request):
         # 2. TELEGRAM XABAR
         if client.telegram_id:
             try:
-                msg = f"💸 <b>To'lov qabul qilindi!</b>\n\n"
+                msg = "💸 <b>To'lov qabul qilindi!</b>\n\n"
                 msg += f"👤 Mijoz: {client.full_name}\n"
                 msg += f"💰 To'landi: <b>{amount_str}</b> ({method_display})\n"
                 if note: msg += f"📝 Izoh: {note}\n"
                 msg += "➖➖➖➖➖➖➖➖\n"
                 msg += f"📉 Joriy holat: <b>{balance_str}</b>"
                 send_tg_msg(client.telegram_id, msg)
-            except Exception as e:
-                print(f"Telegram Error: {e}")
+            except Exception:
+                logger.exception("To'lov xabarini yuborishda xato (client=%s)", client.id)
 
         messages.success(request, f"✅ {client.full_name}dan {amount_str} qabul qilindi. Qoldiq: {balance_str}")
         return redirect('admin_client_detail', client_id=client.id)
@@ -683,11 +674,6 @@ def client_switch_view(request, client_id):
     return redirect('client_cabinet')
 
 
-# Modellarni import qilamiz
-from .models import Client, Debt
-# Agar Order store app ichida bo'lsa:
-# from store.models import Order
-
 @csrf_exempt
 def telegram_webhook(request):
     # Telegram har so'rovga setWebhook'da berilgan secret_token ni sarlavhada qo'shadi
@@ -751,8 +737,8 @@ def telegram_webhook(request):
                 answer_callback(callback['id'])
 
             return JsonResponse({'status': 'ok'})
-        except Exception as e:
-            print(e)
+        except Exception:
+            logger.exception("Webhook xatosi")
             return JsonResponse({'status': 'error'})
     return JsonResponse({'status': 'error'}, status=405)
 # --- LOGIKA FUNKSIYALARI ---
@@ -849,48 +835,22 @@ def handle_order_reject(chat_id, message_id, order_id):
 # --- TELEGRAM API YORDAMCHILARI ---
 
 def answer_callback(callback_id):
-    """Loadingni to'xtatish"""
-    try:
-        url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/answerCallbackQuery"
-        requests.post(url, json={"callback_query_id": callback_id})
-    except Exception as e:
-        print(f"answer_callback error: {e}")
+    """Tugma bosilgandagi "yuklanmoqda" belgisini to'xtatish"""
+    telegram.answer_callback(callback_id)
+
 
 def answer_callback_text(callback_id, text):
-    """Ekranda kichik xabar ko'rsatish (Toast)"""
-    try:
-        url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/answerCallbackQuery"
-        requests.post(url, json={"callback_query_id": callback_id, "text": text, "show_alert": True})
-    except Exception as e:
-        print(f"answer_callback_text error: {e}")
+    """Ekranda kichik xabar ko'rsatish (toast)"""
+    telegram.answer_callback(callback_id, text=text, show_alert=True)
+
 
 def edit_tg_message(chat_id, message_id, new_text):
-    """Xabarni tahrirlash"""
-    try:
-        url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/editMessageText"
-        payload = {
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "text": new_text,
-            "parse_mode": "HTML"
-        }
-        res = requests.post(url, json=payload)
-        if res.status_code != 200:
-            print(f"Telegram Edit Error: {res.text}")
-    except Exception as e:
-        print(f"edit_tg_message error: {e}")
+    telegram.edit_message(chat_id, message_id, new_text)
+
 
 def send_tg_msg(chat_id, text):
-    try:
-        url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML"
-        }
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"Telegram send error: {e}")
+    telegram.send_message(chat_id, text)
+
 
 def send_menu(chat_id, domain):
     """
@@ -898,7 +858,6 @@ def send_menu(chat_id, domain):
     do'kon egasi/xodim, mijoz yoki hali ro'yxatdan o'tmagan odam.
     """
     try:
-        url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
         login_url = f"https://{domain}/auth/telegram-login/"
 
         staff_user = User.objects.filter(username=str(chat_id)).first()
@@ -928,15 +887,9 @@ def send_menu(chat_id, domain):
             )
             button = {"text": "🏪 Do'kon ochish", "web_app": {"url": f"https://{domain}/"}}
 
-        payload = {
-            "chat_id": chat_id,
-            "text": welcome_text,
-            "parse_mode": "HTML",
-            "reply_markup": {"inline_keyboard": [[button]]}
-        }
-        requests.post(url, json=payload)
-    except Exception as e:
-        print(f"Telegram menu error: {e}")
+        telegram.send_message(chat_id, welcome_text, reply_markup={"inline_keyboard": [[button]]})
+    except Exception:
+        logger.exception("send_menu xatosi (chat=%s)", chat_id)
 
 
 @shop_admin_required

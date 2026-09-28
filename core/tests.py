@@ -2,7 +2,7 @@ import json
 from unittest import mock
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -527,6 +527,7 @@ class MultiShopClientTests(TestCase):
         self.assertEqual(self.client.session['client_id'], self.b.id)
 
 
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
 @mock.patch('requests.post')
 class StoreTests(TestCase):
     def setUp(self):
@@ -585,3 +586,85 @@ class StoreTests(TestCase):
         resp = self.client.get(reverse('pricing_page'))
         self.assertNotContains(resp, 'SMS')
         self.assertContains(resp, '100 000')
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+class TelegramModuleTests(TestCase):
+    def test_every_request_has_timeout(self):
+        from . import telegram
+        with mock.patch('requests.post') as post:
+            post.return_value.json.return_value = {'ok': True}
+            telegram.send_message(1, 'salom', background=False)
+        self.assertEqual(post.call_args.kwargs['timeout'], telegram.REQUEST_TIMEOUT)
+        self.assertEqual(post.call_args.kwargs['json']['text'], 'salom')
+
+    def test_network_error_is_logged_not_raised(self):
+        import requests
+        from . import telegram
+        with mock.patch('requests.post', side_effect=requests.Timeout('sekin')), \
+                self.assertLogs('core.telegram', level='WARNING') as logs:
+            self.assertIsNone(telegram.send_message(1, 'x', background=False))
+        self.assertIn('sekin', logs.output[0])
+
+    def test_background_send_does_not_block(self):
+        import threading
+        from . import telegram
+        release = threading.Event()
+        with mock.patch('requests.post', side_effect=lambda *a, **k: release.wait(5)):
+            started = timezone.now()
+            telegram.send_message(1, 'x', background=True)
+            self.assertLess((timezone.now() - started).total_seconds(), 1)
+            release.set()
+
+    def test_missing_token_skips_request(self):
+        from . import telegram
+        with override_settings(BOT_TOKEN=''), mock.patch('requests.post') as post, \
+                self.assertLogs('core.telegram', level='WARNING'):
+            telegram.send_message(1, 'x', background=False)
+        post.assert_not_called()
+
+    def test_broadcast_sends_to_each_linked_client_once(self):
+        user, shop = make_shop()
+        Client.objects.create(shop=shop, full_name='A', phone='+998900000001', telegram_id=11)
+        Client.objects.create(shop=shop, full_name='B', phone='+998900000002', telegram_id=12)
+        Client.objects.create(shop=shop, full_name='C', phone='+998900000003')
+        self.client.force_login(user)
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('broadcast'), {'message': 'Aksiya!'})
+        self.assertEqual(sorted(c.args[0] for c in send.call_args_list), [11, 12])
+
+
+class BackupTests(TransactionTestCase):
+    """TransactionTestCase: SQLite backup ochiq tranzaksiya ichida ishlamaydi (serverda bu muammo yo'q)."""
+
+    def test_backup_contains_data(self):
+        import gzip
+        import sqlite3
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+
+        _, shop = make_shop()
+        Client.objects.create(shop=shop, full_name='Vali', phone='+998901112233')
+        with tempfile.TemporaryDirectory() as tmp:
+            call_command('backup_db', dir=tmp, stdout=mock.Mock())
+            [backup] = Path(tmp).glob('db-*.sqlite3.gz')
+            restored = Path(tmp) / 'restored.sqlite3'
+            with gzip.open(backup) as src:
+                restored.write_bytes(src.read())
+            con = sqlite3.connect(restored)
+            self.assertEqual(con.execute("select full_name from core_client").fetchone()[0], 'Vali')
+            con.close()
+
+    def test_rotation_keeps_latest(self):
+        import tempfile
+        from pathlib import Path
+        from core.management.commands.backup_db import Command
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for day in range(1, 6):
+                (Path(tmp) / f'db-2026010{day}-030000.sqlite3.gz').touch()
+            (Path(tmp) / 'boshqa-fayl.txt').touch()
+            Command().rotate(Path(tmp), keep=2)
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
+                             ['boshqa-fayl.txt', 'db-20260104-030000.sqlite3.gz', 'db-20260105-030000.sqlite3.gz'])
