@@ -14,8 +14,11 @@ class Command(BaseCommand):
         if settings.TELEGRAM_WEBHOOK_SECRET:
             payload['secret_token'] = settings.TELEGRAM_WEBHOOK_SECRET
 
-        resp = requests.post(f"https://api.telegram.org/bot{settings.BOT_TOKEN}/setWebhook", json=payload, timeout=15)
-        data = resp.json()
+        try:
+            resp = requests.post(f"https://api.telegram.org/bot{settings.BOT_TOKEN}/setWebhook", json=payload, timeout=15)
+            data = resp.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise CommandError(f"Telegram'ga ulanib bo'lmadi: {exc.__class__.__name__}")
         if not data.get('ok'):
             raise CommandError(f"Telegram xatosi: {data}")
         self.stdout.write(self.style.SUCCESS(f"Webhook o'rnatildi: {payload['url']}"

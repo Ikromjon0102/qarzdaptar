@@ -15,7 +15,7 @@ dist/
 # Django
 *.sqlite3
 static-files/
-staticfiles/
+staticfiles
 local_settings.py
 media/
 

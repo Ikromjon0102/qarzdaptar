@@ -2,6 +2,23 @@
 
 Talablar: **Python 3.12+** (Django 6.0), `pip`.
 
+## 0. Avtomatik skript (tavsiya etiladi)
+
+`deploy/server_deploy.sh` — zaxira, kodni yangilash, venv, migratsiya, `.env`, servis, webhook va
+cron'ni bitta buyruqda bajaradi. Faqat `/root/qarzdaptar` va `gunicorn-qarzdaptar` ga tegadi
+(nginx va boshqa loyihalar o'zgarmaydi). Har safar `deploy-backups/` ga to'liq nusxa va
+`rollback.sh` yoziladi.
+
+```bash
+cd /root/qarzdaptar
+git fetch origin claude/ux-ui-analysis-user-flow-ky4rc5
+git show FETCH_HEAD:deploy/server_deploy.sh > /root/server_deploy.sh
+bash /root/server_deploy.sh --fresh-db   # birinchi marta: toza baza (eski baza zaxirada qoladi)
+bash /root/server_deploy.sh              # keyingi yangilanishlar: baza saqlanadi
+```
+
+Sozlash uchun muhit o'zgaruvchilari: `APP_DIR`, `BRANCH`, `SERVICE`, `PORT`, `DOMAIN`, `BOT_USERNAME`.
+
 ## 1. Birinchi marta o'rnatish (yangi server)
 
 ```bash
