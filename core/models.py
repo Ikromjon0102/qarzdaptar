@@ -150,6 +150,9 @@ class Debt(models.Model):
 
     items = models.TextField(verbose_name="Tovarlar ro'yxati")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    # Mijoz rad etganda yozgan sababi va do'kon qayta yuborganda qo'shgan izohi
+    reject_reason = models.CharField(max_length=200, blank=True, default='', verbose_name="Rad etish sababi")
+    shop_note = models.CharField(max_length=200, blank=True, default='', verbose_name="Do'kon izohi")
     created_at = models.DateTimeField(auto_now_add=True)
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)

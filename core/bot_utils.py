@@ -1,3 +1,5 @@
+import html
+
 from . import telegram
 
 
@@ -27,11 +29,14 @@ def send_confirmation_request(telegram_id,  debt_obj, domain):
     total_str = " + ".join(sum_parts) if sum_parts else "0 so'm"
     # ---------------------------
 
+    title = "🔁 <b>Nasiya qayta yuborildi</b>" if debt_obj.reject_reason else "🆕 <b>Yangi xarid!</b>"
+    note = f"💬 <b>Do'kon izohi:</b> {html.escape(debt_obj.shop_note)}\n\n" if debt_obj.shop_note else ""
     text = (
-        f"🆕 <b>Yangi xarid!</b>\n\n"
+        f"{title}\n\n"
         f"🛒 <b>Tovarlar:</b>\n{debt_obj.items}\n\n"
         f"➖➖➖➖➖➖➖➖\n"
         f"💰 <b>Jami:</b> {total_str}\n\n"
+        f"{note}"
         f"Iltimos, pastdagi tugmani bosib tasdiqlang yoki rad eting."
     )
     reply_markup = {"inline_keyboard": [[{"text": "📝 Ko'rish va Tasdiqlash", "web_app": {"url": web_app_url}}]]}

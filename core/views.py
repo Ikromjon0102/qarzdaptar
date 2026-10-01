@@ -1,4 +1,5 @@
 import hmac
+import html
 import json
 import logging
 import uuid
@@ -22,6 +23,7 @@ from . import exports, telegram
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
 from .permissions import is_shop_admin, shop_admin_required
+from .live import shop_version
 from .reminders import send_reminder
 from .telegram_auth import verify_init_data
 from .utils import clean_phone_number, parse_amount, shop_staff_ids
@@ -133,6 +135,11 @@ def main_menu_view(request):
         'stats': shop_stats(shop),
         'today': shop_stats(shop, created_at__date=timezone.localdate()),
         'pending_count': Debt.objects.filter(shop=shop, status='pending').count(),
+        # Mijoz rad etgan nasiyalar (oxirgi 14 kun): sababi bilan, qayta yuborish uchun
+        'rejected': Debt.objects.filter(
+            shop=shop, status='rejected',
+            created_at__gte=timezone.now() - timedelta(days=14),
+        ).select_related('client').order_by('-created_at')[:5],
         'recent': recent,
     })
 
@@ -424,19 +431,24 @@ def manage_debt_view(request, debt_uuid, action):
         messages.error(request, "⛔ Yozuvni o'chirish va majburiy tasdiqlash faqat rahbar uchun.")
         return redirect('admin_client_detail', client_id=debt.client.id)
 
-    # 1. QAYTA YUBORISH (Agar xabar bormagan bo'lsa)
+    # 1. QAYTA YUBORISH: xabar bormagan bo'lsa yoki mijoz rad etgan bo'lsa (izoh bilan)
     if action == 'resend':
-        if debt.status == 'pending':
-            # Telegramga signal yuboramiz
-            domain = settings.SITE_DOMAIN
-            # bot_utils dagi funksiyani chaqiramiz
+        if debt.status == 'confirmed':
+            messages.info(request, "Bu nasiya allaqachon tasdiqlangan.")
+        elif not debt.client.telegram_id:
+            messages.error(request, "Mijozning Telegrami ulanmagan!")
+        else:
+            note = (request.POST.get('note') or '').strip()[:200]
+            was_rejected = debt.status == 'rejected'
+            debt.status = 'pending'
+            if note or was_rejected:
+                debt.shop_note = note
+            debt.save()
             from .bot_utils import send_confirmation_request
-            if debt.client.telegram_id:
-                send_confirmation_request(debt.client.telegram_id, debt, domain)
-                messages.success(request, "Tasdiqlash so'rovi qayta yuborildi!")
-            else:
-                messages.error(request, "Mijozning Telegrami ulanmagan!")
-    
+            send_confirmation_request(debt.client.telegram_id, debt, settings.SITE_DOMAIN)
+            messages.success(request, "Nasiya mijozga qayta yuborildi!" if was_rejected
+                             else "Tasdiqlash so'rovi qayta yuborildi!")
+
     # 2. MAJBURIY TASDIQLASH (Admin Override)
     elif action == 'force_confirm':
         debt.status = 'confirmed'
@@ -527,10 +539,12 @@ def debt_detail_view(request, debt_uuid):
         if action == 'reject':
             reason = (request.POST.get('reason') or '').strip()[:200]
             debt.status = 'rejected'
+            debt.reject_reason = reason
             debt.save()
             msg = f"❌ <b>{client.full_name}</b> nasiyani rad etdi\n💰 {amount}"
             if reason:
-                msg += f"\n📝 Sababi: {reason}"
+                msg += f"\n📝 Sababi: {html.escape(reason)}"
+            msg += "\n\n🔁 Mijoz sahifasida izoh bilan qayta yuborishingiz mumkin."
             notify_shop_staff(debt.shop, msg)
             return render(request, 'status_page.html', {
                 'title': 'Rad etildi',
@@ -547,6 +561,13 @@ def debt_detail_view(request, debt_uuid):
         'balance_now': balance_text(bal_uzs, bal_usd),
         'balance_after': balance_text(bal_uzs + debt.amount_uzs, bal_usd + debt.amount_usd),
     })
+
+
+@login_required(login_url='/login/')
+def live_version_view(request):
+    """Sahifalarning avtomatik yangilanishi uchun: do'kon ma'lumotlari o'zgardimi?"""
+    return JsonResponse({'v': shop_version(get_current_shop(request))},
+                        headers={'Cache-Control': 'no-store'})
 
 
 def shop_stats(shop, **date_filter):

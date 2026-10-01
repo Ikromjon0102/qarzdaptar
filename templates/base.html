@@ -197,6 +197,9 @@
         }
         .action-bar .inner { max-width: 528px; margin: 0 auto; }
         .has-action-bar { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
+        /* Tab-bar bor sahifalarda amal paneli uning ustida turadi */
+        body.has-tabbar .action-bar { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+        body.has-tabbar .has-action-bar { padding-bottom: 96px !important; }
 
         /* ============ PASTKI TAB-BAR ============ */
         .tabbar {
@@ -339,10 +342,10 @@
             <a href="{% url 'client_list' %}" class="tab {% if active_tab == 'clients' %}active{% endif %}">
                 <i class="fa-solid fa-users"></i><span>Mijozlar</span>
             </a>
-            <a href="{% url 'create_debt' %}" class="tab" aria-label="Yangi savdo">
+            <a href="{% url 'create_debt' %}" class="tab {% if active_tab == 'sale' %}active{% endif %}" aria-label="Yangi savdo">
                 <span class="tab-center"><i class="fa-solid fa-plus"></i></span><span>Savdo</span>
             </a>
-            <a href="{% url 'create_payment' %}" class="tab">
+            <a href="{% url 'create_payment' %}" class="tab {% if active_tab == 'pay' %}active{% endif %}">
                 <i class="fa-solid fa-hand-holding-dollar"></i><span>To'lov</span>
             </a>
             <a href="{% url 'dashboard' %}" class="tab {% if active_tab == 'stats' %}active{% endif %}">
@@ -398,6 +401,54 @@
             }, 4000);
         });
     </script>
+
+    {% if live_reload %}
+    <script>
+        // Avtomatik yangilanish: mijoz nasiyani tasdiqlasa/rad etsa yoki boshqa xodim yozuv qo'shsa,
+        // sahifa o'zi yangilanadi. Foydalanuvchi biror narsa yozayotgan yoki oyna ochiq bo'lsa - kutadi.
+        (function () {
+            const url = "{% url 'live_version' %}";
+            let version = "{{ live_version_now|escapejs }}" || null, pending = false;
+
+            function busy() {
+                const a = document.activeElement;
+                if (a && a.matches('input, textarea, select')) return true;
+                if (document.querySelector('.modal.show')) return true;
+                return Array.from(document.querySelectorAll('input[type=search]')).some(i => i.value);
+            }
+
+            function reload() {
+                if (busy()) { pending = true; return; }
+                sessionStorage.setItem('liveScroll:' + location.pathname, String(window.scrollY));
+                location.reload();
+            }
+
+            async function check() {
+                if (document.hidden) return;
+                if (pending) { reload(); return; }
+                try {
+                    const r = await fetch(url, {cache: 'no-store', credentials: 'same-origin'});
+                    if (!r.ok) return;
+                    const v = (await r.json()).v;
+                    if (version !== null && v !== version) reload();
+                    version = v;
+                } catch (e) { /* tarmoq yo'q - keyingi safar */ }
+            }
+
+            try {
+                const y = sessionStorage.getItem('liveScroll:' + location.pathname);
+                if (y !== null) { sessionStorage.removeItem('liveScroll:' + location.pathname); window.scrollTo(0, +y); }
+            } catch (e) {}
+
+            check();
+            setInterval(check, 5000);
+            document.addEventListener('visibilitychange', check);
+            window.addEventListener('focus', check);
+            // bfcache'dan qaytganda (orqaga tugmasi) eski sahifa ko'rinmasin
+            window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
+        })();
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 </body>

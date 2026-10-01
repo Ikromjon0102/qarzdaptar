@@ -11,8 +11,19 @@
         <i class="fa-solid fa-store"></i>
     </div>
     <div class="fw-bold" style="font-size: 18px;">{{ debt.shop.name }}</div>
-    <div class="small text-muted">Yangi nasiya · {{ debt.created_at|date:"d.m.Y H:i" }}</div>
+    <div class="small text-muted">{% if debt.reject_reason %}Qayta yuborilgan nasiya{% else %}Yangi nasiya{% endif %} · {{ debt.created_at|date:"d.m.Y H:i" }}</div>
 </div>
+
+{% if debt.shop_note or debt.reject_reason %}
+<div class="app-card" style="font-size: 14px;">
+    {% if debt.reject_reason %}
+    <div class="small text-muted">Siz rad etgan edingiz: «{{ debt.reject_reason }}»</div>
+    {% endif %}
+    {% if debt.shop_note %}
+    <div class="{% if debt.reject_reason %}mt-2{% endif %}"><i class="fa-regular fa-comment text-primary"></i> <b>Do'kon izohi:</b> {{ debt.shop_note }}</div>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- Summa -->
 <div class="app-card text-center" style="padding: 20px;">

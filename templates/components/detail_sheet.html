@@ -1,6 +1,7 @@
 {% comment %}
 Pastdan chiquvchi tafsilot oynasi (bottom sheet).
-JS: openDetailSheet({date, sum, sumClass, status, items, actions: {resend, confirm, delete, open}})
+JS: openDetailSheet({date, sum, sumClass, status, items, reason, note, resendLabel,
+                     actions: {resend, confirm, delete, open}})
 actions ichidagi URL berilmasa, tugma ko'rinmaydi.
 {% endcomment %}
 <div class="modal fade" id="detailSheet" tabindex="-1" aria-hidden="true">
@@ -14,9 +15,23 @@ actions ichidagi URL berilmasa, tugma ko'rinmaydi.
                     <div class="small" id="sheetStatus"></div>
                 </div>
                 <div class="p-3 rounded-3 mb-3" style="background: var(--tg-bg); white-space: pre-wrap; font-size: 14px;" id="sheetItems"></div>
+                <div class="p-3 rounded-3 mb-3 d-none" style="background: rgba(220, 53, 69, 0.08); font-size: 14px;" id="sheetReasonBox">
+                    <div class="small fw-bold text-danger mb-1"><i class="fa-solid fa-circle-xmark"></i> Mijoz rad etdi. Sababi:</div>
+                    <div style="white-space: pre-wrap;" id="sheetReason"></div>
+                </div>
+                <div class="small text-muted mb-3 d-none" id="sheetNoteBox">
+                    <i class="fa-regular fa-comment"></i> Sizning izohingiz: <span id="sheetNote"></span>
+                </div>
+                <form method="POST" action="#" class="mb-2 d-none" id="sheetResendForm">
+                    {% csrf_token %}
+                    <textarea name="note" class="form-control mb-2" rows="2" maxlength="200" id="sheetResendNote"
+                              placeholder="Izoh (ixtiyoriy): masalan, summani to'g'riladim"></textarea>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fa-regular fa-paper-plane"></i> <span id="sheetResendLabel">Qayta yuborish</span>
+                    </button>
+                </form>
                 <div class="d-grid gap-2">
                     <a href="#" class="btn btn-primary d-none" id="sheetOpen"><i class="fa-solid fa-check"></i> Ko'rish va tasdiqlash</a>
-                    <a href="#" class="btn btn-outline-primary d-none" id="sheetResend"><i class="fa-regular fa-paper-plane"></i> Qayta yuborish</a>
                     <a href="#" class="btn btn-success d-none" id="sheetConfirm"
                        onclick="return confirm('Mijoz tasdiqlamasdan balansga yozilsinmi?')"><i class="fa-solid fa-check"></i> Tasdiqlash</a>
                     <a href="#" class="btn btn-outline-danger d-none" id="sheetDelete"
@@ -53,8 +68,18 @@ actions ichidagi URL berilmasa, tugma ko'rinmaydi.
         el('sheetSum').className = 'fw-bold ' + (opts.sumClass || '');
         el('sheetStatus').innerText = opts.status || '';
         el('sheetItems').innerText = opts.items || '';
+        el('sheetReasonBox').classList.toggle('d-none', !opts.reason);
+        el('sheetReason').innerText = opts.reason || '';
+        el('sheetNoteBox').classList.toggle('d-none', !opts.note);
+        el('sheetNote').innerText = opts.note || '';
         const actions = opts.actions || {};
-        [['sheetOpen', 'open'], ['sheetResend', 'resend'], ['sheetConfirm', 'confirm'], ['sheetDelete', 'delete']].forEach(([id, key]) => {
+        el('sheetResendForm').classList.toggle('d-none', !actions.resend);
+        if (actions.resend) {
+            el('sheetResendForm').action = actions.resend;
+            el('sheetResendNote').value = '';
+            el('sheetResendLabel').innerText = opts.resendLabel || 'Qayta yuborish';
+        }
+        [['sheetOpen', 'open'], ['sheetConfirm', 'confirm'], ['sheetDelete', 'delete']].forEach(([id, key]) => {
             el(id).classList.toggle('d-none', !actions[key]);
             if (actions[key]) el(id).href = actions[key];
         });

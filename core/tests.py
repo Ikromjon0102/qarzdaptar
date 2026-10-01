@@ -836,3 +836,90 @@ class TargetedBroadcastTests(TestCase):
 
     def test_nothing_selected(self):
         self.assertEqual(self.send(mode='selected'), {})
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('core.views.send_tg_msg')
+class RejectAndResendTests(TestCase):
+    """Rad etish sababi do'konga ko'rinadi, do'kon izoh bilan qayta yuboradi."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+        with mock.patch('requests.post'):
+            self.debt = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=50000,
+                                            items='Un', status='pending')
+
+    def reject(self, reason='summa xato'):
+        self.client.post(reverse('debt_detail', args=[self.debt.uuid]),
+                         {'action': 'reject', 'reason': reason, 'init_data': signed_init(77)})
+        self.debt.refresh_from_db()
+
+    def test_reason_saved_and_shown_to_shop(self, _send):
+        self.reject()
+        self.assertEqual(self.debt.reject_reason, 'summa xato')
+        self.client.force_login(self.owner)
+        detail = self.client.get(reverse('admin_client_detail', args=[self.vali.id]))
+        self.assertContains(detail, 'summa xato')
+        self.assertContains(detail, 'Izoh bilan qayta yuborish')
+        self.assertContains(self.client.get(reverse('main_menu')), 'summa xato')
+
+    def test_resend_rejected_with_note(self, _send):
+        self.reject()
+        self.client.force_login(self.owner)
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('manage_debt', args=[self.debt.uuid, 'resend']),
+                             {'note': "Summani to'g'riladim"})
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.status, 'pending')
+        self.assertEqual(self.debt.shop_note, "Summani to'g'riladim")
+        text = send.call_args[0][1]
+        self.assertIn('qayta yuborildi', text)
+        self.assertIn("Summani to&#x27;g&#x27;riladim", text)  # HTML uchun xavfsiz
+        page = self.client.get(reverse('debt_detail', args=[self.debt.uuid]))
+        self.assertContains(page, 'summa xato')
+        self.assertContains(page, "kon izohi:")
+
+    def test_confirmed_debt_is_not_resent(self, _send):
+        self.debt.status = 'confirmed'
+        self.debt.save()
+        self.client.force_login(self.owner)
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('manage_debt', args=[self.debt.uuid, 'resend']))
+        send.assert_not_called()
+
+
+@mock.patch('requests.post')
+class TabBarAndLiveReloadTests(TestCase):
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.client.force_login(self.owner)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+
+    def test_tabbar_on_all_staff_pages(self, _post):
+        for name, tab in [('create_debt', 'Savdo'), ('create_payment', "To&#x27;lov"),
+                          ('settings', 'Asosiy'), ('broadcast', 'Asosiy'), ('client_add', 'Mijozlar')]:
+            resp = self.client.get(reverse(name))
+            self.assertContains(resp, 'class="tabbar"', msg_prefix=name)
+        resp = self.client.get(reverse('admin_client_detail', args=[self.vali.id]))
+        self.assertContains(resp, 'class="tabbar"')
+
+    def test_no_tabbar_for_client_pages(self, _post):
+        self.client.logout()
+        session = self.client.session
+        session['client_id'] = self.vali.id
+        session.save()
+        self.assertNotContains(self.client.get(reverse('client_cabinet')), 'class="tabbar"')
+
+    def test_live_version_changes_when_client_confirms(self, _post):
+        debt = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=1000, items='Un')
+        url = reverse('live_version')
+        before = self.client.get(url).json()['v']
+        self.assertEqual(before, self.client.get(url).json()['v'])
+        debt.status = 'confirmed'
+        debt.save()
+        self.assertNotEqual(before, self.client.get(url).json()['v'])
+
+    def test_live_reload_only_on_list_pages(self, _post):
+        self.assertContains(self.client.get(reverse('main_menu')), reverse('live_version'))
+        self.assertNotContains(self.client.get(reverse('create_debt')), reverse('live_version'))

@@ -104,7 +104,10 @@
          data-status="{{ debt.get_status_display }}"
          data-uzs="{{ debt.amount_uzs|stringformat:'d'|cut:'-'|space_format }}"
          data-usd="{% if debt.amount_usd %}{{ debt.amount_usd|floatformat:2|cut:'-' }}{% endif %}"
-         {% if debt.status == 'pending' and client.telegram_id %}data-resend="{% url 'manage_debt' debt.uuid 'resend' %}"{% endif %}
+         data-reason="{{ debt.reject_reason }}"
+         data-note="{{ debt.shop_note }}"
+         data-rejected="{% if debt.status == 'rejected' %}1{% endif %}"
+         {% if debt.status != 'confirmed' and debt.transaction_type == 'debt' and client.telegram_id %}data-resend="{% url 'manage_debt' debt.uuid 'resend' %}"{% endif %}
          {% if is_shop_admin %}
             {% if debt.status != 'confirmed' %}data-confirm="{% url 'manage_debt' debt.uuid 'force_confirm' %}"{% endif %}
             data-delete="{% url 'manage_debt' debt.uuid 'delete' %}"
@@ -127,7 +130,7 @@
             <div class="row-sub">
                 {{ debt.created_at|date:"d.m.Y H:i" }}
                 {% if debt.status == 'pending' %}· <span style="color: var(--warning);">Kutilmoqda</span>
-                {% elif debt.status == 'rejected' %}· <span class="text-danger">Rad etilgan</span>
+                {% elif debt.status == 'rejected' %}· <span class="text-danger">Rad etilgan{% if debt.reject_reason %}: {{ debt.reject_reason|truncatechars:40 }}{% endif %}</span>
                 {% elif debt.is_cash_sale and debt.transaction_type == 'debt' %}· Naqd{% endif %}
             </div>
         </div>
@@ -170,6 +173,9 @@
                 sumClass: isPayment ? 'text-success' : 'text-danger',
                 status: isPayment ? "To'lov" : 'Nasiya · ' + d.status,
                 items: d.items,
+                reason: d.reason,
+                note: d.note,
+                resendLabel: d.rejected ? 'Izoh bilan qayta yuborish' : 'Qayta yuborish',
                 actions: {resend: d.resend, confirm: d.confirm, delete: d.delete},
             });
         });

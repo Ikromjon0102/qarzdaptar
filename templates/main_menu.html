@@ -88,6 +88,27 @@
 </a>
 {% endif %}
 
+{% if rejected %}
+<div class="section-title">Rad etilgan nasiyalar</div>
+<div class="list-group-app">
+    {% for op in rejected %}
+    <a href="{% url 'admin_client_detail' op.client_id %}" class="list-row">
+        <span class="row-icon red"><i class="fa-solid fa-xmark"></i></span>
+        <div class="row-main">
+            <div class="row-title">{{ op.client.full_name }}</div>
+            <div class="row-sub text-danger" style="white-space: normal;">
+                {% if op.reject_reason %}«{{ op.reject_reason|truncatechars:80 }}»{% else %}Sabab yozilmagan{% endif %}
+            </div>
+        </div>
+        <div class="row-end small text-muted">
+            {% if op.amount_uzs %}{{ op.amount_uzs|space_format }}{% endif %}
+            {% if op.amount_usd %}<div>${{ op.amount_usd|floatformat:2 }}</div>{% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- So'nggi amallar -->
 <div class="section-title">So'nggi amallar</div>
 <div class="list-group-app">
@@ -106,7 +127,7 @@
         {% endif %}
         <div class="row-main">
             <div class="row-title">{% if op.is_cash_sale and op.client.phone == '000000000' %}Naqd savdo{% else %}{{ op.client.full_name }}{% endif %}</div>
-            <div class="row-sub">{{ op.created_at|date:"d.m H:i" }} · {{ op.items|truncatechars:40 }}</div>
+            <div class="row-sub">{{ op.created_at|date:"d.m H:i" }} · {% if op.status == 'rejected' %}<span class="text-danger">Rad etildi{% if op.reject_reason %}: {{ op.reject_reason|truncatechars:30 }}{% endif %}</span>{% else %}{{ op.items|truncatechars:40 }}{% endif %}</div>
         </div>
         <div class="row-end small">
             {% if op.transaction_type == 'payment' %}
