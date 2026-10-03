@@ -1,213 +1,237 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
+
+{% block header %}{% endblock %}
+
 {% block content %}
-<div class="d-flex align-items-center mb-4 pt-2">
-    <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3"
-        style="width: 50px; height: 50px;">
-        <i class="fa-solid fa-user fa-lg"></i>
+<div class="pt-3">
+
+<!-- Salomlashish -->
+<div class="d-flex align-items-center gap-3 mb-3">
+    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+         style="width: 44px; height: 44px; font-size: 18px; background: var(--primary-gradient); color: #fff;">
+        {{ client.full_name|slice:":1"|upper }}
     </div>
-    <div>
-        <small class="text-muted text-dark">Xush kelibsiz,</small>
-        <h5 class="fw-bold m-0 text-dark">{{ client.full_name }}</h5>
-<!--        <a href="{% url 'shop_home' %}" class="btn btn-outline-primary btn-sm text-dark">Do'kon</a>-->
-    </div>
-</div>
-<div class="mb-3">
-    <form method="get" action="." class="position-relative">
-        <input type="text"
-               name="q"
-               value="{{ search_query }}"
-               class="form-control form-control-lg rounded-4 ps-5 shadow-sm border-0"
-               placeholder="Qidirish..."
-               onchange="this.form.submit()"> <i class="fa-solid fa-magnifying-glass position-absolute text-muted"
-           style="left: 20px; top: 50%; transform: translateY(-50%);"></i>
-
-        {% if search_query %}
-            <a href="{% url 'client_cabinet' %}"
-               class="position-absolute text-danger"
-               style="right: 20px; top: 50%; transform: translateY(-50%); text-decoration: none;">
-               <i class="fa-solid fa-xmark"></i>
-            </a>
-        {% endif %}
-    </form>
-</div>
-
-<!--{% if not debts and search_query %}-->
-<!--    <div class="text-center py-5 text-muted text-dark">-->
-<!--        <i class="fa-solid fa-ghost fa-2x mb-2"></i>-->
-<!--        <p>" <b>{{ search_query }}</b> " bo'yicha hech narsa topilmadi.</p>-->
-<!--    </div>-->
-<!--{% endif %}-->
-
-<div class="app-card text-white mb-4 shadow-lg position-relative overflow-hidden"
-    style="background: radial-gradient(circle at top right, #363795, #005C97); border-radius: 16px; padding: 20px;">
-
-    <h6 class="opacity-75 mb-3 text-dark">Joriy balans:</h6>
-
-    <div class="d-flex flex-column">
-        <h3 class="fw-bold mb-0">
-            {% if total_uzs > 0 %} <span class="text-danger">{{ total_uzs|space_format }} so'm</span> (Qarz)
-            {% elif total_uzs < 0 %} <span class="text-success">+{{ total_uzs|stringformat:"i"|cut:"-"|space_format }} so'm</span>(Haq)
-                {% else %} 0 so'm {% endif %}
-        </h3>
-
-        {% if total_usd != 0 %}
-        <h4 class="fw-bold mb-0 mt-1">
-            {% if total_usd > 0 %} <span class="text-danger">${{ total_usd |floatformat:2|space_format }} </span> (Qarz)
-            {% else %} <span class="text-success">+${{ total_usd|floatformat:2|cut:"-"|space_format }}</span> (Haq)
-            {% endif %}
-        </h4>
-        {% endif %}
+    <div style="min-width: 0;">
+        <div class="small text-muted text-truncate"><i class="fa-solid fa-store"></i> {{ client.shop.name }}</div>
+        <div class="fw-bold text-truncate" style="font-size: 18px;">{{ client.full_name }}</div>
     </div>
 </div>
 
-
-
-<div class="d-flex justify-content-between align-items-center px-2 mb-3 text-dark">
-    <span class="text-muted small fw-bold text-dark"><i class="fa-regular fa-calendar text-dark"></i> Shu oydagi xaridlar:</span>
-    <div class="text-end">
-        {% if month_uzs > 0 %}
-        <span class="badge bg-secondary bg-opacity-10 text-dark border">{{ month_uzs|space_format }} so'm</span>
-        {% endif %}
-        {% if month_usd > 0 %}
-        <span class="badge bg-success bg-opacity-10 text-success text-dark border border-success">
-            ${{ month_usd|floatformat:2|space_format }}</span>
-        {% endif %}
-        {% if month_uzs == 0 and month_usd == 0 %}
-        <span class="text-muted small">Xarid yo'q</span>
-        {% endif %}
-    </div>
-</div>
-
-<hr class="text-muted opacity-25">
-
-<ul class="nav nav-pills nav-fill mb-3 p-1 rounded-3" id="pills-tab" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active rounded-3 fw-bold small" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button">
-            Hammasi
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link rounded-3 fw-bold small" id="pills-debt-tab" data-bs-toggle="pill" data-bs-target="#pills-debt" type="button">
-            <span class="text-danger">Nasiyalar</span>
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link rounded-3 fw-bold small" id="pills-pay-tab" data-bs-toggle="pill" data-bs-target="#pills-pay" type="button">
-            <span class="text-success">To'lovlar</span>
-        </button>
-    </li>
-</ul>
-
-<div class="tab-content" id="pills-tabContent">
-<div class="tab-pane fade show active" id="pills-all">
-    {% include 'partials/history_list.html' with items=history %}
-</div>
-
-<div class="tab-pane fade " id="pills-debt">
-    {% for debt in history %}
-        {% if debt.transaction_type == 'debt' %}
-            {% include 'partials/debt_card.html' %}
-        {% endif %}
-    {% empty %}
-        <p class="text-center text-muted mt-4 text-dark">Nasiyalar yo'q</p>
+{% if accounts %}
+<!-- Bir nechta do'kondagi hisoblar -->
+<div class="shop-switch mb-3">
+    {% for acc in accounts %}
+    <a href="{% url 'client_switch' acc.id %}" class="shop-chip {% if acc.active %}active{% endif %}">
+        <span class="fw-bold">{{ acc.shop }}</span>
+        <small>
+            {% if acc.debt_uzs > 0 %}{{ acc.debt_uzs|space_format }} so'm{% endif %}{% if acc.debt_uzs > 0 and acc.debt_usd > 0 %} + {% endif %}{% if acc.debt_usd > 0 %}${{ acc.debt_usd|floatformat:2 }}{% endif %}
+            {% if acc.debt_uzs <= 0 and acc.debt_usd <= 0 %}qarz yo'q{% endif %}
+        </small>
+    </a>
     {% endfor %}
 </div>
-
-<div class="tab-pane fade" id="pills-pay">
-    {% for debt in history %}
-        {% if debt.transaction_type == 'payment' %}
-            {% include 'partials/payment_card.html' %}
-        {% endif %}
-    {% empty %}
-        <p class="text-center text-muted mt-4 text-dark">To'lovlar yo'q</p>
-    {% endfor %}
+{% if all_uzs > 0 or all_usd > 0 %}
+<div class="small mb-3 px-1" style="color: var(--tg-hint);">
+    Barcha do'konlarda jami:
+    <b style="color: var(--tg-text);">{% if all_uzs > 0 %}{{ all_uzs|space_format }} so'm{% endif %}{% if all_uzs > 0 and all_usd > 0 %} + {% endif %}{% if all_usd > 0 %}${{ all_usd|floatformat:2 }}{% endif %}</b>
 </div>
+{% endif %}
+<style>
+    .shop-switch { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    .shop-switch::-webkit-scrollbar { display: none; }
+    .shop-chip {
+        flex-shrink: 0; display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px;
+        background: var(--tg-secondary); color: var(--tg-text); text-decoration: none; border: 1.5px solid transparent;
+    }
+    .shop-chip small { color: var(--tg-hint); }
+    .shop-chip.active { border-color: var(--tg-button); }
+</style>
+{% endif %}
 
-</div>
-<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <div class="modal-header border-0 pb-0 justify-content-center">
-                <h5 class="modal-title fw-bold" id="modalDate"></h5>
-            </div>
-            <div class="modal-body text-center">
-                <div class="my-3">
-                    <i id="modalIcon" class="fa-solid fa-receipt fa-3x opacity-50"></i>
-                </div>
-                <div class="p-3 bg-light rounded-3 mb-3 text-start text-dark ">
-                    <h6 class="text-muted small text-uppercase mb-2 border-bottom pb-1">Tafsilotlar:</h6>
-                    <p id="modalItems" class="fw-bold mb-0 text-info" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.5;"></p>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted text-dark ">Qiymat:</small>
-                    <h4 class="fw-bold mt-1" id="modalSum"></h4>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0 justify-content-center pb-4">
-                <button type="button" class="btn btn-secondary w-50 rounded-pill" data-bs-dismiss="modal">Yopish</button>
-            </div>
+<!-- Balans -->
+<div class="app-card text-white" style="background: var(--primary-gradient); padding: 20px;">
+    {% if total_uzs > 0 or total_usd > 0 %}
+        <div class="small" style="opacity: 0.85;">Qarzingiz</div>
+        {% if total_uzs > 0 %}<div class="fw-bold" style="font-size: 30px; line-height: 1.2;">{{ total_uzs|space_format }} <span style="font-size: 17px;">so'm</span></div>{% endif %}
+        {% if total_usd > 0 %}<div class="fw-bold" style="font-size: {% if total_uzs > 0 %}18px{% else %}30px{% endif %};">${{ total_usd|floatformat:2 }}</div>{% endif %}
+    {% elif total_uzs < 0 or total_usd < 0 %}
+        <div class="small" style="opacity: 0.85;">Haqqingiz (ortiqcha to'lagansiz)</div>
+        {% if total_uzs < 0 %}<div class="fw-bold" style="font-size: 30px;">{{ total_uzs|stringformat:"d"|cut:"-"|space_format }} <span style="font-size: 17px;">so'm</span></div>{% endif %}
+        {% if total_usd < 0 %}<div class="fw-bold" style="font-size: 18px;">${{ total_usd|floatformat:2|cut:"-" }}</div>{% endif %}
+    {% else %}
+        <div class="small" style="opacity: 0.85;">Hisobingiz</div>
+        <div class="fw-bold" style="font-size: 26px;"><i class="fa-solid fa-circle-check"></i> Qarzingiz yo'q</div>
+    {% endif %}
+
+    <div class="d-flex gap-3 mt-3 pt-3 small" style="border-top: 1px solid rgba(255,255,255,0.25);">
+        <div class="flex-fill">
+            <div style="opacity: 0.8;">Shu oy nasiya</div>
+            <div class="fw-bold">{{ month_debt|space_format }} so'm</div>
+        </div>
+        <div class="flex-fill">
+            <div style="opacity: 0.8;">Shu oy to'ladingiz</div>
+            <div class="fw-bold">{{ month_paid|space_format }} so'm</div>
         </div>
     </div>
 </div>
+
+{% if shop_has_products %}
+<a href="{% url 'shop_home' %}" class="list-group-app list-row mb-2">
+    <span class="row-icon blue"><i class="fa-solid fa-store"></i></span>
+    <div class="row-main">
+        <div class="row-title">Do'kondan buyurtma berish</div>
+        <div class="row-sub">Mahsulotlarni tanlang, do'kon nasiyaga yozadi</div>
+    </div>
+    <i class="fa-solid fa-chevron-right chevron"></i>
+</a>
+{% endif %}
+
+<!-- To'lov muddati -->
+{% if due.is_overdue %}
+<div class="app-toast error mb-3">
+    <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+    <div>
+        <b>To'lov muddati o'tgan:</b>
+        {% if due.overdue_uzs %}{{ due.overdue_uzs|space_format }} so'm{% endif %}{% if due.overdue_uzs and due.overdue_usd %} + {% endif %}{% if due.overdue_usd %}${{ due.overdue_usd|floatformat:2 }}{% endif %}
+        <div class="small">Muddat {{ due.overdue_since|date:"d.m.Y" }} edi. Iltimos, do'kon bilan bog'laning.</div>
+    </div>
+</div>
+{% elif due.next_due %}
+<div class="app-toast mb-3">
+    <i class="fa-regular fa-calendar mt-1"></i>
+    <div>
+        <b>Keyingi to'lov: {{ due.next_due|date:"d.m.Y" }}</b>
+        ({% if due.days_to_next == 0 %}bugun{% elif due.days_to_next == 1 %}ertaga{% else %}{{ due.days_to_next }} kun qoldi{% endif %})
+        <div class="small">{% if due.next_due_uzs %}{{ due.next_due_uzs|space_format }} so'm{% endif %}{% if due.next_due_uzs and due.next_due_usd %} + {% endif %}{% if due.next_due_usd %}${{ due.next_due_usd|floatformat:2 }}{% endif %}</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tasdiqlash kutilayotgan nasiyalar -->
+{% if pending %}
+<div class="section-title" style="color: var(--warning);">Tasdiqlashingiz kerak ({{ pending|length }})</div>
+<div class="list-group-app">
+    {% for debt in pending %}
+    <a href="{% url 'debt_detail' debt.uuid %}" class="list-row">
+        <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>
+        <div class="row-main">
+            <div class="row-title">{{ debt.items|truncatechars:40 }}</div>
+            <div class="row-sub">{{ debt.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        <div class="row-end small">
+            {% if debt.amount_uzs %}<div>{{ debt.amount_uzs|space_format }}</div>{% endif %}
+            {% if debt.amount_usd %}<div>${{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
+        </div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Tarix -->
+<div class="section-title">Tarix</div>
+<div class="segmented mb-2" id="historyTabs">
+    <a href="#" class="active" data-kind="all">Hammasi</a>
+    <a href="#" data-kind="debt">Xaridlar</a>
+    <a href="#" data-kind="payment">To'lovlar</a>
+</div>
+<div class="position-relative mb-3">
+    <i class="fa-solid fa-magnifying-glass position-absolute" style="left: 14px; top: 50%; transform: translateY(-50%); color: var(--tg-hint);"></i>
+    <input type="search" id="historySearch" class="form-control ps-5" placeholder="Tovar nomi bo'yicha qidirish..."
+           autocomplete="off" style="background-color: var(--tg-secondary);">
+</div>
+
+<div class="list-group-app" id="historyList">
+    {% for debt in history %}
+    <div class="list-row history-row" role="button"
+         data-kind="{% if debt.transaction_type == 'payment' %}payment{% else %}debt{% endif %}"
+         data-date="{{ debt.created_at|date:'d.m.Y H:i' }}"
+         data-items="{{ debt.items }}"
+         data-search="{{ debt.items|lower }}"
+         data-uzs="{{ debt.amount_uzs|stringformat:'d'|cut:'-'|space_format }}"
+         data-usd="{% if debt.amount_usd %}{{ debt.amount_usd|floatformat:2|cut:'-' }}{% endif %}">
+        {% if debt.transaction_type == 'payment' %}
+            <span class="row-icon green"><i class="fa-solid fa-arrow-down"></i></span>
+        {% else %}
+            <span class="row-icon blue"><i class="fa-solid fa-bag-shopping"></i></span>
+        {% endif %}
+        <div class="row-main">
+            <div class="row-title">{% if debt.transaction_type == 'payment' %}To'lov{% else %}{{ debt.items|truncatechars:40 }}{% endif %}</div>
+            <div class="row-sub">{{ debt.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        <div class="row-end small">
+            {% if debt.transaction_type == 'payment' %}
+                {% if debt.amount_uzs %}<div class="text-success">−{{ debt.amount_uzs|stringformat:"d"|cut:"-"|space_format }}</div>{% endif %}
+                {% if debt.amount_usd %}<div class="text-success">−${{ debt.amount_usd|floatformat:2|cut:"-" }}</div>{% endif %}
+            {% else %}
+                {% if debt.amount_uzs %}<div class="text-danger">+{{ debt.amount_uzs|space_format }}</div>{% endif %}
+                {% if debt.amount_usd %}<div class="text-danger">+${{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    <div class="text-center py-4 text-muted {% if history %}d-none{% endif %}" id="historyEmpty">
+        <i class="fa-regular fa-folder-open fa-2x mb-2 opacity-50"></i>
+        <div id="historyEmptyText">Hozircha tarix yo'q</div>
+    </div>
+</div>
+
+</div>
+
+{% include 'components/detail_sheet.html' %}
+<style>.history-row { cursor: pointer; }</style>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
-    let detailModalInstance = null;
+    (function () {
+        const rows = Array.from(document.querySelectorAll('.history-row'));
+        const search = document.getElementById('historySearch');
+        const empty = document.getElementById('historyEmpty');
+        const emptyText = document.getElementById('historyEmptyText');
+        let kind = 'all';
 
-    function showDetail(element) {
-        // 1. Ma'lumotlarni olish
-        const date = element.getAttribute('data-date');
-        const items = element.getAttribute('data-items');
-        const sumUzs = element.getAttribute('data-uzs');
-        const sumUsd = element.getAttribute('data-usd');
-        
-        // YANGI: Bu to'lovmi yoki qarzmi? (true/false)
-        const isPayment = element.getAttribute('data-is-payment') === 'true';
-
-        // 2. Sana va Itemlarni qo'yish
-        document.getElementById('modalDate').innerText = date || '';
-        document.getElementById('modalItems').innerText = items || '';
-
-        // 3. Summani formatlash
-        let totalText = "";
-        let prefix = isPayment ? "+" : ""; // To'lov bo'lsa oldiga + qo'yamiz
-
-        if (sumUzs && sumUzs !== '0' && sumUzs !== 'None') {
-            totalText += prefix + sumUzs + " so'm";
-        }
-        if (sumUsd && sumUsd !== '0' && sumUsd !== '0.00' && sumUsd !== 'None') {
-            if (totalText) totalText += "  ";
-            totalText += prefix + "$" + sumUsd;
-        }
-        
-        // 4. Rang va Ikonkani o'zgartirish (LOGIKA)
-        const sumElement = document.getElementById('modalSum');
-        const iconElement = document.getElementById('modalIcon');
-
-        if (isPayment) {
-            // TO'LOV BO'LSA: YASHIL
-            sumElement.className = "fw-bold mt-1 text-success";
-            sumElement.innerText = totalText;
-            
-            iconElement.className = "fa-solid fa-circle-check fa-3x text-success opacity-50 ";
-        } else {
-            // QARZ BO'LSA: QIZIL
-            sumElement.className = "fw-bold mt-1 text-danger";
-            sumElement.innerText = totalText;
-            
-            iconElement.className = "fa-solid fa-receipt fa-3x text-primary opacity-50";
+        // Xarid/to'lov filtri va qidiruv (yozish bilan darhol)
+        function apply() {
+            const q = search.value.trim().toLowerCase();
+            let visible = 0;
+            rows.forEach(r => {
+                const show = (kind === 'all' || r.dataset.kind === kind) && (!q || r.dataset.search.includes(q));
+                r.classList.toggle('d-none', !show);
+                if (show) visible++;
+            });
+            empty.classList.toggle('d-none', visible > 0);
+            emptyText.innerText = q ? `"${search.value.trim()}" bo'yicha hech narsa topilmadi`
+                : kind === 'debt' ? "Xaridlar yo'q" : kind === 'payment' ? "To'lovlar yo'q" : "Hozircha tarix yo'q";
         }
 
-        // 5. Modalni ochish
-        const modalElement = document.getElementById('detailModal');
-        if (!detailModalInstance) {
-            detailModalInstance = new bootstrap.Modal(modalElement);
-        }
-        detailModalInstance.show();
-    }
+        document.querySelectorAll('#historyTabs a').forEach(tab => {
+            tab.addEventListener('click', e => {
+                e.preventDefault();
+                kind = tab.dataset.kind;
+                document.querySelectorAll('#historyTabs a').forEach(t => t.classList.toggle('active', t === tab));
+                apply();
+            });
+        });
+        search.addEventListener('input', apply);
+
+        rows.forEach(row => {
+            row.addEventListener('click', () => {
+                const d = row.dataset;
+                const isPayment = d.kind === 'payment';
+                const parts = [];
+                if (d.uzs && d.uzs !== '0') parts.push(d.uzs + " so'm");
+                if (d.usd) parts.push('$' + d.usd);
+                openDetailSheet({
+                    date: d.date,
+                    sum: parts.join(' + '),
+                    sumClass: isPayment ? 'text-success' : 'text-danger',
+                    status: isPayment ? "To'lov (qarzingizdan ayirildi)" : "Xarid (qarzingizga qo'shildi)",
+                    items: d.items,
+                });
+            });
+        });
+    })();
 </script>
 {% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block matn %}<h3>Mahsulotlar</h3>{% endblock %}
+
+{% block content %}
+<p class="small text-muted px-1">Mijozlar bu mahsulotlarni kabinetidagi «Do'kondan buyurtma berish» orqali ko'radi.
+Buyurtma kelganda sizga Telegram'da xabar keladi.</p>
+
+<a href="{% url 'product_add' %}" class="btn btn-primary w-100 py-3 mb-3"><i class="fa-solid fa-plus"></i> Mahsulot qo'shish</a>
+
+<div class="list-group-app">
+    {% for p in products %}
+    <a href="{% url 'product_edit' p.id %}" class="list-row">
+        {% if p.image %}
+            <img src="{{ p.image.url }}" class="rounded-3 flex-shrink-0" style="width: 44px; height: 44px; object-fit: cover;" alt="">
+        {% else %}
+            <span class="row-icon gray"><i class="fa-solid fa-box"></i></span>
+        {% endif %}
+        <div class="row-main">
+            <div class="row-title">{{ p.name }}</div>
+            <div class="row-sub">{{ p.category.name|default:"Kategoriyasiz" }}{% if not p.is_active %} · <span class="text-danger">Sotuvda yo'q</span>{% endif %}</div>
+        </div>
+        <div class="row-end small">{{ p.price|space_format }}</div>
+        <i class="fa-solid fa-chevron-right chevron"></i>
+    </a>
+    {% empty %}
+    <div class="text-center py-4 text-muted">Hali mahsulot qo'shilmagan</div>
+    {% endfor %}
+</div>
+
+{% if orders %}
+<div class="section-title">So'nggi buyurtmalar</div>
+<div class="list-group-app">
+    {% for o in orders %}
+    <a href="{% url 'admin_client_detail' o.client_id %}" class="list-row">
+        <span class="row-icon {% if o.status == 'accepted' %}green{% elif o.status == 'rejected' %}red{% else %}orange{% endif %}">
+            <i class="fa-solid {% if o.status == 'accepted' %}fa-check{% elif o.status == 'rejected' %}fa-xmark{% else %}fa-clock{% endif %}"></i>
+        </span>
+        <div class="row-main">
+            <div class="row-title">#{{ o.id }} · {{ o.client.full_name }}</div>
+            <div class="row-sub">{{ o.created_at|date:"d.m.Y H:i" }} · {{ o.get_status_display }}</div>
+        </div>
+        <div class="row-end small">{{ o.total_price|space_format }}</div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

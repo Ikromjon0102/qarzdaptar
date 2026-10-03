@@ -15,3 +15,4 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         import core.signals  # <--- MANA SHU QATOR SHART!
+        import core.checks  # noqa: F401  (maxfiy sozlamalar tekshiruvi)

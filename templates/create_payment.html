@@ -1,142 +1,181 @@
 {% extends 'base.html' %}
 
 {% block matn %}
-<h3 class="fw-bold ps-1 text-success">
-    <i class="fa-solid fa-hand-holding-dollar"></i> To'lov Qabul Qilish
-</h3>
+<h3>To'lov qabul qilish</h3>
 {% endblock %}
 
 {% block content %}
 <style>
-    /* Yashil mavzu */
-    .input-group-text {
-        background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
-        color: var(--tg-theme-text-color, #000);
-        border: none;
-    }
-
     .money-input {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         font-weight: bold;
         color: #198754;
     }
-
     .money-input::placeholder {
-        color: #ccc;
         font-weight: normal;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
     }
-
-    /* Dark Mode Inputs */
-    .form-control {
-        background-color: var(--tg-theme-secondary-bg-color, #f0f0f0) !important;
-        color: var(--tg-theme-text-color, #000) !important;
+    .currency-tag {
+        background: var(--tg-bg);
+        color: var(--tg-text);
         border: none;
+        font-weight: 700;
+        min-width: 64px;
+        justify-content: center;
+    }
+    .balance-box {
+        border-radius: 12px;
+        padding: 12px;
+        background: var(--tg-bg);
+        color: var(--tg-text);
+    }
+    .balance-box .label { color: var(--tg-hint); font-size: 0.8rem; }
+    .form-error {
+        color: #dc3545;
+        font-size: 0.85rem;
+        font-weight: 600;
     }
 </style>
 
-
-
-<form method="POST" id="paymentForm" autocomplete="off">
+<form method="POST" id="paymentForm" autocomplete="off" novalidate class="has-action-bar">
     {% csrf_token %}
 
-    <div class="app-card border border-success border-opacity-25 shadow-sm mb-4 bg-white"
-        style="border-radius: 14px; padding: 15px;">
-        <label class="small text-muted mb-2 text-uppercase fw-bold text-dark">Kim to'layapti?</label>
+    <div class="app-card" id="client-card" style="overflow: visible;">
+        <label class="form-label">Kim to'layapti?</label>
 
-        <div class="input-group input-group-lg">
-            <span class="input-group-text bg-transparent border-end-0 ps-0">
-                <i class="fa-solid fa-user text-success"></i>
-            </span>
-            <input class="form-control bg-transparent border-start-0 ps-2 fw-bold text-success text-dark" list="clientOptions"
-                id="clientDataList" placeholder="Mijoz ismini yozing..." onchange="setClientId(this)"
-                value="{% if selected_client %}{{ selected_client.full_name }} ({{ selected_client.phone }}){% endif %}"
-                required>
+        {% include 'components/client_picker.html' with field_name='client_id' allow_add=False %}
+
+        <!-- Tanlangan mijozning joriy qarzi -->
+        <div id="balanceBox" class="balance-box mt-3 d-none">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="label">Joriy qarz</div>
+                    <div class="fw-bold" id="currentDebt"></div>
+                </div>
+                <button type="button" class="btn btn-sm btn-success fw-bold rounded-pill text-nowrap flex-shrink-0 d-none" id="payAllBtn">
+                    <i class="fa-solid fa-check-double"></i> Hammasi
+                </button>
+            </div>
         </div>
-
-        <input type="hidden" name="client_id" id="hiddenClientId"
-            value="{% if selected_client %}{{ selected_client.id }}{% endif %}" required>
-
- <datalist id="clientOptions">
-    {% for client in clients %}
-        <option data-value="{{ client.id }}"
-                value="{{ client.full_name }} ({{ client.phone }}) {% if client.telegram_id %}✅{% else %}📵{% endif %}">
-        </option>
-    {% endfor %}
-</datalist>
     </div>
 
-    <div class="app-card mb-4 bg-white text-dark" style="border-radius: 14px; padding: 15px;">
-        <label class="small text-muted mb-3 text-uppercase fw-bold text-dark">Qancha to'ladi?</label>
+    <div class="app-card">
+        <label class="form-label">Qancha to'ladi?</label>
 
-        <div class="input-group mb-3">
-            <span class="input-group-text">UZS</span>
-            <input type="tel" name="amount_uzs" class="form-control money-input" placeholder="0">
-            <span class="input-group-text">so'm</span>
+        <div class="input-group mb-2">
+            <input type="text" inputmode="numeric" name="amount_uzs" id="amountUzs"
+                   class="form-control money-input" placeholder="0" value="{{ amount_uzs|default:'' }}">
+            <span class="input-group-text currency-tag">so'm</span>
         </div>
 
         <div class="input-group">
-            <span class="input-group-text">USD</span>
-            <input type="tel" name="amount_usd" class="form-control money-input text-success" placeholder="0">
-            <span class="input-group-text">$</span>
+            <input type="text" inputmode="decimal" name="amount_usd" id="amountUsd"
+                   class="form-control money-input" placeholder="0" value="{{ amount_usd|default:'' }}">
+            <span class="input-group-text currency-tag">$</span>
         </div>
-<div class="mb-3 text-dark">
-    <label class="form-label fw-bold text-muted text-dark">To'lov turi</label>
-    <div class="d-flex gap-2">
-        <input type="radio" class="btn-check" name="payment_method" id="method1" value="cash" checked>
-        <label class="btn btn-outline-success flex-fill" for="method1">
-            <i class="fa-solid fa-money-bill-wave"></i> Naqd
-        </label>
+        <div id="amountError" class="form-error mt-2 d-none">
+            <i class="fa-solid fa-circle-exclamation"></i> To'lov summasini kiriting
+        </div>
 
-        <input type="radio" class="btn-check" name="payment_method" id="method2" value="card">
-        <label class="btn btn-outline-primary flex-fill" for="method2">
-            <i class="fa-regular fa-credit-card"></i> Karta
-        </label>
+        <!-- To'lovdan keyingi qoldiq -->
+        <div id="afterBox" class="balance-box mt-3 d-none">
+            <div class="label">To'lovdan keyin qoladi</div>
+            <div class="fw-bold" id="afterPayment"></div>
+        </div>
 
-        <input type="radio" class="btn-check" name="payment_method" id="method3" value="click">
-        <label class="btn btn-outline-info flex-fill" for="method3">
-            <i class="fa-solid fa-mobile-screen"></i> Click
-        </label>
+        <div class="mt-3 mb-3 text-dark">
+            <label class="form-label">To'lov turi</label>
+            <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+                {% for key, label in payment_methods.items %}
+                <input type="radio" class="btn-check" name="payment_method" id="method-{{ key }}" value="{{ key }}"
+                       {% if key == payment_method %}checked{% endif %}>
+                <label class="btn btn-outline-success fw-bold" for="method-{{ key }}">
+                    {% if key == 'cash' %}<i class="fa-solid fa-money-bill-wave"></i>
+                    {% elif key == 'card' %}<i class="fa-regular fa-credit-card"></i>
+                    {% elif key == 'click' %}<i class="fa-solid fa-mobile-screen"></i>
+                    {% else %}<i class="fa-solid fa-building-columns"></i>{% endif %}
+                    {{ label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <input type="text" name="note" class="form-control" placeholder="Izoh (ixtiyoriy)" value="{{ note|default:'' }}" maxlength="200">
     </div>
-</div>
-        <div class="form-text mt-2 text-muted small text-dark">
-            <i class="fa-solid fa-circle-info "></i> Qaysi valyutada to'lasa, o'shani to'ldiring.
+
+    <div class="action-bar">
+        <div class="inner">
+            <button type="submit" id="submitBtn" class="btn btn-success w-100 py-3 fw-bold">
+                <i class="fa-solid fa-check"></i> To'lovni qabul qilish
+            </button>
         </div>
     </div>
-
-    <button type="submit" class="btn btn-success w-100 py-3 fw-bold shadow-lg" style="border-radius: 14px;">
-        <i class="fa-solid fa-check-double"></i> TO'LOVNI QABUL QILISH
-    </button>
-
 </form>
 
 {% endblock %}
 
 {% block scripts %}
+{% include 'components/money_input_js.html' %}
 <script>
-    function setClientId(inputElement) {
-        const list = document.getElementById('clientOptions');
-        const hiddenInput = document.getElementById('hiddenClientId');
-        let found = false;
+    const fmtUzs = n => Math.round(Math.abs(n)).toLocaleString('ru-RU').replace(/,/g, ' ');
+    const fmtUsd = n => Math.abs(n).toFixed(2);
+    const uzsInput = document.getElementById('amountUzs');
+    const usdInput = document.getElementById('amountUsd');
+    moneyInput.bindAll();
 
-        for (let i = 0; i < list.options.length; i++) {
-            if (list.options[i].value === inputElement.value) {
-                hiddenInput.value = list.options[i].getAttribute('data-value');
-                found = true;
-                break;
-            }
-        }
-        if (!found) hiddenInput.value = "";
+    // Balansni matnga aylantirish: musbat - qarz, manfiy - haq
+    function balanceHtml(uzs, usd) {
+        const parts = [];
+        if (uzs > 0) parts.push(`<span class="text-danger">${fmtUzs(uzs)} so'm</span>`);
+        if (uzs < 0) parts.push(`<span class="text-success">+${fmtUzs(uzs)} so'm (haq)</span>`);
+        if (usd > 0) parts.push(`<span class="text-danger">$${fmtUsd(usd)}</span>`);
+        if (usd < 0) parts.push(`<span class="text-success">+$${fmtUsd(usd)} (haq)</span>`);
+        return parts.length ? parts.join(' · ') : '<span class="text-success">Hisob toza ✅</span>';
     }
 
-    // Double Click himoyasi
-    document.getElementById('paymentForm').addEventListener('submit', function (e) {
-        if (!document.getElementById('hiddenClientId').value) {
-            e.preventDefault();
-            alert("Iltimos, ro'yxatdan mavjud mijozni tanlang!");
+    function refresh() {
+        const client = clientPicker.selected;
+        const balanceBox = document.getElementById('balanceBox');
+        const afterBox = document.getElementById('afterBox');
+        balanceBox.classList.toggle('d-none', !client);
+        if (!client) {
+            afterBox.classList.add('d-none');
             return;
         }
-        const btn = this.querySelector('button[type="submit"]');
+        document.getElementById('currentDebt').innerHTML = balanceHtml(client.bal_uzs, client.bal_usd);
+        document.getElementById('payAllBtn').classList.toggle('d-none', !(client.bal_uzs > 0 || client.bal_usd > 0));
+
+        const payUzs = moneyInput.value(uzsInput);
+        const payUsd = moneyInput.value(usdInput);
+        afterBox.classList.toggle('d-none', !(payUzs > 0 || payUsd > 0));
+        document.getElementById('afterPayment').innerHTML = balanceHtml(client.bal_uzs - payUzs, client.bal_usd - payUsd);
+    }
+
+    document.addEventListener('client-selected', refresh);
+    uzsInput.addEventListener('input', refresh);
+    usdInput.addEventListener('input', refresh);
+
+    document.getElementById('payAllBtn').addEventListener('click', () => {
+        const client = clientPicker.selected;
+        uzsInput.value = client.bal_uzs > 0 ? moneyInput.format(String(Math.round(client.bal_uzs))) : '';
+        usdInput.value = client.bal_usd > 0 ? moneyInput.format(client.bal_usd.toFixed(2)) : '';
+        refresh();
+    });
+
+    refresh();
+
+    // Tekshiruv va ikki marta bosishdan himoya
+    document.getElementById('paymentForm').addEventListener('submit', function (e) {
+        const noClient = !clientPicker.selected;
+        const noAmount = !(moneyInput.value(uzsInput) > 0 || moneyInput.value(usdInput) > 0);
+        clientPicker.setError(noClient);
+        document.getElementById('amountError').classList.toggle('d-none', !noAmount);
+        if (noClient || noAmount) {
+            e.preventDefault();
+            (noClient ? document.getElementById('client-card') : uzsInput).scrollIntoView({behavior: 'smooth', block: 'center'});
+            return;
+        }
+        const btn = document.getElementById('submitBtn');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saqlanmoqda...';
     });

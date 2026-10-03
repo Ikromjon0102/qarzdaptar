@@ -1,0 +1,40 @@
+{% load static %}<!DOCTYPE html>
+<html lang="{{ lang }}">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ t.privacy_title }} — QarzDaptar</title>
+    <meta name="theme-color" content="#0b1710">
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/landing.css' %}">
+</head>
+
+<body class="bg-ink font-sans text-fg antialiased">
+    <main class="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16">
+        <div class="flex items-center justify-between gap-4">
+            <a href="{% url 'landing_page' %}" class="font-semibold text-brand hover:underline">&larr; {{ t.privacy_back }}</a>
+            <div class="flex rounded-lg border border-line p-0.5 text-xs font-bold">
+                <a href="?lang=uz" class="rounded-md px-2 py-1 {% if lang == 'uz' %}bg-card text-fg{% else %}text-dim{% endif %}">UZ</a>
+                <a href="?lang=ru" class="rounded-md px-2 py-1 {% if lang == 'ru' %}bg-card text-fg{% else %}text-dim{% endif %}">RU</a>
+            </div>
+        </div>
+        <h1 class="mt-8 text-3xl font-extrabold tracking-tight sm:text-4xl">{{ t.privacy_title }}</h1>
+        <div class="mt-8 space-y-8">
+            {% for heading, text in t.privacy %}
+            <section>
+                <h2 class="text-lg font-bold">{{ heading }}</h2>
+                <p class="mt-2 leading-relaxed text-muted">{{ text }}</p>
+            </section>
+            {% endfor %}
+        </div>
+        <p class="mt-12 text-sm text-dim">
+            {{ t.footer_contact }}: <a href="https://t.me/{{ support_username }}" class="font-semibold text-brand hover:underline">@{{ support_username }}</a>
+        </p>
+    </main>
+</body>
+
+</html>

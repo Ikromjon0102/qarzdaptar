@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block matn %}<h3>{% if product %}Mahsulotni tahrirlash{% else %}Yangi mahsulot{% endif %}</h3>{% endblock %}
+
+{% block content %}
+<form method="POST" enctype="multipart/form-data" autocomplete="off" class="has-action-bar">
+    {% csrf_token %}
+    <div class="app-card">
+        <label class="form-label">Nomi</label>
+        <input type="text" name="name" class="form-control mb-3" value="{{ product.name|default:'' }}" required maxlength="200" placeholder="Masalan: Un 50 kg">
+
+        <label class="form-label">Narxi (so'm)</label>
+        <input type="text" inputmode="numeric" name="price" class="form-control money-input mb-3"
+               value="{% if product %}{{ product.price|space_format }}{% endif %}" required placeholder="0">
+
+        <label class="form-label">Kategoriya (ixtiyoriy)</label>
+        <input type="text" name="category" class="form-control mb-3" list="catList" value="{{ product.category.name|default:'' }}" placeholder="Masalan: Oziq-ovqat">
+        <datalist id="catList">{% for c in categories %}<option value="{{ c.name }}">{% endfor %}</datalist>
+
+        <label class="form-label">Tavsif (ixtiyoriy)</label>
+        <textarea name="description" class="form-control mb-3" rows="2">{{ product.description|default:'' }}</textarea>
+
+        <label class="form-label">Rasm</label>
+        {% if product.image %}<img src="{{ product.image.url }}" class="rounded-3 mb-2 d-block" style="width: 80px; height: 80px; object-fit: cover;" alt="">{% endif %}
+        <input type="file" name="image" accept="image/*" class="form-control mb-3">
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="is_active" id="isActive" {% if not product or product.is_active %}checked{% endif %}>
+            <label class="form-check-label" for="isActive">Sotuvda bor</label>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div class="inner">
+            <button type="submit" class="btn btn-primary w-100 py-3"><i class="fa-solid fa-check"></i> Saqlash</button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+{% include 'components/money_input_js.html' %}
+<script>moneyInput.bindAll();</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+{
+  "name": "qarzdaptar-landing",
+  "private": true,
+  "description": "Landing sahifa uchun Tailwind CSS build (faqat templates/landing.html o'zgarganda kerak)",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i static/src/landing.input.css -o static/css/landing.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

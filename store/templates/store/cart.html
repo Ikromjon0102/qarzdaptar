@@ -1,60 +1,97 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block matn %}<h3>Savat</h3>{% endblock %}
 
 {% block content %}
-<h4 class="fw-bold mb-4 ps-1"><i class="fa-solid fa-basket-shopping"></i> Sizning Savatingiz</h4>
-
-<div class="pb-5 mb-5">
+<div class="has-action-bar">
+{% if items %}
+<div class="list-group-app">
     {% for item in items %}
-    <div class="app-card d-flex justify-content-between align-items-center p-3 mb-2 bg-white shadow-sm rounded-3">
-        <div class="d-flex align-items-center">
-            {% if item.product.image %}
-            <img src="{{ item.product.image.url }}" class="rounded-3 me-3"
-                style="width: 50px; height: 50px; object-fit: cover;">
-            {% else %}
-            <div class="bg-light rounded-3 me-3 d-flex align-items-center justify-content-center"
-                style="width: 50px; height: 50px;">
-                <i class="fa-solid fa-image text-muted"></i>
-            </div>
-            {% endif %}
-            <div>
-                <h6 class="fw-bold mb-0 text-dark">{{ item.product.name }}</h6>
-                <small class="text-muted">{{ item.qty }} x {{ item.product.price|floatformat:0 }} = <b>
-                        {{ item.total|floatformat:0 }}</b></small>
-            </div>
+    <div class="list-row" id="row-{{ item.product.id }}">
+        {% if item.product.image %}
+            <img src="{{ item.product.image.url }}" class="rounded-3 flex-shrink-0" style="width: 48px; height: 48px; object-fit: cover;" alt="">
+        {% else %}
+            <span class="row-icon gray"><i class="fa-solid fa-box"></i></span>
+        {% endif %}
+        <div class="row-main">
+            <div class="row-title">{{ item.product.name }}</div>
+            <div class="row-sub">{{ item.product.price|space_format }} so'm</div>
         </div>
-
-        <button class="btn btn-link text-danger p-0"><i class="fa-solid fa-times"></i></button>
-    </div>
-    {% empty %}
-    <div class="text-center py-5">
-        <i class="fa-solid fa-cart-arrow-down fa-3x text-muted mb-3 opacity-25"></i>
-        <p class="text-muted">Savatingiz bo'sh</p>
-        <a href="{% url 'shop_home' %}" class="btn btn-outline-primary rounded-pill">Do'konga qaytish</a>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <button type="button" class="btn btn-sm" style="background: var(--tg-bg);" onclick="updateCart({{ item.product.id }}, 'decrease')" aria-label="Kamaytirish">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+            <span class="fw-bold" id="qty-{{ item.product.id }}" style="min-width: 20px; text-align: center;">{{ item.qty }}</span>
+            <button type="button" class="btn btn-sm" style="background: var(--tg-bg);" onclick="updateCart({{ item.product.id }}, 'add')" aria-label="Qo'shish">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
     </div>
     {% endfor %}
 </div>
 
-{% if items %}
-<div class="fixed-bottom bg-white p-3 border-top shadow-lg"
-    style="border-top-left-radius: 20px; border-top-right-radius: 20px;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <span class="text-muted">Jami to'lov:</span>
-        <h4 class="fw-bold text-primary m-0">{{ total_price|floatformat:0 }} so'm</h4>
-    </div>
+<form method="POST" action="{% url 'clear_cart' %}" class="text-center mt-3" onsubmit="return confirm('Savat tozalansinmi?')">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm text-danger"><i class="fa-solid fa-trash-can"></i> Savatni tozalash</button>
+</form>
 
-    <div class="row g-2">
-        <div class="col-4">
-            <a href="{% url 'clear_cart' %}" class="btn btn-outline-danger w-100 py-3 rounded-3">
-                <i class="fa-solid fa-trash"></i>
-            </a>
-        </div>
-        <div class="col-8">
-            <a href="{% url 'checkout' %}" class="btn btn-primary w-100 py-3 rounded-3 fw-bold">
-                BUYURTMA BERISH <i class="fa-solid fa-arrow-right ms-2"></i>
-            </a>
+<p class="small text-muted text-center mt-2 px-3">
+    Buyurtmani do'kon tasdiqlagach, summa nasiyangizga yoziladi.
+</p>
+
+<form method="POST" action="{% url 'checkout' %}" id="checkoutForm">
+    {% csrf_token %}
+    <div class="action-bar">
+        <div class="inner d-flex align-items-center gap-3">
+            <div class="flex-fill">
+                <div class="small text-muted">Jami</div>
+                <div class="fw-bold" style="font-size: 18px;" id="cartTotal">{{ total_price|space_format }} so'm</div>
+            </div>
+            <button type="submit" class="btn btn-primary px-4 py-3 flex-shrink-0" id="checkoutBtn">
+                Buyurtma berish
+            </button>
         </div>
     </div>
+</form>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="fa-solid fa-basket-shopping fa-2x mb-3 opacity-50"></i>
+    <div class="mb-3">Savatingiz bo'sh</div>
+    <a href="{% url 'shop_home' %}" class="btn btn-primary">Mahsulotlarni ko'rish</a>
 </div>
 {% endif %}
+</div>
+{% endblock %}
 
+{% block scripts %}
+<script>
+    const fmt = n => Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ');
+
+    function updateCart(productId, action) {
+        const url = action === 'add' ? `/shop/add/${productId}/` : `/shop/decrease/${productId}/`;
+        fetch(url, {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.status !== 'ok') return;
+                if (data.total_items === 0) { location.reload(); return; }
+                if (data.qty === 0) {
+                    document.getElementById(`row-${productId}`).remove();
+                } else {
+                    document.getElementById(`qty-${productId}`).innerText = data.qty;
+                }
+                document.getElementById('cartTotal').innerText = fmt(data.total_price) + " so'm";
+            })
+            .catch(() => alert("Aloqa xatosi. Qayta urinib ko'ring."));
+    }
+
+    const form = document.getElementById('checkoutForm');
+    if (form) {
+        form.addEventListener('submit', () => {
+            const btn = document.getElementById('checkoutBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        });
+    }
+</script>
 {% endblock %}

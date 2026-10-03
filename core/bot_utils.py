@@ -1,11 +1,7 @@
-import requests
-from django.conf import settings
+import html
 
-# Webhook URL (o'zingizniki to'g'ri ekanligiga ishonch hosil qiling)
-WEBHOOK_URL = "https://telapp.tunl.uz/webhook/"
-# Tokenni settings.py dan olish maslahat beriladi, lekin hozircha shu yerda tursin
-BOT_TOKEN = settings.BOT_TOKEN
-BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+from . import telegram
+
 
 def send_confirmation_request(telegram_id,  debt_obj, domain):
     """
@@ -33,44 +29,17 @@ def send_confirmation_request(telegram_id,  debt_obj, domain):
     total_str = " + ".join(sum_parts) if sum_parts else "0 so'm"
     # ---------------------------
 
+    title = "🔁 <b>Nasiya qayta yuborildi</b>" if debt_obj.reject_reason else "🆕 <b>Yangi xarid!</b>"
+    due = f"📅 <b>To'lov muddati:</b> {debt_obj.due_date:%d.%m.%Y}\n" if debt_obj.due_date else ""
+    note = f"💬 <b>Do'kon izohi:</b> {html.escape(debt_obj.shop_note)}\n\n" if debt_obj.shop_note else ""
     text = (
-        f"🆕 <b>Yangi xarid!!</b>\n\n"
+        f"{title}\n\n"
         f"🛒 <b>Tovarlar:</b>\n{debt_obj.items}\n\n"
         f"➖➖➖➖➖➖➖➖\n"
-        f"💰 <b>Jami:</b> {total_str}\n\n"
+        f"💰 <b>Jami:</b> {total_str}\n"
+        f"{due}\n"
+        f"{note}"
         f"Iltimos, pastdagi tugmani bosib tasdiqlang yoki rad eting."
     )
-
-    payload = {
-        "chat_id": telegram_id,
-        "text": text,
-        "parse_mode": "HTML",
-        "reply_markup": {
-            "inline_keyboard": [[
-                {
-                    "text": "📝 Ko'rish va Tasdiqlash",
-                    "web_app": {"url": web_app_url}
-                }
-            ]]
-        }
-    }
-    
-    try:
-        response = requests.post(f"{BASE_URL}/sendMessage", json=payload)
-        # Log uchun natijani ko'rish
-        if response.status_code != 200:
-            print(f"Telegramga yuborishda xatolik: {response.text}")
-    except Exception as e:
-        print(f"Error sending msg: {e}")
-
-def send_telegram_message(chat_id, text):
-    """Oddiy xabar yuborish uchun (masalan 'Start' bosganda)"""
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }
-    try:
-        requests.post(f"{BASE_URL}/sendMessage", json=payload)
-    except Exception as e:
-        print(f"Error sending simple msg: {e}")
+    reply_markup = {"inline_keyboard": [[{"text": "📝 Ko'rish va Tasdiqlash", "web_app": {"url": web_app_url}}]]}
+    telegram.send_message(telegram_id, text, reply_markup=reply_markup)

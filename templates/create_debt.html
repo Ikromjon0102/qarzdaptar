@@ -1,129 +1,172 @@
 {% extends 'base.html' %}
-{% block matn %}
-<h3 class="fw-bold m-0 text-primary"><i class="fas fa-receipt"></i> Yangi Sotuv</h3>
-{% endblock %}
+{% block matn %}<h3>Yangi savdo</h3>{% endblock %}
 
 {% block content %}
 <style>
-    .btn-trash {
-        color: #ff5c5c;
-        background: transparent;
-        border: none;
-    }
-    .mode-btn {
-        transition: all 0.2s;
-        border-radius: 10px;
-        font-weight: bold;
-        opacity: 0.5;
-        border: 2px solid transparent;
-    }
-    .mode-btn.active {
-        opacity: 1;
-        transform: scale(1.02);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
+    .btn-trash { color: var(--danger); background: transparent; border: none; }
+    .mode-seg { flex: 1; border: none; background: transparent; padding: 9px; border-radius: 10px; font-weight: 700; color: var(--tg-hint); }
+    #btn-debt.active { background: var(--tg-secondary); color: var(--danger); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    #btn-cash.active { background: var(--tg-secondary); color: var(--success); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .payment-badge {
         cursor: pointer;
-        padding: 8px 15px;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        background: #f8f9fa;
-        color: #555;
-        font-weight: bold;
-        font-size: 0.85rem;
-        transition: 0.2s;
+        padding: 10px 4px;
+        border-radius: 10px;
+        background: var(--tg-bg);
+        color: var(--tg-text);
+        font-weight: 700;
+        font-size: 13px;
     }
-    .payment-badge.selected {
-        background: #198754; /* Success color */
-        color: white;
-        border-color: #198754;
+    .payment-badge.selected { background: var(--success); color: #fff; }
+    .no-tg-box {
+        border: 1px solid var(--warning);
+        background: rgba(240, 165, 0, 0.1);
+        border-radius: 12px;
+        padding: 12px;
+        color: var(--tg-text);
+    }
+    .form-error { color: var(--danger); font-size: 13px; font-weight: 600; }
+    .add-row-btn {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-radius: var(--radius-lg);
+        border: 1.5px dashed var(--tg-button);
+        background: transparent;
+        color: var(--tg-button);
+        font-weight: 700;
     }
 </style>
 
-<form method="POST" id="debtForm" autocomplete="off">
+<form method="POST" id="debtForm" autocomplete="off" novalidate class="has-action-bar">
     {% csrf_token %}
-    <div id="items-container" class="text-dark">  </div>
+    <input type="hidden" name="sale_mode" id="saleModeInput" value="{{ sale_mode }}">
+    <input type="hidden" name="payment_type" id="paymentTypeInput" value="{{ payment_type }}">
 
-    <input type="hidden" name="sale_mode" id="saleModeInput" value="debt">
-    <input type="hidden" name="payment_type" id="paymentTypeInput" value="cash">
+    <!-- 1. Savdo turi -->
+    <div class="segmented">
+        <button type="button" class="mode-seg" id="btn-debt" onclick="setMode('debt')">Nasiya</button>
+        <button type="button" class="mode-seg" id="btn-cash" onclick="setMode('cash')">Naqd</button>
+    </div>
 
-    <button type="button" class="btn btn-outline-primary w-100 py-3 mb-3"
-        style="border-radius: 12px; border-style: dashed;" onclick="addItem()">
-        <i class="fa-solid fa-plus"></i> Yana qo'shish
+    <!-- 2. Mijoz -->
+    <div class="app-card" id="client-card" style="overflow: visible;">
+        <label class="form-label" id="client-label">Mijoz</label>
+
+        {% include 'components/client_picker.html' with field_name='client' allow_add=True %}
+
+        <!-- Botga ulanmagan mijoz uchun ogohlantirish -->
+        <div id="risk-warning" class="app-toast error mt-3 mb-0 d-none">
+            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+            <div class="small" id="risk-text"></div>
+        </div>
+        <div id="no-tg-warning" class="no-tg-box mt-3 d-none">
+            <div class="fw-bold mb-1">
+                <i class="fa-solid fa-triangle-exclamation" style="color: var(--warning)"></i>
+                Mijoz botga ulanmagan
+            </div>
+            <div class="small mb-2 text-muted">
+                Unga tasdiqlash so'rovi yuborib bo'lmaydi. Nasiyani qanday saqlaymiz?
+            </div>
+            <label class="d-flex align-items-start gap-2 mb-2">
+                <input type="radio" name="no_tg_action" value="confirm" class="form-check-input mt-1"
+                       {% if no_tg_action != 'pending' %}checked{% endif %}>
+                <span><b>Darhol balansga yozish</b><br>
+                    <small class="text-muted">Mijoz tasdiqlamaydi, qarz darhol hisoblanadi</small></span>
+            </label>
+            <label class="d-flex align-items-start gap-2 mb-2">
+                <input type="radio" name="no_tg_action" value="pending" class="form-check-input mt-1"
+                       {% if no_tg_action == 'pending' %}checked{% endif %}>
+                <span><b>Tasdiqlashni kutish</b><br>
+                    <small class="text-muted">Mijoz botga ulangach yoki siz tasdiqlaganingizda hisoblanadi</small></span>
+            </label>
+            <a href="#" id="inviteLink" class="small fw-bold text-decoration-none">
+                <i class="fa-brands fa-telegram"></i> Mijozni botga taklif qilish
+            </a>
+        </div>
+    </div>
+
+    <!-- 3. Tovarlar -->
+    <div class="section-title mt-3">Tovarlar</div>
+    <div id="items-container"></div>
+    <div id="itemsError" class="form-error mb-2 d-none">
+        <i class="fa-solid fa-circle-exclamation"></i> Kamida bitta tovarning soni va narxini kiriting
+    </div>
+    <button type="button" class="add-row-btn" onclick="addItem()">
+        <i class="fa-solid fa-plus"></i> Tovar qo'shish
     </button>
 
+    <!-- 4. Nasiyada to'lov muddati (ixtiyoriy) -->
+    <div id="due-card" class="app-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0" for="dueDateInput">To'lov muddati <span class="fw-normal">(ixtiyoriy)</span></label>
+            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-none" id="dueClear">Olib tashlash</button>
+        </div>
+        <div class="d-flex gap-2 flex-wrap mb-2" id="dueChips">
+            <button type="button" class="due-chip" data-days="7">1 hafta</button>
+            <button type="button" class="due-chip" data-days="14">2 hafta</button>
+            <button type="button" class="due-chip" data-days="30">1 oy</button>
+            <button type="button" class="due-chip" data-days="60">2 oy</button>
+        </div>
+        <input type="date" name="due_date" id="dueDateInput" class="form-control" value="{{ due_date|default:'' }}"
+               min="{{ today_iso }}" max="{{ due_max_iso }}">
+        <div class="small text-muted mt-2">Muddat kuni va bir kun oldin mijozga eslatma boradi{% if 'reminders' not in plan_features %} (Standart tarifda){% endif %}, o'tib ketsa — «Muddati o'tgan» ro'yxatida ko'rinadi.</div>
+    </div>
+    <style>
+        .due-chip { border: 1px solid var(--line); background: var(--tg-bg); color: var(--tg-text); border-radius: 999px;
+                    padding: 6px 14px; font-size: 14px; font-weight: 600; }
+        .due-chip.active { background: var(--tg-button); border-color: var(--tg-button); color: #fff; }
+    </style>
 
-    <div class="d-flex gap-2 mb-3 bg-white p-2 rounded-3 shadow-sm">
-        <button type="button" class="btn btn-danger w-50 mode-btn active" id="btn-debt" onclick="setMode('debt')">
-            🔴 Nasiya
-        </button>
-        <button type="button" class="btn btn-success w-50 mode-btn" id="btn-cash" onclick="setMode('cash')">
-            🟢 Naqd
-        </button>
+    <!-- 5. Naqd savdoda to'lov turi -->
+    <div id="payment-methods" class="app-card d-none">
+        <label class="form-label">To'lov turi</label>
+        <div class="d-flex justify-content-between gap-2">
+            {% for key, label in payment_methods.items %}
+            <div class="payment-badge w-100 text-center{% if key == payment_type %} selected{% endif %}"
+                 data-type="{{ key }}" onclick="setPaymentType('{{ key }}', this)">{{ label }}</div>
+            {% endfor %}
+        </div>
     </div>
 
-    <div class="app-card mb-3" id="client-card">
-        <label class="small text-muted mb-1 text-dark fw-bold" id="client-label">Mijozni tanlang (Qarz yoziladi)</label>
-
-        <div class="input-group">
-            <input class="form-control form-control-lg fw-bold text-dark" list="clientOptions" id="clientDataList"
-                placeholder="Ismni yozing..." onchange="setClientId(this)"
-                value="{% if selected_client %}{{ selected_client.full_name }} ({{ selected_client.phone }}){% endif %}"
-                required>
-
-            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addClientModal">
-                <i class="fa-solid fa-user-plus"></i>
+    <!-- Pastki panel: jami summa va saqlash -->
+    <div class="action-bar">
+        <div class="inner d-flex align-items-center gap-3">
+            <div class="flex-fill" style="min-width: 0;">
+                <div class="small text-muted">Jami</div>
+                <div class="fw-bold text-truncate" style="font-size: 18px;" id="totalUzsDisplay">0 so'm</div>
+                <div class="small fw-bold" id="totalUsdDisplay">$0</div>
+                {% if usd_rate %}
+                <div class="small text-muted d-none" id="grandTotalRow">
+                    <span id="grandTotalDisplay"></span> <span class="d-none" id="usdRate"></span>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary fw-bold px-4 py-3 flex-shrink-0" id="submitBtn">
+                Saqlash
             </button>
         </div>
-
-        <input type="hidden" name="client" id="hiddenClientId"
-            value="{% if selected_client %}{{ selected_client.id }}{% endif %}">
-
-        <datalist id="clientOptions">
-            {% for client in clients %}
-                <option data-value="{{ client.id }}"
-                        value="{{ client.full_name }} ({{ client.phone }})">
-                </option>
-            {% endfor %}
-        </datalist>
     </div>
-
-
-
-    <div id="payment-methods" class="app-card mb-3 d-none">
-        <label class="small text-muted mb-2 text-dark fw-bold">To'lov turi</label>
-        <div class="d-flex justify-content-between gap-2">
-            <div class="payment-badge w-100 text-center selected" onclick="setPaymentType('cash', this)">NAQD</div>
-            <div class="payment-badge w-100 text-center" onclick="setPaymentType('card', this)">KARTA</div>
-            <div class="payment-badge w-100 text-center" onclick="setPaymentType('click', this)">CLICK</div>
-        </div>
-    </div>
-
-    <div class="summary-card mb-4 app-card">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-muted text-dark">Jami So'm:</span>
-            <h5 class="fw-bold m-0 text-success" id="totalUzsDisplay">0 so'm</h5>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="text-muted text-dark">Jami Dollar:</span>
-            <h5 class="fw-bold m-0 text-success" id="totalUsdDisplay">$0</h5>
-        </div>
-
-        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow" id="submitBtn"
-            style="border-radius: 12px;">
-            SAQLASH VA YUBORISH
-        </button>
-    </div>
-
-    <div style="height: 50px;"></div>
 </form>
+{{ prefill_items|json_script:"prefillItems" }}
 {% include 'components/add_client_modal.html' %}
 {% endblock %}
 
 {% block scripts %}
+{% include 'components/money_input_js.html' %}
 <script>
+    const USD_RATE = {{ usd_rate|default:0|stringformat:"f" }};
+    const fmtUzs = n => Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ');
+    const fmtUsd = n => (Math.round(n * 100) / 100).toLocaleString('en-US');
+
     document.addEventListener("DOMContentLoaded", function () {
-        addItem(); // Bitta qator qo'shib qo'yamiz
+        const prefill = JSON.parse(document.getElementById('prefillItems').textContent);
+        if (prefill.length) {
+            prefill.forEach(addItem);
+        } else {
+            addItem();
+        }
+        setMode(document.getElementById('saleModeInput').value);
+        calculateTotal();
     });
 
     // 1. REJIMNI O'ZGARTIRISH (NAQD / NASIYA)
@@ -132,48 +175,48 @@
 
         const btnDebt = document.getElementById('btn-debt');
         const btnCash = document.getElementById('btn-cash');
-        const clientList = document.getElementById('clientDataList');
         const clientLabel = document.getElementById('client-label');
         const paymentMethods = document.getElementById('payment-methods');
         const submitBtn = document.getElementById('submitBtn');
 
+        btnDebt.classList.toggle('active', mode === 'debt');
+        btnCash.classList.toggle('active', mode === 'cash');
+        paymentMethods.classList.toggle('d-none', mode !== 'cash');
+        document.getElementById('due-card').classList.toggle('d-none', mode === 'cash');
+        submitBtn.classList.toggle('btn-success', mode === 'cash');
+        submitBtn.classList.toggle('btn-primary', mode !== 'cash');
+
         if (mode === 'cash') {
-            // Button styles
-            btnDebt.classList.remove('active');
-            btnCash.classList.add('active');
-
-            // Logic
-            clientList.required = false; // Naqd bo'lsa mijoz shart emas
-            clientList.placeholder = "Mijoz (Ixtiyoriy)...";
-            clientLabel.innerText = "Mijoz (Ixtiyoriy)";
-
-            // Show Payments
-            paymentMethods.classList.remove('d-none');
-
-            // Submit Button Color
-            submitBtn.classList.remove('btn-primary');
-            submitBtn.classList.add('btn-success');
-            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> SOTISH (NAQD)';
-
+            clientLabel.innerText = "Mijoz (ixtiyoriy)";
+            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Sotish';
+            clientPicker.setError(false);
         } else {
-            // Button styles
-            btnCash.classList.remove('active');
-            btnDebt.classList.add('active');
-
-            // Logic
-            clientList.required = true; // Nasiya bo'lsa mijoz SHART
-            clientList.placeholder = "Ismni yozing...";
-            clientLabel.innerText = "Mijozni tanlang (Qarz yoziladi)";
-
-            // Hide Payments
-            paymentMethods.classList.add('d-none');
-
-            // Submit Button Color
-            submitBtn.classList.remove('btn-success');
-            submitBtn.classList.add('btn-primary');
-            submitBtn.innerHTML = 'SAQLASH VA YUBORISH';
+            clientLabel.innerText = "Mijoz (qarz shunga yoziladi)";
         }
+        updateClientState();
     }
+
+    // TO'LOV MUDDATI: tez tanlash tugmalari
+    (function () {
+        const input = document.getElementById('dueDateInput');
+        const chips = document.querySelectorAll('.due-chip');
+        const clear = document.getElementById('dueClear');
+        function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+        function sync() {
+            chips.forEach(c => {
+                const d = new Date(); d.setDate(d.getDate() + +c.dataset.days);
+                c.classList.toggle('active', input.value === iso(d));
+            });
+            clear.classList.toggle('d-none', !input.value);
+        }
+        chips.forEach(c => c.addEventListener('click', () => {
+            const d = new Date(); d.setDate(d.getDate() + +c.dataset.days);
+            input.value = iso(d); sync();
+        }));
+        clear.addEventListener('click', () => { input.value = ''; sync(); });
+        input.addEventListener('change', sync);
+        sync();
+    })();
 
     // 2. TO'LOV TURINI TANLASH
     function setPaymentType(type, element) {
@@ -182,153 +225,194 @@
         element.classList.add('selected');
     }
 
-    // 3. MIJOZ ID SINI OLISH
-    function setClientId(inputElement) {
-        const list = document.getElementById('clientOptions');
-        const hiddenInput = document.getElementById('hiddenClientId');
-        let found = false;
-        for (let i = 0; i < list.options.length; i++) {
-            if (list.options[i].value === inputElement.value) {
-                hiddenInput.value = list.options[i].getAttribute('data-value');
-                found = true;
-                break;
-            }
+    // 3. MIJOZ HOLATI: ogohlantirish va tugma matni
+    function updateClientState() {
+        const mode = document.getElementById('saleModeInput').value;
+        const warning = document.getElementById('no-tg-warning');
+        const submitBtn = document.getElementById('submitBtn');
+        const client = clientPicker.selected;
+        const showWarning = mode === 'debt' && client && !client.tg;
+
+        warning.classList.toggle('d-none', !showWarning);
+        // Ishonch: shu do'kon tarixidan ogohlantirish (Standart/Biznes)
+        const risk = mode === 'debt' && client && client.risk;
+        document.getElementById('risk-warning').classList.toggle('d-none', !risk);
+        document.getElementById('risk-warning').classList.toggle('warning', !!risk && client.risk_level === 'warn');
+        document.getElementById('risk-warning').classList.toggle('error', !!risk && client.risk_level === 'risk');
+        if (risk) document.getElementById('risk-text').innerText = client.risk;
+        warning.querySelectorAll('input').forEach(el => el.disabled = !showWarning);
+        if (showWarning) {
+            document.getElementById('inviteLink').href = "{% url 'client_edit' 0 %}".replace('/0/', `/${client.id}/`);
         }
-        if (!found) hiddenInput.value = "";
+
+        if (mode === 'debt') {
+            submitBtn.innerHTML = client && !client.tg
+                ? '<i class="fa-solid fa-check"></i> Saqlash'
+                : '<i class="fa-brands fa-telegram"></i> Yuborish';
+        }
+    }
+    document.addEventListener('client-selected', updateClientState);
+
+    // 4. QATOR QO'SHISH
+    function escapeAttr(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
-    // 4. QATOR QO'SHISH (Backendga moslab nomlari o'zgartirildi)
-    function addItem() {
+    function addItem(prefill) {
+        prefill = prefill || {};
         const container = document.getElementById('items-container');
         const count = container.children.length + 1;
+        const isUsd = prefill.currency === 'usd';
         const html = `
-        <div class="app-card item-row animate__animated animate__fadeIn position-relative mb-2">
+        <div class="app-card item-row position-relative mb-2">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-bold small text-muted text-dark">Tovar #${count}</span>
-                <button type="button" class="btn-trash p-0" onclick="removeRow(this)"><i class="fa-solid fa-trash"></i></button>
+                <span class="fw-bold small text-muted">Tovar #${count}</span>
+                <button type="button" class="btn-trash p-0" onclick="removeRow(this)" aria-label="O'chirish"><i class="fa-solid fa-trash"></i></button>
             </div>
             <div class="mb-2">
-                <input type="text" name="product_name[]" class="form-control fw-bold" placeholder="Mahsulot nomi" required>
+                <input type="text" name="product_name[]" class="form-control fw-bold" placeholder="Mahsulot nomi"
+                       value="${escapeAttr(prefill.name)}">
             </div>
             <div class="row g-2">
-                <div class="col-4">
-                    <input type="number" step="any" name="quantity[]" class="form-control text-center qty-input" placeholder="Soni" oninput="calculateTotal()" required>
+                <div class="col-3">
+                    <input type="text" inputmode="decimal" name="quantity[]" class="form-control text-center qty-input money-input"
+                           placeholder="Soni" value="${escapeAttr(prefill.qty || '1')}" oninput="calculateTotal()">
                 </div>
-                <div class="col-4">
-                    <input type="number" step="any" name="price[]" class="form-control price-input" placeholder="Narxi" oninput="calculateTotal()" required>
+                <div class="col-5">
+                    <input type="text" inputmode="decimal" name="price[]" class="form-control price-input money-input"
+                           placeholder="Narxi" value="${escapeAttr(prefill.price)}" oninput="calculateTotal()">
                 </div>
                 <div class="col-4">
                     <select name="currency[]" class="form-select currency-input fw-bold px-1" onchange="calculateTotal()">
                         <option value="uzs">So'm</option>
-                        <option value="usd">$ Dollor</option>
+                        <option value="usd" ${isUsd ? 'selected' : ''}>$ Dollar</option>
                     </select>
                 </div>
             </div>
             <div class="text-end mt-1"><small class="text-muted row-total-text text-dark" style="font-size: 0.8rem;">0</small></div>
         </div>`;
         container.insertAdjacentHTML('beforeend', html);
+        moneyInput.bindAll(container);
+        renumberRows();
+    }
+
+    function renumberRows() {
+        document.querySelectorAll('#items-container .item-row').forEach((row, i) => {
+            row.querySelector('span').innerText = `Tovar #${i + 1}`;
+        });
     }
 
     function removeRow(btn) {
         const container = document.getElementById('items-container');
+        const row = btn.closest('.item-row');
         if (container.children.length > 1) {
-            btn.closest('.item-row').remove();
-            calculateTotal();
+            row.remove();
+            renumberRows();
         } else {
-            // Agar oxirgi qator bo'lsa, ichini tozalab qo'yamiz
-            const row = btn.closest('.item-row');
+            // Oxirgi qator bo'lsa, ichini tozalab qo'yamiz
             row.querySelector('input[name="product_name[]"]').value = '';
-            row.querySelector('.qty-input').value = '';
+            row.querySelector('.qty-input').value = '1';
             row.querySelector('.price-input').value = '';
-            calculateTotal();
         }
+        calculateTotal();
     }
 
     function calculateTotal() {
         let totalUzs = 0;
         let totalUsd = 0;
         document.querySelectorAll('.item-row').forEach(row => {
-            const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-            const price = parseFloat(row.querySelector('.price-input').value) || 0;
+            const qty = moneyInput.value(row.querySelector('.qty-input'));
+            const price = moneyInput.value(row.querySelector('.price-input'));
             const currency = row.querySelector('.currency-input').value;
-            const totalTextDisplay = row.querySelector('.row-total-text');
-            let rowTotal = qty * price;
+            const rowTotal = qty * price;
+            const display = row.querySelector('.row-total-text');
 
-            if (currency === 'usd') { // Value kichik harfda bo'lishi kerak backendga moslab
+            if (currency === 'usd') {
                 totalUsd += rowTotal;
-                totalTextDisplay.innerHTML = `<span class="text-success">$${rowTotal.toLocaleString()}</span>`;
+                display.innerHTML = `<span class="text-success">$${fmtUsd(rowTotal)}</span>`;
             } else {
                 totalUzs += rowTotal;
-                totalTextDisplay.innerHTML = `<span class="text-success">${rowTotal.toLocaleString()} so'm</span>`;
+                display.innerHTML = `<span class="text-success">${fmtUzs(rowTotal)} so'm</span>`;
             }
         });
-        document.getElementById('totalUzsDisplay').innerText = totalUzs.toLocaleString('uz-UZ') + " so'm";
-        document.getElementById('totalUsdDisplay').innerText = "$" + totalUsd.toLocaleString('en-US');
+        document.getElementById('totalUzsDisplay').innerText = fmtUzs(totalUzs) + " so'm";
+        const usdEl = document.getElementById('totalUsdDisplay');
+        usdEl.innerText = "+ $" + fmtUsd(totalUsd);
+        usdEl.classList.toggle('d-none', !(totalUsd > 0));
+
+        // Dollar bo'lsa - sozlamalardagi kurs bo'yicha umumiy summa
+        const grandRow = document.getElementById('grandTotalRow');
+        if (grandRow) {
+            grandRow.classList.toggle('d-none', !(totalUsd > 0));
+            document.getElementById('usdRate').innerText = fmtUzs(USD_RATE);
+            document.getElementById('grandTotalDisplay').innerText = '≈ ' + fmtUzs(totalUzs + totalUsd * USD_RATE) + " so'm (1$ = " + fmtUzs(USD_RATE) + ")";
+        }
+        return {totalUzs, totalUsd};
     }
 
+    // 5. YUBORISHDAN OLDIN TEKSHIRUV
+    document.getElementById('debtForm').addEventListener('submit', function (e) {
+        const {totalUzs, totalUsd} = calculateTotal();
+        const mode = document.getElementById('saleModeInput').value;
+        const itemsError = document.getElementById('itemsError');
+        let firstError = null;
+
+        const hasItems = totalUzs > 0 || totalUsd > 0;
+        itemsError.classList.toggle('d-none', hasItems);
+        if (!hasItems) firstError = document.getElementById('items-container');
+
+        const needsClient = mode === 'debt' && !clientPicker.selected;
+        clientPicker.setError(needsClient);
+        if (needsClient && !firstError) firstError = document.getElementById('client-card');
+
+        if (firstError) {
+            e.preventDefault();
+            firstError.scrollIntoView({behavior: 'smooth', block: 'center'});
+            return;
+        }
+        // Ikki marta bosishdan himoya
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saqlanmoqda...';
+    });
+
+    // 6. YANGI MIJOZ QO'SHISH (modal)
     document.getElementById('addClientForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
         const nameInput = document.getElementById('newClientName');
         const phoneInput = document.getElementById('newClientPhone');
         const btn = this.querySelector('button[type="submit"]');
+        const phone = '998' + phoneInput.value.replace(/\D/g, '');
 
-        const name = nameInput.value;
-        const phone = '998' + phoneInput.value; // Formatlash
-
-        // Buttonni disable qilish
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saqlanmoqda...';
 
         fetch("{% url 'create_client_ajax' %}", {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ full_name: name, phone: phone })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ full_name: nameInput.value, phone: phone })
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'ok') {
-                // 1. Datalistga yangi mijozni qo'shamiz
-                const dataList = document.getElementById('clientOptions');
-                const option = document.createElement('option');
-                option.setAttribute('data-value', data.client_id);
-                option.value = `${data.client_name} (${phone})`;
-                dataList.appendChild(option);
-
-                // 2. Inputga yangi mijozni yozib qo'yamiz
-                const input = document.getElementById('clientDataList');
-                input.value = option.value;
-
-                // 3. Hidden ID ni yangilaymiz
-                document.getElementById('hiddenClientId').value = data.client_id;
-
-                // 4. Modalni yopamiz
-                const modalEl = document.getElementById('addClientModal');
-                const modal = bootstrap.Modal.getInstance(modalEl);
-                modal.hide();
-
-                // 5. Formani tozalaymiz
+                clientPicker.add({
+                    id: data.client_id, name: data.client_name, phone: data.phone || phone,
+                    tg: false, bal_uzs: 0, bal_usd: 0,
+                });
+                bootstrap.Modal.getInstance(document.getElementById('addClientModal')).hide();
                 nameInput.value = '';
                 phoneInput.value = '';
-
-                // Xabar berish (ixtiyoriy)
-                // alert("Mijoz muvaffaqiyatli qo'shildi!");
             } else {
                 alert("Xatolik: " + data.message);
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert("Server bilan aloqa yo'q!");
-        })
+        .catch(() => alert("Server bilan aloqa yo'q!"))
         .finally(() => {
             btn.disabled = false;
             btn.innerHTML = originalText;
         });
     });
-
 </script>
 {% endblock %}

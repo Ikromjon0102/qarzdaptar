@@ -1,192 +1,256 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
-{% block matn %}
 
-<div class="d-flex align-items-center mb-4 pt-2">
-    <div class="text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow"
-        style="width: 54px; height: 54px; font-size: 24px;">
-        {{ client.full_name|slice:":1" }}
-    </div>
-    <div>
-        <h5 class="fw-bold m-0">{{ client.full_name }}</h5>
-        <a href="tel:{{ client.phone }}" class="text-decoration-none text-muted small">
-            <i class="fa-solid fa-phone"></i> {{ client.phone }}
-        </a>
-    </div>
-</div>
+{% block matn %}<h3>{{ client.full_name }}</h3>{% endblock %}
 
-{% endblock %}
 {% block content %}
+<!-- Profil va balans -->
+<div class="app-card">
+    <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+             style="width: 48px; height: 48px; font-size: 20px; background: var(--primary-gradient); color: #fff;">
+            {{ client.full_name|slice:":1"|upper }}
+        </div>
+        <div class="flex-fill" style="min-width: 0;">
+            <div class="fw-bold text-truncate" style="font-size: 17px;">{{ client.full_name }}</div>
+            <a href="tel:{{ client.phone }}" class="small text-decoration-none">
+                <i class="fa-solid fa-phone" style="font-size: 11px;"></i> {{ client.phone }}
+            </a>
+        </div>
+        <a href="{% url 'client_edit' client.id %}" class="btn rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+           style="width: 38px; height: 38px; background: var(--tg-bg); color: var(--tg-button);" aria-label="Tahrirlash">
+            <i class="fa-solid fa-pen" style="font-size: 14px;"></i>
+        </a>
+    </div>
 
+    <div class="mt-3 pt-3" style="border-top: 1px solid var(--line);">
+        {% if total_uzs > 0 or total_usd > 0 %}
+            <div class="small text-muted">Qarzi</div>
+        {% elif total_uzs < 0 or total_usd < 0 %}
+            <div class="small text-muted">Haqqi (ortiqcha to'lagan)</div>
+        {% endif %}
 
-<div class="app-card text-white mb-4 shadow-lg position-relative overflow-hidden"
-    style="background: radial-gradient(circle at top right, #363795, #005C97); border-radius: 16px; padding: 20px;">
-
-    <h6 class="opacity-75 mb-3">Joriy balans:</h6>
-
-    <div class="d-flex flex-column">
-        <h3 class="fw-bold mb-0">
-            {% if total_uzs > 0 %} <span class="text-danger">{{ total_uzs|space_format }} so'm</span> (Qarz)
-            {% elif total_uzs < 0 %} <span class="text-success">+{{ total_uzs|stringformat:"i"|cut:"-"|space_format }} so'm</span>(Haq)
-            {% else %} 0 so'm {% endif %}
-        </h3>
-
-        {% if total_usd != 0 %}
-        <h4 class="fw-bold mb-0 mt-1">
-            {% if total_usd > 0 %} <span class="text-danger">${{ total_usd|floatformat:2|space_format }} </span> (Qarz)
-            {% else %} <span class="text-success">+${{ total_usd|floatformat:2|cut:"-"|space_format }}</span> (Haq) {% endif %}
-        </h4>
+        {% if total_uzs > 0 %}
+            <div class="fw-bold text-danger" style="font-size: 28px;">{{ total_uzs|space_format }} <span style="font-size: 16px;">so'm</span></div>
+        {% elif total_uzs < 0 %}
+            <div class="fw-bold text-success" style="font-size: 28px;">{{ total_uzs|stringformat:"d"|cut:"-"|space_format }} <span style="font-size: 16px;">so'm</span></div>
+        {% endif %}
+        {% if total_usd > 0 %}
+            <div class="fw-bold text-danger" style="font-size: 18px;">${{ total_usd|floatformat:2 }}</div>
+        {% elif total_usd < 0 %}
+            <div class="fw-bold text-success" style="font-size: 18px;">${{ total_usd|floatformat:2|cut:"-" }}</div>
+        {% endif %}
+        {% if not total_uzs and not total_usd %}
+            <div class="fw-bold text-success" style="font-size: 20px;"><i class="fa-solid fa-circle-check"></i> Hisob toza</div>
         {% endif %}
     </div>
 </div>
 
-<div class="row g-2 mb-4">
+{% if due.is_overdue %}
+<div class="app-toast error mb-3">
+    <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+    <div>
+        <b>Muddati o'tgan:</b>
+        {% if due.overdue_uzs %}{{ due.overdue_uzs|space_format }} so'm{% endif %}{% if due.overdue_uzs and due.overdue_usd %} + {% endif %}{% if due.overdue_usd %}${{ due.overdue_usd|floatformat:2 }}{% endif %}
+        <div class="small">{{ due.overdue_since|date:"d.m.Y" }} dan beri · {{ due.overdue_days }} kun</div>
+    </div>
+</div>
+{% elif due.next_due %}
+<div class="app-toast mb-3">
+    <i class="fa-regular fa-calendar mt-1"></i>
+    <div>
+        <b>To'lov muddati: {{ due.next_due|date:"d.m.Y" }}</b>
+        ({% if due.days_to_next == 0 %}bugun{% elif due.days_to_next == 1 %}ertaga{% else %}{{ due.days_to_next }} kun qoldi{% endif %})
+        <div class="small">{% if due.next_due_uzs %}{{ due.next_due_uzs|space_format }} so'm{% endif %}{% if due.next_due_uzs and due.next_due_usd %} + {% endif %}{% if due.next_due_usd %}${{ due.next_due_usd|floatformat:2 }}{% endif %}</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Asosiy amallar -->
+<div class="row g-2 mb-3">
     <div class="col-6">
-        <a href="{% url 'create_debt' %}?client_id={{ client.id }}"
-            class="btn btn-outline-primary w-100 py-2 border-2 fw-bold" style="border-radius: 12px;">
-            <i class="fa-solid fa-plus"></i> Sotuv
+        <a href="{% url 'create_debt' %}?client_id={{ client.id }}" class="btn btn-primary w-100 py-3">
+            <i class="fa-solid fa-cart-plus"></i> Savdo
         </a>
     </div>
     <div class="col-6">
-        <a href="{% url 'create_payment' %}?client_id={{ client.id }}"
-            class="btn btn-outline-success w-100 py-2 border-2 fw-bold" style="border-radius: 12px;">
-            <i class="fa-solid fa-money-bill-wave"></i> Pul Olish
+        <a href="{% url 'create_payment' %}?client_id={{ client.id }}" class="btn btn-success w-100 py-3">
+            <i class="fa-solid fa-hand-holding-dollar"></i> To'lov olish
         </a>
     </div>
 </div>
 
-<h6 class="fw-bold mb-3 ps-1 text-muted text-dark">Operatsiyalar tarixi</h6>
+<!-- Telegram holati -->
+<div class="list-group-app">
+    <div class="list-row">
+        {% if client.telegram_id %}
+            <span class="row-icon blue"><i class="fa-brands fa-telegram"></i></span>
+            <div class="row-main">
+                <div class="row-title">Botga ulangan</div>
+                <div class="row-sub">Nasiyalarni o'zi tasdiqlaydi</div>
+            </div>
+            {% if total_uzs > 0 or total_usd > 0 %}
+            <form method="POST" action="{% url 'client_remind' client.id %}" class="flex-shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-bell"></i> Eslatish</button>
+            </form>
+            {% endif %}
+            {% if is_shop_admin %}
+            <a href="{% url 'client_reset_tg' client.id %}" class="small fw-bold text-danger text-decoration-none"
+               onclick="return confirm('Telegram bog\'lanishini uzasizmi? Mijoz yangi havola orqali qayta ulanishi kerak bo\'ladi.')">
+                Uzish
+            </a>
+            {% endif %}
+        {% else %}
+            <span class="row-icon orange"><i class="fa-brands fa-telegram"></i></span>
+            <div class="row-main">
+                <div class="row-title">Botga ulanmagan</div>
+                <div class="row-sub">Havola yuborsangiz, qarzini o'zi ko'radi</div>
+            </div>
+            <a href="https://t.me/share/url?url=https%3A//t.me/{{ bot_username }}%3Fstart%3D{{ client.invite_token }}&text={{ "Assalomu alaykum! Do'konimizdagi hisobingizni ko'rish uchun havolani bosing 👆"|urlencode }}"
+               target="_blank" class="btn btn-sm btn-primary flex-shrink-0">Taklif qilish</a>
+        {% endif %}
+    </div>
+</div>
 
-<div class="pb-5">
+<!-- Ishonch (faqat shu do'kon tarixidan; boshqa do'konlarga ko'rinmaydi) -->
+{% if trust %}
+<div class="section-title">Ishonch</div>
+<div class="app-card">
+    <div class="d-flex align-items-center gap-3">
+        <span class="row-icon {% if trust.level == 'good' %}green{% elif trust.level == 'risk' %}red{% elif trust.level == 'warn' %}orange{% else %}gray{% endif %}">
+            <i class="fa-solid {% if trust.level == 'good' %}fa-shield-halved{% elif trust.level == 'new' %}fa-circle-question{% else %}fa-triangle-exclamation{% endif %}"></i>
+        </span>
+        <div class="flex-fill" style="min-width: 0;">
+            <div class="fw-bold">{{ trust.label }}</div>
+            <div class="small text-muted">{{ trust.summary|capfirst }}</div>
+        </div>
+    </div>
+    {% if trust.note and not is_shop_admin %}
+    <div class="small mt-2 p-2 rounded-3" style="background: var(--tg-bg);"><i class="fa-solid fa-lock"></i> {{ trust.note }}</div>
+    {% endif %}
+    {% if is_shop_admin %}
+    <form method="POST" action="{% url 'client_trust' client.id %}" class="mt-3 pt-3" style="border-top: 1px solid var(--line);">
+        {% csrf_token %}
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" name="risk_flag" id="riskFlag" {% if client.risk_flag %}checked{% endif %}>
+            <label class="form-check-label fw-bold" for="riskFlag">«Ehtiyot bo'ling» belgisi</label>
+        </div>
+        <textarea name="risk_note" class="form-control mb-2" rows="2" maxlength="300"
+                  placeholder="Yopiq izoh: masalan, katta summaga nasiya bermang">{{ client.risk_note }}</textarea>
+        <button type="submit" class="btn btn-sm btn-outline-primary w-100">Saqlash</button>
+        <div class="small text-muted mt-2"><i class="fa-solid fa-lock"></i> Faqat sizning do'koningiz jamoasi ko'radi. Mijozga va boshqa do'konlarga ko'rinmaydi.</div>
+    </form>
+    {% endif %}
+</div>
+{% elif is_shop_admin %}
+<a href="{% url 'pricing_page' %}?need=trust" class="list-group-app list-row mt-3 text-decoration-none">
+    <span class="row-icon gray"><i class="fa-solid fa-shield-halved"></i></span>
+    <div class="row-main" style="white-space: normal;">
+        <div class="row-title">Ishonch belgisi</div>
+        <div class="row-sub">Mijoz qanchalik o'z vaqtida to'lashi — Standart tarifda</div>
+    </div>
+    <span class="plan-lock"><i class="fa-solid fa-lock"></i> Standart</span>
+</a>
+{% endif %}
+
+<!-- Operatsiyalar tarixi -->
+<div class="section-title">Operatsiyalar tarixi</div>
+<div class="list-group-app">
     {% for debt in debts %}
+    <div class="list-row history-row" role="button"
+         data-date="{{ debt.created_at|date:'d.m.Y H:i' }}"
+         data-items="{{ debt.items }}"
+         data-kind="{% if debt.transaction_type == 'payment' %}payment{% else %}debt{% endif %}"
+         data-status="{{ debt.get_status_display }}"
+         data-uzs="{{ debt.amount_uzs|stringformat:'d'|cut:'-'|space_format }}"
+         data-usd="{% if debt.amount_usd %}{{ debt.amount_usd|floatformat:2|cut:'-' }}{% endif %}"
+         data-reason="{{ debt.reject_reason }}"
+         data-note="{{ debt.shop_note }}"
+         data-rejected="{% if debt.status == 'rejected' %}1{% endif %}"
+         {% if debt.transaction_type == 'debt' and not debt.is_cash_sale %}{% if debt.status == 'pending' or debt.id in due.open_debts %}
+            data-due="{{ debt.due_date|date:'Y-m-d' }}"
+            data-due-url="{% url 'manage_debt' debt.uuid 'due' %}"
+         {% endif %}{% endif %}
+         {% if debt.status != 'confirmed' and debt.transaction_type == 'debt' and client.telegram_id %}data-resend="{% url 'manage_debt' debt.uuid 'resend' %}"{% endif %}
+         {% if is_shop_admin %}
+            {% if debt.status != 'confirmed' %}data-confirm="{% url 'manage_debt' debt.uuid 'force_confirm' %}"{% endif %}
+            data-delete="{% url 'manage_debt' debt.uuid 'delete' %}"
+         {% endif %}>
 
-    <div class="app-card mb-2 py-3 px-3 border-0 shadow-sm  rounded-3 position-relative">
-
-        <div class="d-flex justify-content-between align-items-center">
-
-            <div class="d-flex align-items-center" style="flex: 1; min-width: 0; cursor: pointer;"
-                data-date="{{ debt.created_at|date:'d.m.Y H:i' }}" data-items="{{ debt.items }}"
-                data-uzs="{{ debt.amount_uzs|floatformat:0 }}" data-usd="{{ debt.amount_usd|floatformat:2 }}"
-                onclick="showDetail(this)">
-
-                <div class="me-3 rounded-circle d-flex align-items-center justify-content-center text-dark"
-                    style="width: 40px; height: 40px; background: {% if debt.transaction_type == 'payment' %}#d1e7dd{% elif debt.status == 'rejected' %}#f8d7da{% elif debt.status == 'pending' %}#fff3cd{% else %}#cfe2ff{% endif %};">
-
-                    {% if debt.transaction_type == 'payment' %}
-                    <i class="fa-solid fa-check text-success"></i>
-                    {% elif debt.status == 'rejected' %}
-                    <i class="fa-solid fa-xmark text-danger"></i>
-                    {% elif debt.status == 'pending' %}
-                    <i class="fa-regular fa-clock text-warning"></i>
-                    {% else %}
-                    <i class="fa-solid fa-bag-shopping text-primary"></i>
-                    {% endif %}
-                </div>
-
-                <div class="text-truncate">
-                    <div class="fw-bold text-dark text-truncate">{{ debt.items|truncatechars:18 }}</div>
-                    <small class="text-muted text-dark" style="font-size: 0.7rem;">
-                        {{ debt.created_at|date:"d.m" }}
-                        {% if debt.status == 'pending' %} <span
-                            class="badge bg-warning text-dark ms-1">Kutilmoqda</span> {% endif %}
-                    </small>
-                </div>
-            </div>
-
-            <div class="text-end ms-2 d-flex align-items-center">
-
-                <div class="me-3">
-                    {% if debt.transaction_type == 'payment' %}
-                        {% if debt.amount_uzs != 0 %}<div class="fw-bold text-success small">
-                            +{{ debt.amount_uzs | stringformat:"i"|cut:"-"|space_format }} so'm</div>{% endif %}
-                        {% if debt.amount_usd != 0 %}<div class="fw-bold text-success small">
-                            +$ {{ debt.amount_usd|floatformat:2|cut:"-"|space_format }}</div>{% endif %}
-                    {% else %}
-                        {% if debt.amount_uzs > 0 %}<div class="fw-bold text-danger small">
-                            -{{ debt.amount_uzs|space_format }} so'm</div>{% endif %}
-                        {% if debt.amount_usd > 0 %}<div class="fw-bold text-danger small">
-                            -$ {{ debt.amount_usd|floatformat:2|space_format }}</div>{% endif %}
-                    {% endif %}
-                </div>
-
-                <a href="{% url 'manage_debt' debt.uuid 'delete' %}"
-                    class="btn btn-sm btn-light text-danger border shadow-none rounded-circle"
-                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;"
-                    onclick="return confirm('⚠️ DIQQAT!\n\nBu yozuvni o\'chirib tashlamoqchimisiz?\nBu amal balansga ta\'sir qiladi va ortga qaytarib bo\'lmaydi!')">
-                    <i class="fa-solid fa-trash-can" style="font-size: 0.8rem;"></i>
-                </a>
-
-            </div>
-        </div>
-
-        {% if debt.status == 'pending' or debt.status == 'rejected' %}
-        <div class="border-top mt-2 pt-2 d-flex justify-content-end gap-2">
-            <a href="{% url 'manage_debt' debt.uuid 'resend' %}" class="btn btn-sm btn-outline-primary py-0"
-                style="font-size: 0.8rem;">
-                <i class="fa-regular fa-paper-plane"></i> Qayta yuborish
-            </a>
-            <a href="{% url 'manage_debt' debt.uuid 'force_confirm' %}" class="btn btn-sm btn-success text-white py-0"
-                style="font-size: 0.8rem;" onclick="return confirm('Tasdiqlaysizmi?')">
-                <i class="fa-solid fa-check"></i> Tasdiqlash
-            </a>
-        </div>
+        {% if debt.transaction_type == 'payment' %}
+            <span class="row-icon green"><i class="fa-solid fa-arrow-down"></i></span>
+        {% elif debt.status == 'rejected' %}
+            <span class="row-icon red"><i class="fa-solid fa-xmark"></i></span>
+        {% elif debt.status == 'pending' %}
+            <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>
+        {% elif debt.is_opening %}
+            <span class="row-icon gray"><i class="fa-solid fa-book"></i></span>
+        {% elif debt.is_cash_sale %}
+            <span class="row-icon gray"><i class="fa-solid fa-money-bill-wave"></i></span>
+        {% else %}
+            <span class="row-icon blue"><i class="fa-solid fa-bag-shopping"></i></span>
         {% endif %}
 
+        <div class="row-main">
+            <div class="row-title">{{ debt.items|truncatechars:40 }}</div>
+            <div class="row-sub">
+                {{ debt.created_at|date:"d.m.Y H:i" }}
+                {% if debt.status == 'pending' %}· <span style="color: var(--warning);">Kutilmoqda</span>
+                {% elif debt.status == 'rejected' %}· <span class="text-danger">Rad etilgan{% if debt.reject_reason %}: {{ debt.reject_reason|truncatechars:40 }}{% endif %}</span>
+                {% elif debt.is_cash_sale and debt.transaction_type == 'debt' %}· Naqd
+                {% elif debt.is_opening %}· {% if debt.opening_ack %}mijoz tasdiqlagan{% else %}tasdiqlanmagan{% endif %}{% endif %}
+                {% if debt.due_date and debt.id in due.open_debts %}
+                    · <span class="{% if debt.due_date < today %}text-danger fw-bold{% else %}text-muted{% endif %}"><i class="fa-regular fa-calendar"></i> {{ debt.due_date|date:"d.m" }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row-end small">
+            {% if debt.transaction_type == 'payment' %}
+                {% if debt.amount_uzs %}<div class="text-success">+{{ debt.amount_uzs|stringformat:"d"|cut:"-"|space_format }}</div>{% endif %}
+                {% if debt.amount_usd %}<div class="text-success">+${{ debt.amount_usd|floatformat:2|cut:"-" }}</div>{% endif %}
+            {% else %}
+                {% if debt.amount_uzs %}<div class="{% if debt.status == 'confirmed' %}text-danger{% else %}text-muted{% endif %}">{{ debt.amount_uzs|space_format }}</div>{% endif %}
+                {% if debt.amount_usd %}<div class="{% if debt.status == 'confirmed' %}text-danger{% else %}text-muted{% endif %}">${{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
+            {% endif %}
+        </div>
     </div>
     {% empty %}
-    <p class="text-center text-muted mt-4 text-dark">Tarix bo'sh</p>
+    <div class="text-center py-4 text-muted">
+        <i class="fa-solid fa-receipt fa-2x mb-2 opacity-50"></i>
+        <div>Hali operatsiyalar yo'q</div>
+    </div>
     {% endfor %}
 </div>
 
-<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <div class="modal-header border-0 pb-0 justify-content-center">
-                <h5 class="modal-title fw-bold" id="modalDate"></h5>
-            </div>
-            <div class="modal-body text-center">
-                <div class="p-3 bg-info rounded-3 mb-3 text-start">
-                    <p id="modalItems" class="fw-bold mb-0 text-dark"
-                        style="white-space: pre-wrap; font-size: 0.95rem;"></p>
-                </div>
-                <div class="text-center">
-                    <h4 class="fw-bold mt-1" id="modalSum"></h4>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-0 justify-content-center pb-4">
-                <button type="button" class="btn btn-secondary w-50 rounded-pill"
-                    data-bs-dismiss="modal">Yopish</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include 'components/detail_sheet.html' %}
 
+<style>.history-row { cursor: pointer; }</style>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Modal scripti o'sha-o'sha
-    function showDetail(element) {
-        const date = element.getAttribute('data-date');
-        const items = element.getAttribute('data-items');
-        const sumUzs = element.getAttribute('data-uzs');
-        const sumUsd = element.getAttribute('data-usd');
-
-        document.getElementById('modalDate').innerText = date;
-        document.getElementById('modalItems').innerText = items;
-
-        let totalText = "";
-        // Absolyut qiymatlarni ko'rsatamiz (minus belgisiz)
-        if (sumUzs && sumUzs !== '0') totalText += sumUzs.replace('-', '') + " so'm";
-        if (sumUsd && sumUsd !== '0,00' && sumUsd !== '0.00') {
-            if (totalText) totalText += " + ";
-            totalText += "$" + sumUsd.replace('-', '');
-        }
-
-        document.getElementById('modalSum').innerText = totalText;
-        var myModal = new bootstrap.Modal(document.getElementById('detailModal'));
-        myModal.show();
-    }
+    document.querySelectorAll('.history-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const d = row.dataset;
+            const isPayment = d.kind === 'payment';
+            const parts = [];
+            if (d.uzs && d.uzs !== '0') parts.push(d.uzs + " so'm");
+            if (d.usd) parts.push('$' + d.usd);
+            openDetailSheet({
+                date: d.date,
+                sum: (isPayment ? '+' : '') + parts.join(' + '),
+                sumClass: isPayment ? 'text-success' : 'text-danger',
+                status: isPayment ? "To'lov" : 'Nasiya · ' + d.status,
+                items: d.items,
+                reason: d.reason,
+                note: d.note,
+                resendLabel: d.rejected ? 'Izoh bilan qayta yuborish' : 'Qayta yuborish',
+                due: d.dueUrl ? {url: d.dueUrl, value: d.due} : null,
+                actions: {resend: d.resend, confirm: d.confirm, delete: d.delete},
+            });
+        });
+    });
 </script>
 {% endblock %}

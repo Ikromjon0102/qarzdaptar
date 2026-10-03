@@ -3,516 +3,455 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nasiya Kitob</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title>QarzDaptar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* ============ DIZAYN TOKENLARI ============
+           Ranglar Telegram mavzusidan olinadi (yorug'/qorong'i avtomatik). */
         :root {
-            --tg-bg: var(--tg-theme-bg-color, #f5f7fa);
-            --tg-text: var(--tg-theme-text-color, #000000);
-            --tg-button: var(--tg-theme-button-color, #3390ec);
-            --tg-button-text: var(--tg-theme-button-text-color, #fff);
-            --tg-secondary: var(--tg-theme-secondary-bg-color, #ffffff);
-            --tg-hint: var(--tg-theme-hint-color, #6c757d);
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            --danger-gradient: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-            --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-            --card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --tg-bg: var(--tg-theme-secondary-bg-color, #f2f3f7);
+            --tg-text: var(--tg-theme-text-color, #111111);
+            --tg-button: var(--tg-theme-button-color, #2f7ff0);
+            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+            --tg-secondary: var(--tg-theme-bg-color, #ffffff);
+            --tg-hint: var(--tg-theme-hint-color, #8a8f98);
+
+            --danger: #e5484d;
+            --success: #1f9d55;
+            --warning: #f0a500;
+            --line: rgba(128, 128, 128, 0.16);
+            --radius: 14px;
+            --radius-lg: 18px;
+            --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --primary-gradient: linear-gradient(135deg, #2f7ff0 0%, #1d5fd1 100%);
+            --tabbar-h: 64px;
         }
 
-        * {
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { -webkit-tap-highlight-color: transparent; }
+
+        html, body { background: var(--tg-bg); }
 
         body {
-            background: var(--tg-bg);
             color: var(--tg-text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            padding-bottom: 90px;
+            font-size: 15px;
+            padding-bottom: calc(24px + env(safe-area-inset-bottom));
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
+        body.has-tabbar { padding-bottom: calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 
-        /* NIGHT MODE FIX - Barcha matnlar */
-        h1, h2, h3, h4, h5, h6 {
-            color: var(--tg-text) !important;
-        }
+        .container { max-width: 560px; padding-left: 16px; padding-right: 16px; }
 
-        .text-dark {
-            color: var(--tg-text) !important;
-        }
+        /* Qorong'i mavzu uchun: matn va fon rangini tokenlarga bog'laymiz */
+        h1, h2, h3, h4, h5, h6 { color: var(--tg-text) !important; }
+        .text-dark { color: var(--tg-text) !important; }
+        .text-muted { color: var(--tg-hint) !important; }
+        .bg-white, .bg-light { background-color: var(--tg-secondary) !important; }
+        .text-danger { color: var(--danger) !important; }
+        .text-success { color: var(--success) !important; }
+        a { color: var(--tg-button); }
 
-        .fw-bold,
-        .list-item-title {
-            color: var(--tg-text);
-        }
-
-        /* Modern Header */
-        .modern-header {
-            background: var(--tg-secondary);
-            padding: 20px 0;
-            margin-bottom: 24px;
-            box-shadow: var(--card-shadow);
+        /* ============ YUQORI PANEL ============ */
+        .app-header {
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(10px);
+            background: var(--tg-secondary);
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 16px;
         }
-
+        .app-header .container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 56px;
+        }
         .back-btn {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            background: var(--tg-bg);
-            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            color: var(--tg-button);
+            text-decoration: none;
+            flex-shrink: 0;
+            margin-left: -8px;
         }
-
-        .back-btn:hover {
-            transform: translateX(-4px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .back-btn i {
-            color: var(--tg-text);
-            font-size: 18px;
-        }
-
-        .header-title {
-            font-size: 24px;
+        .back-btn:active { background: var(--line); }
+        .back-btn i { font-size: 18px; }
+        .header-title { flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 700; }
+        .header-title :is(h1, h2, h3, h4, h5, h6) {
+            font-size: 17px !important;
             font-weight: 700;
-            margin: 0;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            margin: 0 !important;
+            padding: 0 !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+        .header-title i { color: var(--tg-button); margin-right: 4px; }
 
-        /* Modern Cards */
+        /* ============ KARTALAR VA RO'YXATLAR ============ */
         .app-card {
             background: var(--tg-secondary);
             color: var(--tg-text);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 16px;
-            box-shadow: var(--card-shadow);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .app-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: var(--primary-gradient);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }
-
-        .app-card:hover {
-            box-shadow: var(--card-hover-shadow);
-            transform: translateY(-2px);
-        }
-
-        .app-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        /* bg-white override for dark mode */
-        .bg-white {
-            background-color: var(--tg-secondary) !important;
-        }
-
-        /* Modern Form Controls */
-        .form-label {
-            font-weight: 600;
-            font-size: 14px;
-            color: var(--tg-hint);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-control,
-        .form-select {
-            background: var(--tg-bg);
-            border: 2px solid rgba(0, 0, 0, 0.06);
-            color: var(--tg-text);
-            padding: 14px 16px;
-            border-radius: 14px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus,
-        .form-select:focus {
-            background: var(--tg-secondary);
-            border-color: var(--tg-button);
-            box-shadow: 0 0 0 4px rgba(51, 144, 236, 0.1);
-            outline: none;
-            color: var(--tg-text);
-        }
-
-        .form-control::placeholder {
-            color: var(--tg-hint);
-            opacity: 0.6;
-        }
-
-        /* Modern Buttons */
-        .btn-main {
-            background: var(--primary-gradient);
-            color: var(--tg-button-text);
-            border-radius: 16px;
-            font-weight: 700;
+            border-radius: var(--radius-lg);
             padding: 16px;
-            width: 100%;
+            margin-bottom: 12px;
+            box-shadow: var(--card-shadow);
             border: none;
-            font-size: 16px;
-            letter-spacing: 0.5px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
         }
-
-        .btn-main::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .btn-main:hover::before {
-            left: 100%;
-        }
-
-        .btn-main:active {
-            transform: scale(0.98);
-        }
-
-        .btn-success-gradient {
-            background: var(--success-gradient);
-            box-shadow: 0 4px 16px rgba(17, 153, 142, 0.4);
-        }
-
-        .btn-danger-gradient {
-            background: var(--danger-gradient);
-            box-shadow: 0 4px 16px rgba(235, 51, 73, 0.4);
-        }
-
-        /* Icon Badges */
-        .icon-badge {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--primary-gradient);
-            margin-bottom: 12px;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .icon-badge i {
-            color: white;
-            font-size: 22px;
-        }
-
-        /* Stats Card */
-        .stat-card {
-            background: var(--tg-secondary);
-            border-radius: 18px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: var(--card-shadow);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            box-shadow: var(--card-hover-shadow);
-            transform: translateY(-4px);
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 800;
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            line-height: 1.2;
-        }
-
-        .stat-label {
+        .section-title {
             font-size: 13px;
-            color: var(--tg-hint);
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 8px;
+            letter-spacing: 0.4px;
+            color: var(--tg-hint);
+            margin: 20px 4px 8px;
         }
-
-        /* List Items */
-        .list-item {
+        .list-group-app {
             background: var(--tg-secondary);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 12px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
             box-shadow: var(--card-shadow);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-            transition: all 0.3s ease;
+        }
+        .list-row {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
+            padding: 12px 16px;
+            color: var(--tg-text);
+            text-decoration: none;
+            border-bottom: 1px solid var(--line);
         }
-
-        .list-item:active {
-            transform: scale(0.98);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .list-item-icon {
-            width: 44px;
-            height: 44px;
+        .list-row:last-child { border-bottom: none; }
+        .list-row:active { background: var(--line); }
+        .list-row .row-main { flex: 1; min-width: 0; }
+        .list-row .row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .list-row .row-sub { font-size: 13px; color: var(--tg-hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .list-row .row-end { text-align: right; font-weight: 700; flex-shrink: 0; }
+        .row-icon {
+            width: 40px;
+            height: 40px;
             border-radius: 12px;
-            background: var(--tg-bg);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            font-size: 17px;
         }
+        .row-icon.blue { background: rgba(47, 127, 240, 0.12); color: #2f7ff0; }
+        .row-icon.green { background: rgba(31, 157, 85, 0.12); color: var(--success); }
+        .row-icon.orange { background: rgba(240, 165, 0, 0.15); color: var(--warning); }
+        .row-icon.red { background: rgba(229, 72, 77, 0.12); color: var(--danger); }
+        .row-icon.gray { background: var(--line); color: var(--tg-hint); }
+        .chevron { color: var(--tg-hint); font-size: 12px; }
 
-        .list-item-content {
-            flex: 1;
-        }
-
-        .list-item-title {
+        /* ============ FORMALAR ============ */
+        .form-label {
             font-weight: 600;
-            font-size: 16px;
-            margin-bottom: 4px;
+            font-size: 13px;
+            color: var(--tg-hint);
+            margin-bottom: 6px;
+        }
+        .form-control, .form-select {
+            background-color: var(--tg-bg);
+            border: 1.5px solid transparent;
+            color: var(--tg-text);
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 16px; /* iOS avtomatik kattalashtirmasligi uchun */
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: var(--tg-bg);
+            border-color: var(--tg-button);
+            box-shadow: none;
             color: var(--tg-text);
         }
+        .form-control::placeholder { color: var(--tg-hint); opacity: 0.8; }
+        .input-group-text { background: var(--tg-bg); border: none; color: var(--tg-hint); border-radius: 12px; }
 
-        .list-item-subtitle {
-            font-size: 14px;
-            color: var(--tg-hint);
-        }
+        /* ============ TUGMALAR ============ */
+        .btn { border-radius: 12px; font-weight: 600; }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--tg-button); border-color: var(--tg-button); color: var(--tg-button-text); }
+        .btn-lg-app { padding: 14px; font-size: 16px; width: 100%; }
 
-        /* Badge */
-        .badge-modern {
-            padding: 6px 14px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 12px;
-            letter-spacing: 0.3px;
-        }
-
-        /* Loading Animation */
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(102, 126, 234, 0.2);
-            border-top-color: var(--tg-button);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Floating Action Button */
-        .fab {
+        /* Pastda doim ko'rinib turadigan asosiy amal paneli (formalar uchun) */
+        .action-bar {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 60px;
-            height: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 90;
+            background: var(--tg-secondary);
+            border-top: 1px solid var(--line);
+            padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+        }
+        .action-bar .inner { max-width: 528px; margin: 0 auto; }
+        .has-action-bar { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
+        /* Tab-bar bor sahifalarda amal paneli uning ustida turadi */
+        body.has-tabbar .action-bar { bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding-bottom: 10px; }
+        body.has-tabbar .has-action-bar { padding-bottom: 96px !important; }
+
+        /* ============ PASTKI TAB-BAR ============ */
+        .tabbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 95;
+            background: var(--tg-secondary);
+            border-top: 1px solid var(--line);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .tabbar .inner {
+            max-width: 560px;
+            margin: 0 auto;
+            height: var(--tabbar-h);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+        .tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--tg-hint);
+            text-decoration: none;
+        }
+        .tab i { font-size: 20px; }
+        .tab.active { color: var(--tg-button); }
+        .tab-center {
+            width: 52px;
+            height: 52px;
+            margin-top: -22px;
             border-radius: 50%;
-            background: var(--primary-gradient);
-            color: white;
-            border: none;
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+            background: var(--tg-button);
+            color: var(--tg-button-text) !important;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
+            box-shadow: 0 4px 14px rgba(47, 127, 240, 0.45);
+            border: 4px solid var(--tg-secondary);
         }
+        .tab-center i { font-size: 22px; }
 
-        .fab:hover {
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+        /* ============ SEGMENT (tablar) ============ */
+        .segmented {
+            display: flex;
+            background: var(--line);
+            border-radius: 12px;
+            padding: 3px;
+            margin-bottom: 16px;
         }
-
-        .fab:active {
-            transform: scale(0.95) rotate(90deg);
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        /* Glassmorphism effect */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        /* Modal fixes for dark mode */
-        .modal-content {
-            background-color: var(--tg-secondary);
+        .segmented a {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
             color: var(--tg-text);
+            text-decoration: none;
         }
+        .segmented a.active { background: var(--tg-secondary); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
 
-        .modal-header {
-            border-bottom-color: var(--tg-hint);
-        }
-
-        .modal-footer {
-            border-top-color: var(--tg-hint);
-        }
-
-        /* Alert fixes */
-        .alert {
+        /* ============ XABARLAR (toast) ============ */
+        .toast-stack { position: relative; z-index: 110; }
+        .app-toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: var(--radius);
+            margin-bottom: 8px;
+            background: var(--tg-secondary);
             color: var(--tg-text);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--tg-button);
+            font-size: 14px;
+            transition: opacity 0.3s, transform 0.3s;
         }
+        .app-toast.success { border-left-color: var(--success); }
+        .app-toast.error { border-left-color: var(--danger); }
+        .app-toast.warning { border-left-color: var(--warning); }
+        .app-toast .close-toast { margin-left: auto; background: none; border: none; color: var(--tg-hint); padding: 0 2px; }
+        .app-toast.hide { opacity: 0; transform: translateY(-8px); }
 
-        /* Responsive */
-        @media (max-width: 576px) {
-            .header-title {
-                font-size: 20px;
-            }
-
-            .app-card {
-                padding: 20px;
-            }
-
-            .stat-value {
-                font-size: 28px;
-            }
-        }
+        /* Modal va alert - qorong'i mavzu */
+        .modal-content { background-color: var(--tg-secondary); color: var(--tg-text); border-radius: var(--radius-lg); }
+        .modal-header, .modal-footer { border-color: var(--line); }
+        .alert { color: var(--tg-text); border-radius: var(--radius); }
+        .badge { font-weight: 600; }
+        /* Tarifda yo'q imkoniyat belgisi */
+        .plan-lock { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--warning);
+                     background: rgba(240, 165, 0, 0.12); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
     </style>
 </head>
 
-<body>
-<!--    <div style="height: 70px">-->
+<body class="{% if active_tab %}has-tabbar{% endif %}">
 
-<!--    </div>-->
-    <!-- Modern Header -->
-
-    {% if back_url %}
-    <div class="modern-header">
+    {% block header %}
+    {% if back_url or back_href or active_tab %}
+    <header class="app-header">
         <div class="container">
-            <div class="d-flex align-items-center gap-3">
-                <button onclick="window.history.back()" class="back-btn">
-                    <i class="fa-solid fa-arrow-left"></i>
-                </button>
-                <h1 class="header-title">{% block matn %} Nasiya Kitob {% endblock %}</h1>
-            </div>
+            {% if back_url or back_href %}
+            <a href="{% if back_href %}{{ back_href }}{% else %}{% url back_url %}{% endif %}"
+               class="back-btn" id="backBtn" aria-label="Orqaga">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+            {% endif %}
+            <div class="header-title">{% block matn %}QarzDaptar{% endblock %}</div>
         </div>
+    </header>
+    {% endif %}
+    {% endblock %}
+
+    {% if messages %}
+    <div class="container toast-stack {% if not back_url and not back_href and not active_tab %}pt-3{% endif %}">
+        {% for message in messages %}
+        <div class="app-toast {{ message.tags }}" role="alert">
+            <div>{{ message }}</div>
+            <button type="button" class="close-toast" aria-label="Yopish" onclick="this.parentElement.remove()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
-        {% if messages %}
-        <div class="container mt-3">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm text-{{ message.tags }}" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if active_tab %}
+    <nav class="tabbar" aria-label="Asosiy menyu">
+        <div class="inner">
+            <a href="{% url 'main_menu' %}" class="tab {% if active_tab == 'home' %}active{% endif %}">
+                <i class="fa-solid fa-house"></i><span>Asosiy</span>
+            </a>
+            <a href="{% url 'client_list' %}" class="tab {% if active_tab == 'clients' %}active{% endif %}">
+                <i class="fa-solid fa-users"></i><span>Mijozlar</span>
+            </a>
+            <a href="{% url 'create_debt' %}" class="tab {% if active_tab == 'sale' %}active{% endif %}" aria-label="Yangi savdo">
+                <span class="tab-center"><i class="fa-solid fa-plus"></i></span><span>Savdo</span>
+            </a>
+            <a href="{% url 'create_payment' %}" class="tab {% if active_tab == 'pay' %}active{% endif %}">
+                <i class="fa-solid fa-hand-holding-dollar"></i><span>To'lov</span>
+            </a>
+            <a href="{% url 'dashboard' %}" class="tab {% if active_tab == 'stats' %}active{% endif %}">
+                <i class="fa-solid fa-chart-simple"></i><span>Hisobot</span>
+            </a>
         </div>
+    </nav>
     {% endif %}
-
-    <!-- Main Content -->
-    <div class="container">
-        {% block content %}
-
-        {% endblock %}
-    </div>
-
-
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Telegram Web App Integration
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-
-        // Apply Telegram theme colors
-        const tg = window.Telegram.WebApp;
-        if (tg.themeParams) {
-            document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#f5f7fa');
-            document.documentElement.style.setProperty('--tg-text', tg.themeParams.text_color || '#000000');
-            document.documentElement.style.setProperty('--tg-button', tg.themeParams.button_color || '#3390ec');
-            document.documentElement.style.setProperty('--tg-secondary', tg.themeParams.secondary_bg_color || '#ffffff');
-            document.documentElement.style.setProperty('--tg-hint', tg.themeParams.hint_color || '#6c757d');
+        // Telegram Web App (brauzerda ochilsa ham sahifa ishlashi kerak)
+        const tg = (window.Telegram && window.Telegram.WebApp) || null;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            if (tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
+                tg.setHeaderColor('secondary_bg_color');
+            }
         }
 
-        // Add haptic feedback
-        document.querySelectorAll('button, .list-item').forEach(element => {
-            element.addEventListener('click', () => {
-                if (tg.HapticFeedback) {
-                    tg.HapticFeedback.impactOccurred('light');
-                }
-            });
+        // Orqaga: sahifadagi tugma ham, Telegram'ning o'z "Back" tugmasi ham aniq manzilga olib boradi
+        // (brauzer tarixiga tayanish Telegram'dan to'g'ridan-to'g'ri ochilganda yoki POST'dan keyin noto'g'ri ishlardi)
+        const backBtn = document.getElementById('backBtn');
+        if (tg && tg.BackButton && tg.isVersionAtLeast && tg.isVersionAtLeast('6.1')) {
+            if (backBtn) {
+                tg.BackButton.show();
+                tg.BackButton.onClick(() => { window.location.href = backBtn.href; });
+            } else {
+                tg.BackButton.hide();
+            }
+        }
+
+        // Bosilganda yengil tebranish (Telegram ichida)
+        document.addEventListener('click', e => {
+            if (tg && tg.HapticFeedback && e.target.closest('button, .btn, .tab, .list-row')) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
         });
 
-        // Smooth scroll animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
+        // Telegram ichida fayl yuklab bo'lmaydi - eksport havolalari faylni bot chatiga yuboradi
+        if (tg && tg.initData) {
+            document.querySelectorAll('a[data-export]').forEach(a => {
+                a.href += (a.href.includes('?') ? '&' : '?') + 'send=1';
             });
-        }, observerOptions);
+        }
 
-        document.querySelectorAll('.app-card, .stat-card').forEach(el => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(30px)';
-            el.style.transition = 'all 0.6s ease-out';
-            observer.observe(el);
+        // Muvaffaqiyat xabarlari 4 soniyadan keyin o'zi yopiladi
+        document.querySelectorAll('.app-toast.success, .app-toast.info').forEach(el => {
+            setTimeout(() => {
+                el.classList.add('hide');
+                setTimeout(() => el.remove(), 300);
+            }, 4000);
         });
     </script>
+
+    {% if live_reload %}
+    <script>
+        // Avtomatik yangilanish: mijoz nasiyani tasdiqlasa/rad etsa yoki boshqa xodim yozuv qo'shsa,
+        // sahifa o'zi yangilanadi. Foydalanuvchi biror narsa yozayotgan yoki oyna ochiq bo'lsa - kutadi.
+        (function () {
+            const url = "{% url 'live_version' %}";
+            let version = "{{ live_version_now|escapejs }}" || null, pending = false;
+
+            function busy() {
+                const a = document.activeElement;
+                if (a && a.matches('input, textarea, select')) return true;
+                if (document.querySelector('.modal.show')) return true;
+                return Array.from(document.querySelectorAll('input[type=search]')).some(i => i.value);
+            }
+
+            function reload() {
+                if (busy()) { pending = true; return; }
+                sessionStorage.setItem('liveScroll:' + location.pathname, String(window.scrollY));
+                location.reload();
+            }
+
+            async function check() {
+                if (document.hidden) return;
+                if (pending) { reload(); return; }
+                try {
+                    const r = await fetch(url, {cache: 'no-store', credentials: 'same-origin'});
+                    if (!r.ok) return;
+                    const v = (await r.json()).v;
+                    if (version !== null && v !== version) reload();
+                    version = v;
+                } catch (e) { /* tarmoq yo'q - keyingi safar */ }
+            }
+
+            try {
+                const y = sessionStorage.getItem('liveScroll:' + location.pathname);
+                if (y !== null) { sessionStorage.removeItem('liveScroll:' + location.pathname); window.scrollTo(0, +y); }
+            } catch (e) {}
+
+            check();
+            setInterval(check, 5000);
+            document.addEventListener('visibilitychange', check);
+            window.addEventListener('focus', check);
+            // bfcache'dan qaytganda (orqaga tugmasi) eski sahifa ko'rinmasin
+            window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
+        })();
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 </body>

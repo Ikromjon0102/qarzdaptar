@@ -1,32 +1,38 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block header %}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column align-items-center justify-content-center text-center pt-5 mt-5">
+<div class="pt-5 text-center">
+    <i class="fa-solid fa-circle-check text-success mb-3" style="font-size: 64px;"></i>
+    <h2 class="fw-bold mb-1" style="font-size: 22px;">Buyurtma yuborildi</h2>
+    <div class="text-muted mb-4">#{{ order.id }} · {{ order.shop.name }}</div>
+</div>
 
-    <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center mb-4 animate__animated animate__bounceIn"
-        style="width: 100px; height: 100px;">
-        <i class="fa-solid fa-check fa-3x text-success"></i>
-    </div>
-
-    <h3 class="fw-bold mb-2">Buyurtma qabul qilindi!</h3>
-    <p class="text-muted">Buyurtma raqami: #{{ order.id }}</p>
-
-    <div class="app-card w-100 p-3 mb-4 text-start">
-        <p class="mb-1 text-muted small">Mijoz:</p>
-        <h6 class="fw-bold">{{ order.client.full_name }}</h6>
-
-        <p class="mb-1 mt-3 text-muted small">Jami summa:</p>
-        <h4 class="fw-bold text-primary">{{ order.total_price|floatformat:0 }} so'm</h4>
-
-        <div class="alert alert-warning mt-3 mb-0 small">
-            <i class="fa-regular fa-clock"></i> Do'kon egasi tasdiqlashini kuting. Tasdiqlangach, nasiya daftariga
-            yoziladi.
+<div class="list-group-app mb-3">
+    {% for item in items %}
+    <div class="list-row">
+        <div class="row-main">
+            <div class="row-title">{{ item.product.name }}</div>
+            <div class="row-sub">{{ item.qty }} x {{ item.price|space_format }}</div>
         </div>
+        <div class="row-end small">{{ item.total|space_format }}</div>
     </div>
+    {% endfor %}
+    <div class="list-row">
+        <div class="row-main fw-bold">Jami</div>
+        <div class="row-end">{{ order.total_price|space_format }} so'm</div>
+    </div>
+</div>
 
-    <a href="{% url 'shop_home' %}" class="btn btn-primary w-100 py-3 rounded-3 fw-bold">
-        <i class="fa-solid fa-store"></i> Do'konga qaytish
-    </a>
+<div class="app-toast warning mb-4">
+    <i class="fa-regular fa-clock mt-1"></i>
+    <div>Do'kon tasdiqlashini kuting. Tasdiqlangach, summa nasiyangizga yoziladi va sizga Telegram'da xabar keladi.</div>
+</div>
 
+<div class="d-grid gap-2">
+    <a href="{% url 'client_cabinet' %}" class="btn btn-primary py-3">Hisobimga qaytish</a>
+    <a href="{% url 'shop_home' %}" class="btn py-3" style="background: var(--tg-secondary); color: var(--tg-text);">Yana buyurtma berish</a>
 </div>
 {% endblock %}

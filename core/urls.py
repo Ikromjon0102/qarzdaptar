@@ -1,21 +1,24 @@
 from django.urls import path
-from . import views, api
+from . import api, landing, views
 
 urlpatterns = [
     # 1. Sotuvchi oynasi
     path('login/', views.login_page_view, name='login_page'),
     path('auth/telegram-login/', views.telegram_auth_view, name='telegram_auth'),
     path('main/', views.main_menu_view, name='main_menu'),
+    path('logout/', views.logout_view, name='logout'),
 
     path('', views.login_page_view, name='landing_page'), # Glavniy sahifa
-    path('signup/', api.signup_view, name='signup'),
+    path('privacy/', landing.privacy_view, name='privacy'),
 
     path('my-cabinet/', views.client_cabinet_view, name='client_cabinet'),
+    path('my-cabinet/switch/<int:client_id>/', views.client_switch_view, name='client_switch'),
     path('client/<int:client_id>/', views.admin_client_detail_view, name='admin_client_detail'),
     path('api/create-client/', views.create_client_ajax, name='create_client_ajax'),
 
     path('create-payment/', views.create_payment_view, name='create_payment'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('api/live-version/', views.live_version_view, name='live_version'),
     path('manage-debt/<uuid:debt_uuid>/<str:action>/', views.manage_debt_view, name='manage_debt'),
     path('debt/<uuid:debt_uuid>/', views.debt_detail_view, name='debt_detail'),
     path('settings/', views.settings_view, name='settings'),
@@ -26,8 +29,12 @@ urlpatterns = [
     path('clients/add/', views.client_form_view, name='client_add'),
     path('clients/<int:client_id>/edit/', views.client_form_view, name='client_edit'),
     path('clients/<int:client_id>/reset-tg/', views.client_reset_telegram_view, name='client_reset_tg'),
+    path('clients/<int:client_id>/remind/', views.remind_client_view, name='client_remind'),
+    path('clients/<int:client_id>/trust/', views.client_trust_view, name='client_trust'),
 
     path('reports/', views.reports_view, name='reports_page'),
+    path('export/clients.xlsx', views.export_clients_view, name='export_clients'),
+    path('export/month.xlsx', views.export_month_view, name='export_month'),
 
     path('webhook/', views.telegram_webhook, name='telegram_webhook'),
 
