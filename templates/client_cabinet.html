@@ -78,6 +78,27 @@
 </a>
 {% endif %}
 
+<!-- To'lov muddati -->
+{% if due.is_overdue %}
+<div class="app-toast error mb-3">
+    <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+    <div>
+        <b>To'lov muddati o'tgan:</b>
+        {% if due.overdue_uzs %}{{ due.overdue_uzs|space_format }} so'm{% endif %}{% if due.overdue_uzs and due.overdue_usd %} + {% endif %}{% if due.overdue_usd %}${{ due.overdue_usd|floatformat:2 }}{% endif %}
+        <div class="small">Muddat {{ due.overdue_since|date:"d.m.Y" }} edi. Iltimos, do'kon bilan bog'laning.</div>
+    </div>
+</div>
+{% elif due.next_due %}
+<div class="app-toast mb-3">
+    <i class="fa-regular fa-calendar mt-1"></i>
+    <div>
+        <b>Keyingi to'lov: {{ due.next_due|date:"d.m.Y" }}</b>
+        ({% if due.days_to_next == 0 %}bugun{% elif due.days_to_next == 1 %}ertaga{% else %}{{ due.days_to_next }} kun qoldi{% endif %})
+        <div class="small">{% if due.next_due_uzs %}{{ due.next_due_uzs|space_format }} so'm{% endif %}{% if due.next_due_uzs and due.next_due_usd %} + {% endif %}{% if due.next_due_usd %}${{ due.next_due_usd|floatformat:2 }}{% endif %}</div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Tasdiqlash kutilayotgan nasiyalar -->
 {% if pending %}
 <div class="section-title" style="color: var(--warning);">Tasdiqlashingiz kerak ({{ pending|length }})</div>

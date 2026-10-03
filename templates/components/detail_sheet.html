@@ -1,6 +1,6 @@
 {% comment %}
 Pastdan chiquvchi tafsilot oynasi (bottom sheet).
-JS: openDetailSheet({date, sum, sumClass, status, items, reason, note, resendLabel,
+JS: openDetailSheet({date, sum, sumClass, status, items, reason, note, resendLabel, due: {url, value},
                      actions: {resend, confirm, delete, open}})
 actions ichidagi URL berilmasa, tugma ko'rinmaydi.
 {% endcomment %}
@@ -22,6 +22,14 @@ actions ichidagi URL berilmasa, tugma ko'rinmaydi.
                 <div class="small text-muted mb-3 d-none" id="sheetNoteBox">
                     <i class="fa-regular fa-comment"></i> Sizning izohingiz: <span id="sheetNote"></span>
                 </div>
+                <form method="POST" action="#" class="mb-3 d-none" id="sheetDueForm">
+                    {% csrf_token %}
+                    <label class="form-label" for="sheetDueInput"><i class="fa-regular fa-calendar"></i> To'lov muddati</label>
+                    <div class="d-flex gap-2">
+                        <input type="date" name="due_date" id="sheetDueInput" class="form-control">
+                        <button type="submit" class="btn btn-outline-primary flex-shrink-0">Saqlash</button>
+                    </div>
+                </form>
                 <form method="POST" action="#" class="mb-2 d-none" id="sheetResendForm">
                     {% csrf_token %}
                     <textarea name="note" class="form-control mb-2" rows="2" maxlength="200" id="sheetResendNote"
@@ -73,6 +81,12 @@ actions ichidagi URL berilmasa, tugma ko'rinmaydi.
         el('sheetNoteBox').classList.toggle('d-none', !opts.note);
         el('sheetNote').innerText = opts.note || '';
         const actions = opts.actions || {};
+        el('sheetDueForm').classList.toggle('d-none', !opts.due);
+        if (opts.due) {
+            el('sheetDueForm').action = opts.due.url;
+            el('sheetDueInput').value = opts.due.value || '';
+            el('sheetDueInput').min = new Date().toISOString().slice(0, 10);
+        }
         el('sheetResendForm').classList.toggle('d-none', !actions.resend);
         if (actions.resend) {
             el('sheetResendForm').action = actions.resend;

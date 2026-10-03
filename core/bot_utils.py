@@ -30,12 +30,14 @@ def send_confirmation_request(telegram_id,  debt_obj, domain):
     # ---------------------------
 
     title = "🔁 <b>Nasiya qayta yuborildi</b>" if debt_obj.reject_reason else "🆕 <b>Yangi xarid!</b>"
+    due = f"📅 <b>To'lov muddati:</b> {debt_obj.due_date:%d.%m.%Y}\n" if debt_obj.due_date else ""
     note = f"💬 <b>Do'kon izohi:</b> {html.escape(debt_obj.shop_note)}\n\n" if debt_obj.shop_note else ""
     text = (
         f"{title}\n\n"
         f"🛒 <b>Tovarlar:</b>\n{debt_obj.items}\n\n"
         f"➖➖➖➖➖➖➖➖\n"
-        f"💰 <b>Jami:</b> {total_str}\n\n"
+        f"💰 <b>Jami:</b> {total_str}\n"
+        f"{due}\n"
         f"{note}"
         f"Iltimos, pastdagi tugmani bosib tasdiqlang yoki rad eting."
     )

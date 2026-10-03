@@ -88,6 +88,17 @@
     </div>
 </div>
 
+{% if overdue.count %}
+<a href="{% url 'client_list' %}?filter=overdue" class="list-group-app list-row mt-2">
+    <span class="row-icon red"><i class="fa-solid fa-calendar-xmark"></i></span>
+    <div class="row-main">
+        <div class="row-title">{{ overdue.count }} ta mijozda muddati o'tgan qarz</div>
+        <div class="row-sub text-danger">{% if overdue.uzs %}{{ overdue.uzs|space_format }} so'm{% endif %}{% if overdue.uzs and overdue.usd %} + {% endif %}{% if overdue.usd %}${{ overdue.usd|floatformat:2 }}{% endif %}</div>
+    </div>
+    <i class="fa-solid fa-chevron-right chevron"></i>
+</a>
+{% endif %}
+
 {% if pending_count %}
 <a href="{% url 'client_list' %}?filter=pending" class="list-group-app list-row mt-2">
     <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>

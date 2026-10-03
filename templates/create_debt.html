@@ -91,7 +91,29 @@
         <i class="fa-solid fa-plus"></i> Tovar qo'shish
     </button>
 
-    <!-- 4. Naqd savdoda to'lov turi -->
+    <!-- 4. Nasiyada to'lov muddati (ixtiyoriy) -->
+    <div id="due-card" class="app-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label mb-0" for="dueDateInput">To'lov muddati <span class="fw-normal">(ixtiyoriy)</span></label>
+            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-none" id="dueClear">Olib tashlash</button>
+        </div>
+        <div class="d-flex gap-2 flex-wrap mb-2" id="dueChips">
+            <button type="button" class="due-chip" data-days="7">1 hafta</button>
+            <button type="button" class="due-chip" data-days="14">2 hafta</button>
+            <button type="button" class="due-chip" data-days="30">1 oy</button>
+            <button type="button" class="due-chip" data-days="60">2 oy</button>
+        </div>
+        <input type="date" name="due_date" id="dueDateInput" class="form-control" value="{{ due_date|default:'' }}"
+               min="{{ today_iso }}" max="{{ due_max_iso }}">
+        <div class="small text-muted mt-2">Muddat kuni va bir kun oldin mijozga eslatma boradi{% if 'reminders' not in plan_features %} (Standart tarifda){% endif %}, o'tib ketsa — «Muddati o'tgan» ro'yxatida ko'rinadi.</div>
+    </div>
+    <style>
+        .due-chip { border: 1px solid var(--line); background: var(--tg-bg); color: var(--tg-text); border-radius: 999px;
+                    padding: 6px 14px; font-size: 14px; font-weight: 600; }
+        .due-chip.active { background: var(--tg-button); border-color: var(--tg-button); color: #fff; }
+    </style>
+
+    <!-- 5. Naqd savdoda to'lov turi -->
     <div id="payment-methods" class="app-card d-none">
         <label class="form-label">To'lov turi</label>
         <div class="d-flex justify-content-between gap-2">
@@ -156,6 +178,7 @@
         btnDebt.classList.toggle('active', mode === 'debt');
         btnCash.classList.toggle('active', mode === 'cash');
         paymentMethods.classList.toggle('d-none', mode !== 'cash');
+        document.getElementById('due-card').classList.toggle('d-none', mode === 'cash');
         submitBtn.classList.toggle('btn-success', mode === 'cash');
         submitBtn.classList.toggle('btn-primary', mode !== 'cash');
 
@@ -168,6 +191,28 @@
         }
         updateClientState();
     }
+
+    // TO'LOV MUDDATI: tez tanlash tugmalari
+    (function () {
+        const input = document.getElementById('dueDateInput');
+        const chips = document.querySelectorAll('.due-chip');
+        const clear = document.getElementById('dueClear');
+        function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+        function sync() {
+            chips.forEach(c => {
+                const d = new Date(); d.setDate(d.getDate() + +c.dataset.days);
+                c.classList.toggle('active', input.value === iso(d));
+            });
+            clear.classList.toggle('d-none', !input.value);
+        }
+        chips.forEach(c => c.addEventListener('click', () => {
+            const d = new Date(); d.setDate(d.getDate() + +c.dataset.days);
+            input.value = iso(d); sync();
+        }));
+        clear.addEventListener('click', () => { input.value = ''; sync(); });
+        input.addEventListener('change', sync);
+        sync();
+    })();
 
     // 2. TO'LOV TURINI TANLASH
     function setPaymentType(type, element) {

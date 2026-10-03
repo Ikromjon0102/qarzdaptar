@@ -167,6 +167,9 @@ class Debt(models.Model):
     # Mijoz rad etganda yozgan sababi va do'kon qayta yuborganda qo'shgan izohi
     reject_reason = models.CharField(max_length=200, blank=True, default='', verbose_name="Rad etish sababi")
     shop_note = models.CharField(max_length=200, blank=True, default='', verbose_name="Do'kon izohi")
+    # To'lov muddati (faqat nasiya uchun). due_stage: 1 - "ertaga" eslatmasi, 2 - "bugun" eslatmasi yuborilgan
+    due_date = models.DateField(null=True, blank=True, verbose_name="To'lov muddati")
+    due_stage = models.PositiveSmallIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)

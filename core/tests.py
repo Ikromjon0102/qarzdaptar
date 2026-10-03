@@ -1115,3 +1115,112 @@ class PlanLimitTests(TestCase):
         self.shop.refresh_from_db()
         self.assertEqual(self.shop.current_plan.code, 'business')
         self.assertGreaterEqual(self.shop.days_left, 364)
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class DueDateTests(TestCase):
+    """To'lov muddati: FIFO bo'yicha ochiq nasiyalar, muddati o'tganlar, eslatmalar."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.client.force_login(self.owner)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+        self.today = timezone.localdate()
+
+    def debt(self, uzs, due=None, days_ago=0, kind='debt', status='confirmed'):
+        d = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=uzs, items='x', status=status,
+                                transaction_type=kind, due_date=due)
+        Debt.objects.filter(id=d.id).update(created_at=timezone.now() - timezone.timedelta(days=days_ago))
+        return d
+
+    def test_payments_close_oldest_debts_first(self, _post):
+        from . import dues
+        old = self.debt(100000, due=self.today - timezone.timedelta(days=5), days_ago=20)
+        new = self.debt(50000, due=self.today + timezone.timedelta(days=3), days_ago=10)
+        self.debt(-60000, kind='payment', days_ago=1)
+        st = dues.client_due_status(self.vali)
+        self.assertEqual(st.overdue_uzs, 40000)            # eskisidan 40 000 qoldi
+        self.assertEqual(st.overdue_since, old.due_date)
+        self.assertEqual((st.next_due, st.next_due_uzs), (new.due_date, 50000))
+        self.debt(-40000, kind='payment')                    # eskisi to'liq yopildi
+        st = dues.client_due_status(self.vali)
+        self.assertFalse(st.is_overdue)
+        self.assertNotIn(old.id, st.open_debts)
+
+    def test_cash_sales_and_pending_ignored(self, _post):
+        from . import dues
+        self.debt(30000, due=self.today - timezone.timedelta(days=1), status='pending')
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=10000, items='naqd', status='confirmed',
+                            is_cash_sale=True, due_date=self.today - timezone.timedelta(days=1))
+        self.assertFalse(dues.client_due_status(self.vali).is_overdue)
+
+    def test_sale_form_saves_due_date_and_validates(self, _post):
+        due = self.today + timezone.timedelta(days=14)
+        form = {'sale_mode': 'debt', 'client': self.vali.id, 'product_name[]': ['Un'], 'quantity[]': ['1'],
+                'price[]': ['50000'], 'currency[]': ['uzs']}
+        with mock.patch('core.telegram.send_message') as send:
+            self.client.post(reverse('create_debt'), {**form, 'due_date': due.isoformat()})
+        self.assertEqual(Debt.objects.get().due_date, due)
+        self.assertIn(due.strftime('%d.%m.%Y'), send.call_args[0][1])   # mijozga xabarda muddat bor
+        resp = self.client.post(reverse('create_debt'), {**form, 'due_date': '2000-01-01'})
+        self.assertContains(resp, "To&#x27;lov muddati noto&#x27;g&#x27;ri")
+        self.assertEqual(Debt.objects.count(), 1)
+
+    def test_overdue_shown_in_menu_list_and_client_page(self, _post):
+        self.debt(100000, due=self.today - timezone.timedelta(days=3), days_ago=10)
+        self.assertContains(self.client.get(reverse('main_menu')), "1 ta mijozda muddati o")
+        resp = self.client.get(reverse('client_list'))
+        self.assertContains(resp, 'data-overdue="1"')
+        self.assertContains(resp, "Muddati o'tgan · 3 kun")
+        self.assertContains(self.client.get(reverse('admin_client_detail', args=[self.vali.id])), '100 000 so')
+
+    def test_change_due_date(self, _post):
+        d = self.debt(100000, due=self.today, days_ago=1)
+        Debt.objects.filter(id=d.id).update(due_stage=2)
+        new_due = self.today + timezone.timedelta(days=7)
+        with mock.patch('core.views.send_tg_msg') as send:
+            self.client.post(reverse('manage_debt', args=[d.uuid, 'due']), {'due_date': new_due.isoformat()})
+        d.refresh_from_db()
+        self.assertEqual((d.due_date, d.due_stage), (new_due, 0))
+        send.assert_called_once()
+        self.client.post(reverse('manage_debt', args=[d.uuid, 'due']), {'due_date': ''})
+        d.refresh_from_db()
+        self.assertIsNone(d.due_date)
+
+    def run_reminders(self):
+        from django.core.management import call_command
+        with mock.patch('core.telegram.send_message') as send, mock.patch('time.sleep'):
+            call_command('send_reminders', stdout=mock.Mock())
+        return send
+
+    def test_due_reminders_day_before_and_on_the_day_once(self, _post):
+        d = self.debt(80000, due=self.today + timezone.timedelta(days=1), days_ago=5)
+        send = self.run_reminders()
+        self.assertEqual(send.call_count, 1)
+        self.assertIn('ertaga', send.call_args[0][1])
+        self.assertIn('80 000', send.call_args[0][1])
+        self.assertEqual(self.run_reminders().call_count, 0)    # ikkinchi marta yuborilmaydi
+        Debt.objects.filter(id=d.id).update(due_date=self.today)
+        send = self.run_reminders()
+        self.assertIn('bugun', send.call_args[0][1])
+        self.assertEqual(self.run_reminders().call_count, 0)
+
+    def test_no_due_reminder_when_paid_or_free_plan(self, _post):
+        self.debt(80000, due=self.today, days_ago=5)
+        self.debt(-80000, kind='payment')
+        self.assertEqual(self.run_reminders().call_count, 0)
+        self.debt(50000, due=self.today)
+        self.shop.plan = 'free'
+        self.shop.save()
+        self.assertEqual(self.run_reminders().call_count, 0)
+
+    def test_customer_sees_due_in_cabinet(self, _post):
+        self.debt(70000, due=self.today + timezone.timedelta(days=5))
+        self.client.logout()
+        session = self.client.session
+        session['client_id'] = self.vali.id
+        session.save()
+        resp = self.client.get(reverse('client_cabinet'))
+        self.assertContains(resp, "Keyingi to'lov")
+        self.assertContains(resp, '5 kun qoldi')

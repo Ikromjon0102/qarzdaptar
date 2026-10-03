@@ -32,6 +32,16 @@
     {% if debt.amount_usd %}<div class="fw-bold" style="font-size: {% if debt.amount_uzs %}20px{% else %}32px{% endif %};">${{ debt.amount_usd|floatformat:2 }}</div>{% endif %}
 </div>
 
+{% if debt.due_date %}
+<div class="list-group-app mb-2">
+    <div class="list-row">
+        <span class="row-icon orange"><i class="fa-regular fa-calendar"></i></span>
+        <div class="row-main"><div class="row-sub">To'lov muddati</div></div>
+        <div class="row-end">{{ debt.due_date|date:"d.m.Y" }}</div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Tovarlar -->
 <div class="section-title">Tovarlar</div>
 <div class="list-group-app">

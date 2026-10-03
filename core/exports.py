@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from . import dues
 from .models import CASH_CLIENT_PHONE, Client, Debt
 
 MONEY = '#,##0'
@@ -45,8 +46,10 @@ def _response(wb, filename):
 def clients_workbook(shop):
     """Barcha mijozlar va joriy balansi (musbat - qarz, manfiy - haq)."""
     wb = Workbook()
-    ws = _sheet(wb, 'Mijozlar', ['F.I.SH', 'Telefon', 'Qarz (so\'m)', 'Qarz ($)', 'Botga ulangan', 'Oxirgi amal'],
-                [28, 16, 16, 12, 14, 18], first=True)
+    ws = _sheet(wb, 'Mijozlar', ['F.I.SH', 'Telefon', 'Qarz (so\'m)', 'Qarz ($)', 'Botga ulangan', 'Oxirgi amal',
+                                 "Muddati o'tgan (so'm)", "Muddati o'tgan ($)", "Muddat", "Keyingi muddat"],
+                [28, 16, 16, 12, 14, 18, 18, 14, 12, 14], first=True)
+    due_map = dues.shop_due_map(shop)
     clients = (Client.objects.filter(shop=shop).exclude(phone=CASH_CLIENT_PHONE)
                .annotate(bal_uzs=Sum('debt__amount_uzs', filter=Q(debt__status='confirmed')),
                          bal_usd=Sum('debt__amount_usd', filter=Q(debt__status='confirmed')))
@@ -58,14 +61,20 @@ def clients_workbook(shop):
         total_uzs += bal_uzs
         total_usd += bal_usd
         last = last_ops.get(c.id)
+        due = due_map.get(c.id) or dues.DueStatus()
         ws.append([c.full_name, c.phone, bal_uzs, float(bal_usd), 'Ha' if c.telegram_id else "Yo'q",
-                   timezone.localtime(last).strftime('%d.%m.%Y %H:%M') if last else ''])
+                   timezone.localtime(last).strftime('%d.%m.%Y %H:%M') if last else '',
+                   due.overdue_uzs or None, float(due.overdue_usd) or None,
+                   due.overdue_since.strftime('%d.%m.%Y') if due.overdue_since else '',
+                   due.next_due.strftime('%d.%m.%Y') if due.next_due else ''])
     ws.append([])
     ws.append(['JAMI', '', total_uzs, float(total_usd)])
     ws.cell(row=ws.max_row, column=1).font = Font(bold=True)
-    for row in ws.iter_rows(min_row=2, min_col=3, max_col=4):
+    for row in ws.iter_rows(min_row=2, min_col=3, max_col=8):
         row[0].number_format = MONEY
         row[1].number_format = USD
+        row[4].number_format = MONEY
+        row[5].number_format = USD
     return wb
 
 

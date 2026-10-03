@@ -19,7 +19,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from store.models import Order
-from . import bot_signup, exports, landing, plans, telegram
+from . import bot_signup, dues, exports, landing, plans, telegram
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
 from .permissions import client_limit_message, is_shop_admin, plan_feature_required, shop_admin_required
@@ -136,6 +136,7 @@ def main_menu_view(request):
         'today': shop_stats(shop, created_at__date=timezone.localdate()),
         'pending_count': Debt.objects.filter(shop=shop, status='pending').count(),
         'client_count': plans.client_count(shop),
+        'overdue': dues.overdue_summary(shop),
         # Mijoz rad etgan nasiyalar (oxirgi 14 kun): sababi bilan, qayta yuborish uchun
         'rejected': Debt.objects.filter(
             shop=shop, status='rejected',
@@ -200,6 +201,8 @@ def create_debt_view(request):
         'sale_mode': 'debt',
         'payment_type': 'cash',
         'prefill_items': [],
+        'today_iso': timezone.localdate().isoformat(),
+        'due_max_iso': (timezone.localdate() + timedelta(days=dues.MAX_DUE_DAYS)).isoformat(),
     }
 
     if request.method == 'POST':
@@ -247,11 +250,16 @@ def create_debt_view(request):
             client = Client.objects.filter(id=client_id, shop=shop).first()
 
         # 3. TEKSHIRUV: xato bo'lsa formani kiritilgan ma'lumotlar bilan qaytaramiz
+        raw_due = request.POST.get('due_date', '').strip() if sale_mode == 'debt' else ''
+        due_date = dues.parse_due_date(raw_due) if raw_due else None
+
         error = None
         if not items_list:
             error = "Kamida bitta tovarning soni va narxini kiriting."
         elif sale_mode == 'debt' and not client:
             error = "Nasiya uchun ro'yxatdan mijozni tanlang."
+        elif raw_due and not due_date:
+            error = "To'lov muddati noto'g'ri: bugundan oldin yoki 2 yildan uzoq bo'lmasin."
 
         if error:
             messages.error(request, error)
@@ -261,6 +269,7 @@ def create_debt_view(request):
                 'selected_client_id': client.id if client else '',
                 'prefill_items': prefill_items,
                 'no_tg_action': request.POST.get('no_tg_action', 'confirm'),
+                'due_date': raw_due,
             })
             return render(request, 'create_debt.html', context)
 
@@ -290,6 +299,7 @@ def create_debt_view(request):
             items=items_str,
             status=current_status,
             is_cash_sale=(sale_mode == 'cash'),
+            due_date=due_date,
         )
 
         # Naqd savdoda to'lov ham darhol yoziladi (manfiy)
@@ -449,6 +459,22 @@ def manage_debt_view(request, debt_uuid, action):
             send_confirmation_request(debt.client.telegram_id, debt, settings.SITE_DOMAIN)
             messages.success(request, "Nasiya mijozga qayta yuborildi!" if was_rejected
                              else "Tasdiqlash so'rovi qayta yuborildi!")
+
+    # 1b. TO'LOV MUDDATINI O'ZGARTIRISH (bo'sh - muddatni olib tashlash)
+    elif action == 'due' and request.method == 'POST' and debt.transaction_type == 'debt':
+        raw = (request.POST.get('due_date') or '').strip()
+        new_due = dues.parse_due_date(raw) if raw else None
+        if raw and not new_due:
+            messages.error(request, "Sana noto'g'ri: bugundan oldin yoki 2 yildan uzoq bo'lmasin.")
+        else:
+            debt.due_date = new_due
+            debt.due_stage = 0  # yangi muddat uchun eslatmalar qaytadan
+            debt.save(update_fields=['due_date', 'due_stage'])
+            messages.success(request, f"📅 To'lov muddati: {new_due:%d.%m.%Y}" if new_due else "To'lov muddati olib tashlandi.")
+            if new_due and debt.client.telegram_id and debt.status == 'confirmed':
+                send_tg_msg(debt.client.telegram_id,
+                            f"📅 {html.escape(debt.shop.name)}: to'lov muddati {new_due:%d.%m.%Y} ga o'zgartirildi.\n"
+                            f"💰 {amount_text(debt.amount_uzs, debt.amount_usd)} · {debt.created_at:%d.%m.%Y} dagi nasiya")
 
     # 2. MAJBURIY TASDIQLASH (Admin Override)
     elif action == 'force_confirm':
@@ -648,6 +674,8 @@ def admin_client_detail_view(request, client_id):
     return render(request, 'admin_client_detail.html', {
         'client': client,
         'debts': debts,
+        'due': dues.client_due_status(client),
+        'today': timezone.localdate(),
         'total_uzs': stats['sum_uzs'] or 0,
         'total_usd': stats['sum_usd'] or 0,
         'back_url': 'client_list',
@@ -686,6 +714,7 @@ def client_cabinet_view(request):
         'month_debt': month_debt,
         'month_paid': month_paid,
         'pending': Debt.objects.filter(client=client, status='pending', transaction_type='debt').order_by('-created_at'),
+        'due': dues.client_due_status(client),
         'history': confirmed.order_by('-created_at')[:100],
     })
 
@@ -1001,6 +1030,10 @@ def client_list_view(request):
         )
         .order_by('full_name')
     )
+    due_map = dues.shop_due_map(shop)
+    clients = list(clients)
+    for c in clients:
+        c.due = due_map.get(c.id)
 
     return render(request, 'client_list.html', {
         'clients': clients,

@@ -46,6 +46,26 @@
     </div>
 </div>
 
+{% if due.is_overdue %}
+<div class="app-toast error mb-3">
+    <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+    <div>
+        <b>Muddati o'tgan:</b>
+        {% if due.overdue_uzs %}{{ due.overdue_uzs|space_format }} so'm{% endif %}{% if due.overdue_uzs and due.overdue_usd %} + {% endif %}{% if due.overdue_usd %}${{ due.overdue_usd|floatformat:2 }}{% endif %}
+        <div class="small">{{ due.overdue_since|date:"d.m.Y" }} dan beri · {{ due.overdue_days }} kun</div>
+    </div>
+</div>
+{% elif due.next_due %}
+<div class="app-toast mb-3">
+    <i class="fa-regular fa-calendar mt-1"></i>
+    <div>
+        <b>To'lov muddati: {{ due.next_due|date:"d.m.Y" }}</b>
+        ({% if due.days_to_next == 0 %}bugun{% elif due.days_to_next == 1 %}ertaga{% else %}{{ due.days_to_next }} kun qoldi{% endif %})
+        <div class="small">{% if due.next_due_uzs %}{{ due.next_due_uzs|space_format }} so'm{% endif %}{% if due.next_due_uzs and due.next_due_usd %} + {% endif %}{% if due.next_due_usd %}${{ due.next_due_usd|floatformat:2 }}{% endif %}</div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Asosiy amallar -->
 <div class="row g-2 mb-3">
     <div class="col-6">
@@ -107,6 +127,10 @@
          data-reason="{{ debt.reject_reason }}"
          data-note="{{ debt.shop_note }}"
          data-rejected="{% if debt.status == 'rejected' %}1{% endif %}"
+         {% if debt.transaction_type == 'debt' and not debt.is_cash_sale %}{% if debt.status == 'pending' or debt.id in due.open_debts %}
+            data-due="{{ debt.due_date|date:'Y-m-d' }}"
+            data-due-url="{% url 'manage_debt' debt.uuid 'due' %}"
+         {% endif %}{% endif %}
          {% if debt.status != 'confirmed' and debt.transaction_type == 'debt' and client.telegram_id %}data-resend="{% url 'manage_debt' debt.uuid 'resend' %}"{% endif %}
          {% if is_shop_admin %}
             {% if debt.status != 'confirmed' %}data-confirm="{% url 'manage_debt' debt.uuid 'force_confirm' %}"{% endif %}
@@ -132,6 +156,9 @@
                 {% if debt.status == 'pending' %}· <span style="color: var(--warning);">Kutilmoqda</span>
                 {% elif debt.status == 'rejected' %}· <span class="text-danger">Rad etilgan{% if debt.reject_reason %}: {{ debt.reject_reason|truncatechars:40 }}{% endif %}</span>
                 {% elif debt.is_cash_sale and debt.transaction_type == 'debt' %}· Naqd{% endif %}
+                {% if debt.due_date and debt.id in due.open_debts %}
+                    · <span class="{% if debt.due_date < today %}text-danger fw-bold{% else %}text-muted{% endif %}"><i class="fa-regular fa-calendar"></i> {{ debt.due_date|date:"d.m" }}</span>
+                {% endif %}
             </div>
         </div>
 
@@ -176,6 +203,7 @@
                 reason: d.reason,
                 note: d.note,
                 resendLabel: d.rejected ? 'Izoh bilan qayta yuborish' : 'Qayta yuborish',
+                due: d.dueUrl ? {url: d.dueUrl, value: d.due} : null,
                 actions: {resend: d.resend, confirm: d.confirm, delete: d.delete},
             });
         });

@@ -51,6 +51,7 @@
 <div class="filter-chips mb-3" id="filterChips">
     <button type="button" class="chip" data-filter="all">Hammasi<span class="count" data-count="all"></span></button>
     <button type="button" class="chip" data-filter="debtor">Qarzdorlar<span class="count" data-count="debtor"></span></button>
+    <button type="button" class="chip" data-filter="overdue">Muddati o'tgan<span class="count" data-count="overdue"></span></button>
     <button type="button" class="chip" data-filter="pending">Kutilmoqda<span class="count" data-count="pending"></span></button>
     <button type="button" class="chip" data-filter="notg">Botga ulanmagan<span class="count" data-count="notg"></span></button>
 </div>
@@ -68,7 +69,8 @@
        data-debt="{{ client.bal_uzs|default:0|stringformat:'d' }}"
        data-debt-usd="{{ client.bal_usd|default:0|stringformat:'f' }}"
        data-tg="{% if client.telegram_id %}1{% else %}0{% endif %}"
-       data-pending="{{ client.pending_count }}">
+       data-pending="{{ client.pending_count }}"
+       data-overdue="{% if client.due.is_overdue %}1{% else %}0{% endif %}">
         <div class="min-w-0">
             <div class="fw-bold text-truncate">
                 {{ client.full_name }}
@@ -76,6 +78,8 @@
             </div>
             <small>{{ client.phone }}
                 {% if client.pending_count %}<span class="badge bg-warning text-dark ms-1">{{ client.pending_count }} kutilmoqda</span>{% endif %}
+                {% if client.due.is_overdue %}<span class="badge bg-danger ms-1">Muddati o'tgan · {{ client.due.overdue_days }} kun</span>
+                {% elif client.due.next_due and client.due.days_to_next <= 3 %}<span class="badge text-dark ms-1" style="background: rgba(240,165,0,.2);"><i class="fa-regular fa-calendar"></i> {{ client.due.next_due|date:"d.m" }}</span>{% endif %}
             </small>
         </div>
         <div class="text-end fw-bold small flex-shrink-0">
@@ -118,6 +122,7 @@
             all: () => true,
             debtor: r => +r.dataset.debt > 0 || parseFloat(r.dataset.debtUsd) > 0,
             pending: r => +r.dataset.pending > 0,
+            overdue: r => r.dataset.overdue === '1',
             notg: r => r.dataset.tg === '0',
         };
 
@@ -162,7 +167,7 @@
         search.addEventListener('input', apply);
         sortSelect.addEventListener('change', () => { sort(); apply(); });
 
-        if (activeFilter === 'debtor') sortSelect.value = 'debt';
+        if (activeFilter === 'debtor' || activeFilter === 'overdue') sortSelect.value = 'debt';
         sort();
         apply();
     })();

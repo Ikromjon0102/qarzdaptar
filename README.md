@@ -20,6 +20,8 @@ avtomatik hisoblanadi.
 
 ### Do'kon egasi va xodimlar
 - **Savdo**: nasiya yoki naqd; bir nechta tovar, so'm va dollar, kurs bo'yicha jami.
+- **To'lov muddati**: nasiyaga muddat (1 hafta / 2 hafta / 1 oy / sana); muddati o'tganlar ro'yxati,
+  mijozga ertaga va muddat kuni eslatma. To'lovlar eng eski nasiyani birinchi yopadi (`core/dues.py`).
 - **To'lov olish**: mijozning joriy qarzi, «Hammasi» tugmasi, qoldiq oldindan ko'rinadi.
 - **Mijozlar**: qidiruv, filtrlar (qarzdorlar, kutilayotgan, botga ulanmagan), mijoz sahifasi
   va operatsiyalar tarixi.
@@ -103,7 +105,7 @@ Sozlanmagan narsa bo'lsa, `python manage.py check` ogohlantiradi.
 | Buyruq | Vazifasi |
 |---|---|
 | `python manage.py set_webhook` | Telegram webhook'ini `SITE_DOMAIN` ga o'rnatadi |
-| `python manage.py send_reminders [--dry-run]` | Qarzdorlarga eslatma (cron, kuniga 1 marta) |
+| `python manage.py send_reminders [--dry-run]` | Muddat eslatmalari (ertaga / bugun) va qarzdorlarga eslatma (cron, kuniga 1 marta) |
 | `python manage.py backup_db [--media]` | Baza (va rasmlar) zaxirasi, eskilarini o'chiradi |
 | `python manage.py mark_cash_sales` | Eski naqd savdolarni belgilash (yangilashda 1 marta) |
 
