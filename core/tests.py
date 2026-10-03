@@ -1224,3 +1224,114 @@ class DueDateTests(TestCase):
         resp = self.client.get(reverse('client_cabinet'))
         self.assertContains(resp, "Keyingi to'lov")
         self.assertContains(resp, '5 kun qoldi')
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class OpeningBalanceTests(TestCase):
+    """Daftardan ko'chirilgan qarz: balansga yoziladi, savdo hisoblanmaydi, mijoz botda tasdiqlaydi."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.client.force_login(self.owner)
+
+    def add_client(self, **extra):
+        return self.client.post(reverse('client_add'), {'full_name': 'Vali', 'phone': '+998901112233', **extra})
+
+    def callback(self, data, chat_id):
+        payload = {'callback_query': {'id': 'cb', 'data': data, 'from': {'id': chat_id},
+                                      'message': {'chat': {'id': chat_id}, 'message_id': 5}}}
+        with mock.patch('core.views.answer_callback'):
+            self.client.post(reverse('telegram_webhook'), data=json.dumps(payload), content_type='application/json')
+
+    def test_opening_balance_counts_in_debt_but_not_in_sales(self, _post):
+        from .views import shop_stats
+        self.add_client(opening_uzs='350 000', opening_usd='20')
+        debt = Debt.objects.get()
+        self.assertEqual((debt.is_opening, debt.status, debt.amount_uzs, debt.amount_usd), (True, 'confirmed', 350000, 20))
+        stats = shop_stats(self.shop)
+        self.assertEqual((stats['sales_uzs'], stats['diff_uzs'], stats['diff_usd']), (0, 350000, 20))
+        # Ikkinchi marta tahrirlashda eski qarz maydoni chiqmaydi
+        c = Client.objects.get()
+        self.assertNotContains(self.client.get(reverse('client_edit', args=[c.id])), 'opening_uzs')
+        self.assertContains(self.client.get(reverse('admin_client_detail', args=[c.id])), "Daftardan ko")
+
+    def test_no_opening_when_empty(self, _post):
+        self.add_client()
+        self.assertFalse(Debt.objects.exists())
+
+    def test_customer_confirms_after_joining_bot(self, _post):
+        self.add_client(opening_uzs='100000')
+        c = Client.objects.get()
+        with mock.patch('core.telegram.send_message') as send, mock.patch('core.views.send_menu'):
+            self.client.post(reverse('telegram_webhook'), data=json.dumps(
+                {'message': {'chat': {'id': 77}, 'text': f'/start {c.invite_token}'}}), content_type='application/json')
+        ask = [call for call in send.call_args_list if 'opening_ok' in str(call)]
+        self.assertEqual(len(ask), 1)
+        debt = Debt.objects.get()
+        self.callback(f'opening_ok:{debt.id}', chat_id=999)   # begona odam
+        debt.refresh_from_db()
+        self.assertFalse(debt.opening_ack)
+        with mock.patch('core.telegram.send_message') as send:
+            self.callback(f'opening_ok:{debt.id}', chat_id=77)
+        debt.refresh_from_db()
+        self.assertTrue(debt.opening_ack)
+        self.assertEqual(debt.status, 'confirmed')
+        self.assertIn('tasdiqladi', send.call_args[0][1])     # do'konga xabar
+
+    def test_customer_disputes_opening_balance(self, _post):
+        self.add_client(opening_uzs='100000')
+        c = Client.objects.get()
+        Client.objects.filter(id=c.id).update(telegram_id=77)
+        debt = Debt.objects.get()
+        with mock.patch('core.telegram.send_message') as send:
+            self.callback(f'opening_no:{debt.id}', chat_id=77)
+        debt.refresh_from_db()
+        self.assertEqual((debt.status, debt.opening_ack), ('rejected', True))
+        self.assertIn('rozi emas', debt.reject_reason)
+        self.assertIn('rozi emas', send.call_args[0][1])
+        self.callback(f'opening_ok:{debt.id}', chat_id=77)      # qayta javob o'zgartirmaydi
+        debt.refresh_from_db()
+        self.assertEqual(debt.status, 'rejected')
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('core.telegram.send_message')
+class ContactImportTests(TestCase):
+    """Do'kon xodimi botga kontakt yuborsa - mijoz qo'shiladi."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop(tg_id='111111')
+
+    def send_contact(self, chat_id, phone='+998 90 111 22 33', first='Vali', last='Karimov'):
+        payload = {'message': {'chat': {'id': chat_id}, 'from': {'id': chat_id},
+                               'contact': {'phone_number': phone, 'first_name': first, 'last_name': last}}}
+        self.client.post(reverse('telegram_webhook'), data=json.dumps(payload), content_type='application/json')
+
+    def test_owner_adds_client_by_contact(self, send):
+        self.send_contact(111111)
+        c = Client.objects.get()
+        self.assertEqual((c.shop, c.full_name, c.phone), (self.shop, 'Vali Karimov', '+998901112233'))
+        self.assertIn(f'start={c.invite_token}', send.call_args[0][1])
+
+    def test_worker_can_add_and_duplicates_are_skipped(self, send):
+        make_worker(self.shop, tg_id='333333')
+        self.send_contact(333333, phone='998901112233')
+        self.send_contact(111111, phone='+998901112233')
+        self.assertEqual(Client.objects.count(), 1)
+        self.assertIn('allaqachon', send.call_args[0][1])
+
+    def test_stranger_and_bad_phone(self, send):
+        self.send_contact(555)
+        self.assertIn('faqat do', send.call_args[0][1])
+        self.send_contact(111111, phone='123')
+        self.assertFalse(Client.objects.exists())
+
+    def test_free_plan_limit(self, send):
+        self.shop.plan = 'free'
+        self.shop.save()
+        Client.objects.bulk_create([Client(shop=self.shop, full_name=f'M{i}', phone=f'+9989000{i:05d}')
+                                    for i in range(30)])
+        self.send_contact(111111)
+        self.assertEqual(Client.objects.count(), 30)
+        self.assertIn('tagacha mijoz', send.call_args[0][1])

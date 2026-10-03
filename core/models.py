@@ -170,6 +170,10 @@ class Debt(models.Model):
     # To'lov muddati (faqat nasiya uchun). due_stage: 1 - "ertaga" eslatmasi, 2 - "bugun" eslatmasi yuborilgan
     due_date = models.DateField(null=True, blank=True, verbose_name="To'lov muddati")
     due_stage = models.PositiveSmallIntegerField(default=0, editable=False)
+    # Qog'oz daftardan ko'chirilgan boshlang'ich qarz: hisobotlarda yangi savdo sifatida hisoblanmaydi.
+    # opening_ack - mijoz botga ulanganda uni tasdiqlaganmi
+    is_opening = models.BooleanField(default=False, verbose_name="Daftardan ko'chirilgan")
+    opening_ack = models.BooleanField(default=False, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)

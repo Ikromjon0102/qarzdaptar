@@ -92,7 +92,8 @@ def month_workbook(shop, year, month):
         ws.append([
             timezone.localtime(op.created_at).strftime('%d.%m.%Y %H:%M'),
             'Naqd savdo' if op.client.phone == CASH_CLIENT_PHONE else op.client.full_name,
-            kinds.get((op.transaction_type, op.is_cash_sale), op.transaction_type),
+            "Daftardan ko'chirilgan" if op.is_opening else kinds.get((op.transaction_type, op.is_cash_sale),
+                                                                     op.transaction_type),
             op.get_status_display(),
             abs(op.amount_uzs), float(abs(op.amount_usd)),
             op.get_payment_method_display() or '',

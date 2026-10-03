@@ -4,6 +4,7 @@ import json
 import logging
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -20,6 +21,7 @@ from django.views.decorators.http import require_POST
 
 from store.models import Order
 from . import bot_signup, dues, exports, landing, plans, telegram
+from . import clients as client_tools
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
 from .permissions import client_limit_message, is_shop_admin, plan_feature_required, shop_admin_required
@@ -609,11 +611,14 @@ def shop_stats(shop, **date_filter):
     def total(qs, field):
         return qs.aggregate(s=Sum(field))['s'] or 0
 
-    debts = credit.filter(transaction_type='debt')
+    # Daftardan ko'chirilgan qarz - yangi savdo emas, lekin qarz qoldig'iga kiradi
+    debts = credit.filter(transaction_type='debt', is_opening=False)
+    opening = credit.filter(transaction_type='debt', is_opening=True)
     payments = credit.filter(transaction_type='payment')
     cash_sales = confirmed.filter(is_cash_sale=True, transaction_type='debt')
 
     sales_uzs, sales_usd = total(debts, 'amount_uzs'), total(debts, 'amount_usd')
+    opening_uzs, opening_usd = total(opening, 'amount_uzs'), total(opening, 'amount_usd')
     income_uzs, income_usd = abs(total(payments, 'amount_uzs')), abs(total(payments, 'amount_usd'))
 
     return {
@@ -621,8 +626,8 @@ def shop_stats(shop, **date_filter):
         'sales_usd': sales_usd,
         'income_uzs': income_uzs,
         'income_usd': income_usd,
-        'diff_uzs': sales_uzs - income_uzs,
-        'diff_usd': sales_usd - income_usd,
+        'diff_uzs': sales_uzs + opening_uzs - income_uzs,
+        'diff_usd': sales_usd + opening_usd - income_usd,
         'cash_uzs': total(cash_sales, 'amount_uzs'),
         'cash_usd': total(cash_sales, 'amount_usd'),
         'cash_count': cash_sales.count(),
@@ -747,7 +752,10 @@ def telegram_webhook(request):
 
                 tg_from = data['message'].get('from', {})
 
-                if text.startswith('/start '):
+                if 'contact' in data['message']:
+                    # Do'kon xodimi 📎 -> Kontakt orqali mijoz qo'shmoqda
+                    client_tools.handle_contact(chat_id, data['message']['contact'])
+                elif text.startswith('/start '):
                     token = text.split(' ', 1)[1].strip()
                     if token == 'login':
                         # Do'kon egasi ro'yxatdan o'tgach shu yerga keladi
@@ -773,6 +781,7 @@ def telegram_webhook(request):
                             client.save()
                             send_tg_msg(chat_id, f"🎉 {client.shop.name}: Xush kelibsiz, {client.full_name}!")
                             send_menu(chat_id, settings.SITE_DOMAIN)
+                            client_tools.ask_opening_confirmation(client)
                         else:
                             send_tg_msg(chat_id, "❌ Havola eskirgan yoki noto'g'ri. Do'kondan yangi havola so'rang.")
                 elif text == '/start':
@@ -797,6 +806,10 @@ def telegram_webhook(request):
                         send_menu(chat_id, settings.SITE_DOMAIN)
                     else:
                         bot_signup.start(chat_id, callback.get('from', {}))
+                elif data_text.startswith(('opening_ok:', 'opening_no:')):
+                    action, _, debt_id = data_text.partition(':')
+                    if debt_id.isdigit():
+                        client_tools.handle_opening_answer(chat_id, message_id, int(debt_id), action == 'opening_ok')
                 elif data_text.startswith('signup_cat:'):
                     bot_signup.handle_category(chat_id, message_id, data_text.split(':', 1)[1])
                 elif data_text.startswith('order_accept_'):
@@ -943,7 +956,8 @@ def send_menu(chat_id, domain):
             shop_name = f" «{shop.name}»" if shop else ""
             welcome_text = (
                 f"🏪 <b>Do'koningiz{shop_name} tayyor!</b>\n\n"
-                "Savdo, nasiya va to'lovlarni boshqarish uchun pastdagi tugmani bosing 👇"
+                "Savdo, nasiya va to'lovlarni boshqarish uchun pastdagi tugmani bosing 👇\n\n"
+                "💡 Mijozni tez qo'shish: shu chatga 📎 → <b>Kontakt</b> yuboring."
             )
             button = {"text": "🏪 Do'konni ochish", "web_app": {"url": login_url}}
         elif Client.objects.filter(telegram_id=chat_id).exists():
@@ -1052,6 +1066,8 @@ def client_form_view(request, client_id=None):
 
     # Tahrirlashda orqaga - mijoz sahifasiga, yangi mijozda - ro'yxatga
     back = {'back_href': reverse('admin_client_detail', args=[client.id])} if client else {'back_url': 'client_list'}
+    # Daftardan ko'chirilgan qarz bir marta kiritiladi (yangi mijozda yoki hali kiritilmagan bo'lsa)
+    back['show_opening'] = not client or not Debt.objects.filter(client=client, is_opening=True).exists()
 
     if request.method == 'POST':
         full_name = (request.POST.get('full_name') or '').strip()
@@ -1074,9 +1090,16 @@ def client_form_view(request, client_id=None):
             if duplicates.exists():
                 error = "Bu raqamli mijoz do'koningizda allaqachon bor."
 
+        opening_uzs = parse_amount(request.POST.get('opening_uzs')) if back['show_opening'] else 0
+        opening_usd = parse_amount(request.POST.get('opening_usd')) if back['show_opening'] else 0
+        if not error and (opening_uzs < 0 or opening_usd < 0):
+            error = "Eski qarz manfiy bo'lishi mumkin emas."
+
         if error:
             messages.error(request, error)
-            form_data = {'full_name': full_name, 'phone': raw_phone}
+            form_data = {'full_name': full_name, 'phone': raw_phone,
+                         'opening_uzs': request.POST.get('opening_uzs', ''),
+                         'opening_usd': request.POST.get('opening_usd', '')}
             return render(request, 'client_form.html', {'client': client, 'form': form_data, **back})
 
         if client:
@@ -1087,6 +1110,12 @@ def client_form_view(request, client_id=None):
         else:
             client = Client.objects.create(shop=shop, full_name=full_name, phone=phone)
             messages.success(request, "Yangi mijoz qo'shildi! Endi uni botga taklif qilishingiz mumkin.")
+        if client_tools.add_opening_balance(client, round(opening_uzs), Decimal(str(round(opening_usd, 2)))):
+            if client.telegram_id:
+                client_tools.ask_opening_confirmation(client)
+                messages.info(request, "📒 Eski qarz balansga yozildi, mijozga tasdiqlash uchun yuborildi.")
+            else:
+                messages.info(request, "📒 Eski qarz balansga yozildi. Mijoz botga ulanganda uni tasdiqlaydi.")
 
         return redirect('admin_client_detail', client_id=client.id)
 
@@ -1169,10 +1198,10 @@ def reports_view(request):
         debt__created_at__month=month
     ).distinct().annotate(
         # 1. NASIYA (UZS va USD)
-        debt_uzs=Sum('debt__amount_uzs', filter=Q(debt__transaction_type='debt', debt__created_at__year=year,
-                                                  debt__created_at__month=month)),
-        debt_usd=Sum('debt__amount_usd', filter=Q(debt__transaction_type='debt', debt__created_at__year=year,
-                                                  debt__created_at__month=month)),
+        debt_uzs=Sum('debt__amount_uzs', filter=Q(debt__transaction_type='debt', debt__is_opening=False,
+                                                  debt__created_at__year=year, debt__created_at__month=month)),
+        debt_usd=Sum('debt__amount_usd', filter=Q(debt__transaction_type='debt', debt__is_opening=False,
+                                                  debt__created_at__year=year, debt__created_at__month=month)),
 
         # 2. TO'LOV (UZS va USD)
         # Bazada to'lovlar manfiy saqlangan bo'lsa ham Sum qilaveramiz, keyin shablonda abs (modul) olamiz.

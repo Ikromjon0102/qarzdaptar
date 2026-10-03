@@ -22,14 +22,43 @@
         </div>
     </div>
 
+    {% if show_opening %}
+    <div class="section-title mt-0">Eski qarzi <span class="text-lowercase fw-normal">(ixtiyoriy)</span></div>
+    <div class="app-card mb-3">
+        <div class="row g-2">
+            <div class="col-7">
+                <label class="form-label">So'm</label>
+                <input type="text" inputmode="decimal" name="opening_uzs" class="form-control money-input" placeholder="0"
+                       value="{{ form.opening_uzs|default:'' }}">
+            </div>
+            <div class="col-5">
+                <label class="form-label">Dollar</label>
+                <input type="text" inputmode="decimal" name="opening_usd" class="form-control money-input" placeholder="0"
+                       value="{{ form.opening_usd|default:'' }}">
+            </div>
+        </div>
+        <div class="small text-muted mt-2">Qog'oz daftardagi hozirgi qarzi. Darhol balansga yoziladi, hisobotlarda yangi savdo
+            sifatida hisoblanmaydi. Mijoz botga ulanganda uni bir marta tasdiqlaydi.</div>
+    </div>
+    {% endif %}
+
     {% if not client %}
-    <p class="small text-center mb-3" style="color: var(--tg-hint);">
-        <i class="fa-brands fa-telegram"></i> Saqlangandan keyin mijoz sahifasidan uni botga taklif qilishingiz mumkin.
-    </p>
+    <div class="app-toast mb-3">
+        <i class="fa-brands fa-telegram mt-1" style="color: var(--tg-button);"></i>
+        <div class="small">
+            <b>Tezroq usul:</b> botga 📎 → <b>Kontakt</b> orqali mijozni yuboring — ism va telefon o'zi kiritiladi.
+            Saqlangandan keyin mijoz sahifasidan uni botga taklif qilasiz.
+        </div>
+    </div>
     {% endif %}
 
     <button type="submit" class="btn btn-primary w-100 py-3 rounded-3 fw-bold">
         <i class="fa-solid fa-floppy-disk"></i> SAQLASH
     </button>
 </form>
+{% endblock %}
+
+{% block scripts %}
+{% include 'components/money_input_js.html' %}
+<script>moneyInput.bindAll();</script>
 {% endblock %}

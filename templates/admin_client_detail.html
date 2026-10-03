@@ -143,6 +143,8 @@
             <span class="row-icon red"><i class="fa-solid fa-xmark"></i></span>
         {% elif debt.status == 'pending' %}
             <span class="row-icon orange"><i class="fa-regular fa-clock"></i></span>
+        {% elif debt.is_opening %}
+            <span class="row-icon gray"><i class="fa-solid fa-book"></i></span>
         {% elif debt.is_cash_sale %}
             <span class="row-icon gray"><i class="fa-solid fa-money-bill-wave"></i></span>
         {% else %}
@@ -155,7 +157,8 @@
                 {{ debt.created_at|date:"d.m.Y H:i" }}
                 {% if debt.status == 'pending' %}· <span style="color: var(--warning);">Kutilmoqda</span>
                 {% elif debt.status == 'rejected' %}· <span class="text-danger">Rad etilgan{% if debt.reject_reason %}: {{ debt.reject_reason|truncatechars:40 }}{% endif %}</span>
-                {% elif debt.is_cash_sale and debt.transaction_type == 'debt' %}· Naqd{% endif %}
+                {% elif debt.is_cash_sale and debt.transaction_type == 'debt' %}· Naqd
+                {% elif debt.is_opening %}· {% if debt.opening_ack %}mijoz tasdiqlagan{% else %}tasdiqlanmagan{% endif %}{% endif %}
                 {% if debt.due_date and debt.id in due.open_debts %}
                     · <span class="{% if debt.due_date < today %}text-danger fw-bold{% else %}text-muted{% endif %}"><i class="fa-regular fa-calendar"></i> {{ debt.due_date|date:"d.m" }}</span>
                 {% endif %}
