@@ -13,6 +13,11 @@ avtomatik hisoblanadi.
 
 ## Imkoniyatlar
 
+### Ro'yxatdan o'tish
+- Faqat botda: landing'dagi tugma `t.me/<bot>?start=signup` ni ochadi, bot do'kon nomi va
+  turini (oziq-ovqat, qurilish, santexnika, maishiy texnika...) so'raydi — do'kon tayyor.
+  Telegram ID qo'lda kiritilmaydi. Bekor qilish: `/cancel`.
+
 ### Do'kon egasi va xodimlar
 - **Savdo**: nasiya yoki naqd; bir nechta tovar, so'm va dollar, kurs bo'yicha jami.
 - **To'lov olish**: mijozning joriy qarzi, «Hammasi» tugmasi, qoldiq oldindan ko'rinadi.
@@ -95,6 +100,8 @@ Sozlanmagan narsa bo'lsa, `python manage.py check` ogohlantiradi.
 ```
 config/        Django sozlamalari, URL lar (.env shu yerda o'qiladi)
 core/          Asosiy ilova: do'kon, mijoz, nasiya/to'lov, bot, hisobotlar
+  bot_signup.py    Botda do'kon ochish (nomi -> turi)
+  landing.py       Landing va maxfiylik sahifasi matnlari (UZ/RU)
   telegram.py      Telegram API (timeout, fonda yuborish)
   telegram_auth.py Mini App initData imzosini tekshirish
   reminders.py     Qarz eslatmalari
@@ -122,8 +129,12 @@ eslatmalar, Excel, zaxira, Payme va Click protokollari testlar bilan qamrab olin
 
 ## Landing sahifa dizayni
 
+Landing o'zbek va rus tilida (`?lang=ru`). Matnlar shablonda emas, `core/landing.py` da —
+matnni o'zgartirish uchun CSS'ni qayta build qilish shart emas.
+Ilova skrinshotlari: `static/images/screens/`, ulashish kartochkasi: `static/images/og.png`.
+
 `static/css/landing.css` oldindan build qilingan (serverda Node.js kerak emas).
-`templates/landing.html` dagi klasslarni o'zgartirsangiz:
+`templates/landing.html`, `templates/landing/` yoki `templates/privacy.html` dagi klasslarni o'zgartirsangiz:
 
 ```bash
 npm install

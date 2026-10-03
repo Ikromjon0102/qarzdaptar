@@ -1,0 +1,5 @@
+{% load static %}{# Telefon ramkasidagi ilova ekrani. screen: static/images/screens/<screen>.webp #}
+<div class="overflow-hidden rounded-[2.4rem] border-[7px] border-[#1d3427] bg-[#f2f3f7] shadow-2xl shadow-black/50">
+    <img src="{% static 'images/screens/'|add:screen|add:'.webp' %}" width="600" height="1298"
+         alt="{{ t.screens_alt }}" class="block h-auto w-full" {% if screen != 'app-home' %}loading="lazy"{% endif %}>
+</div>

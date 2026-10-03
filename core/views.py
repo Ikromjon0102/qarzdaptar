@@ -19,7 +19,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from store.models import Order
-from . import exports, telegram
+from . import bot_signup, exports, landing, telegram
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
 from .permissions import is_shop_admin, shop_admin_required
@@ -67,7 +67,7 @@ def login_page_view(request):
 
     # --- 3. HECH KIM EMASMI? ---
     # Demak bu yangi mehmon -> Landing page (reklama)
-    return render(request, 'landing.html')
+    return landing.landing(request)
 
 
 def telegram_auth_view(request):
@@ -714,17 +714,21 @@ def telegram_webhook(request):
                 chat_id = data['message']['chat']['id']
                 text = data['message'].get('text', '')
 
+                tg_from = data['message'].get('from', {})
+
                 if text.startswith('/start '):
                     token = text.split(' ', 1)[1].strip()
                     if token == 'login':
                         # Do'kon egasi ro'yxatdan o'tgach shu yerga keladi
                         send_menu(chat_id, settings.SITE_DOMAIN)
+                    elif token == 'signup':
+                        # Landing sahifadagi "Telegram orqali boshlash" tugmasi
+                        if bot_signup.already_registered(chat_id):
+                            send_menu(chat_id, settings.SITE_DOMAIN)
+                        else:
+                            bot_signup.start(chat_id, tg_from)
                     elif token.startswith('staff_'):
-                        accept_staff_invite(chat_id, token[len('staff_'):], data['message'].get('from', {}))
-                    elif token == 'id':
-                        # Landing sahifadagi "ID olish" tugmasi
-                        send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>\n\n"
-                                             "Shu raqamni nusxalab, ro'yxatdan o'tish formasiga kiriting.")
+                        accept_staff_invite(chat_id, token[len('staff_'):], tg_from)
                     else:
                         # Token orqali mijozni topamiz (u qaysi do'konda bo'lsa ham)
                         client = None
@@ -742,8 +746,14 @@ def telegram_webhook(request):
                             send_tg_msg(chat_id, "❌ Havola eskirgan yoki noto'g'ri. Do'kondan yangi havola so'rang.")
                 elif text == '/start':
                     send_menu(chat_id, settings.SITE_DOMAIN)
+                elif text == '/cancel':
+                    if not bot_signup.cancel(chat_id):
+                        send_menu(chat_id, settings.SITE_DOMAIN)
                 elif text in ['/id', '/myid']:
                     send_tg_msg(chat_id, f"🆔 Sizning Telegram ID: <code>{chat_id}</code>")
+                elif not text.startswith('/'):
+                    # Ro'yxatdan o'tish jarayonidagi javob (do'kon nomi)
+                    bot_signup.handle_text(chat_id, text)
 
             elif 'callback_query' in data:
                 callback = data['callback_query']
@@ -751,7 +761,14 @@ def telegram_webhook(request):
                 chat_id = callback['message']['chat']['id']
                 message_id = callback['message']['message_id']
 
-                if data_text.startswith('order_accept_'):
+                if data_text == 'signup_start':
+                    if bot_signup.already_registered(chat_id):
+                        send_menu(chat_id, settings.SITE_DOMAIN)
+                    else:
+                        bot_signup.start(chat_id, callback.get('from', {}))
+                elif data_text.startswith('signup_cat:'):
+                    bot_signup.handle_category(chat_id, message_id, data_text.split(':', 1)[1])
+                elif data_text.startswith('order_accept_'):
                     order_id = data_text.split('_')[2]
                     handle_order_accept(chat_id, message_id, order_id)
                 elif data_text.startswith('order_reject_'):
@@ -904,12 +921,12 @@ def send_menu(chat_id, domain):
         else:
             welcome_text = (
                 "👋 <b>QarzDaptar</b>ga xush kelibsiz!\n\n"
-                "Siz hali ro'yxatdan o'tmagansiz.\n"
-                "• <b>Do'kon egasimisiz?</b> Pastdagi tugma orqali do'kon oching.\n"
-                "• <b>Mijozmisiz?</b> Do'kondan shaxsiy havola so'rang.\n\n"
-                f"🆔 Sizning Telegram ID: <code>{chat_id}</code>"
+                "Nasiya daftaringiz endi Telegramda: mijoz har bir nasiyani o'zi tasdiqlaydi.\n\n"
+                "• <b>Do'kon egasimisiz?</b> Pastdagi tugmani bosing — 1 daqiqada do'kon ochiladi, "
+                f"{bot_signup.TRIAL_DAYS} kun bepul.\n"
+                "• <b>Mijozmisiz?</b> Do'kondan shaxsiy havola so'rang."
             )
-            button = {"text": "🏪 Do'kon ochish", "web_app": {"url": f"https://{domain}/"}}
+            button = {"text": "🏪 Do'kon ochish", "callback_data": "signup_start"}
 
         telegram.send_message(chat_id, welcome_text, reply_markup={"inline_keyboard": [[button]]})
     except Exception:

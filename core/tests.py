@@ -6,7 +6,7 @@ from django.test import TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Client, Debt, Shop, UserProfile
+from .models import BotSignup, Client, Debt, Shop, UserProfile
 from .telegram_auth import sign_init_data, verify_init_data
 
 TEST_BOT_TOKEN = '123456:TEST-token'
@@ -29,23 +29,76 @@ def make_shop(tg_id='111111', name="Test Do'kon"):
     return user, shop
 
 
-@mock.patch('requests.post')
-class SignupTests(TestCase):
-    def test_signup_starts_trial(self, _post):
-        self.client.post(reverse('signup'), {
-            'shop_name': 'Baraka', 'admin_name': 'Ali', 'telegram_id': '123456789',
-        })
-        shop = Shop.objects.get(name='Baraka')
-        self.assertTrue(shop.is_trial_used)
-        self.assertGreaterEqual(shop.days_left, 13)
+@mock.patch('core.bot_signup.telegram')
+class BotSignupTests(TestCase):
+    """Botda do'kon ochish: /start signup -> nomi -> turi -> do'kon tayyor."""
 
-    def test_signup_rejects_phone_number(self, _post):
-        resp = self.client.post(reverse('signup'), {
-            'shop_name': 'Baraka', 'admin_name': 'Ali', 'telegram_id': '998901234567',
-        })
-        self.assertEqual(resp.status_code, 302)
+    def update(self, payload):
+        return self.client.post(reverse('telegram_webhook'), data=json.dumps(payload),
+                                content_type='application/json')
+
+    def text(self, text, chat_id=555):
+        return self.update({'message': {'chat': {'id': chat_id}, 'from': {'id': chat_id, 'first_name': 'Ali'},
+                                        'text': text}})
+
+    def tap(self, data, chat_id=555):
+        return self.update({'callback_query': {'id': 'cb', 'data': data, 'from': {'id': chat_id, 'first_name': 'Ali'},
+                                               'message': {'chat': {'id': chat_id}, 'message_id': 9}}})
+
+    def test_full_flow_creates_shop_with_category_and_trial(self, tg):
+        self.text('/start signup')
+        self.assertIn('1/2', tg.send_message.call_args[0][1])
+        self.text('  Baraka   Market ')
+        self.assertIn('2/2', tg.send_message.call_args[0][1])
+        buttons = [b['callback_data'] for row in tg.send_message.call_args[1]['reply_markup']['inline_keyboard']
+                   for b in row]
+        self.assertIn('signup_cat:plumbing', buttons)
+        with mock.patch('core.views.answer_callback'):
+            self.tap('signup_cat:plumbing')
+
+        shop = Shop.objects.get(owner__username='555')
+        self.assertEqual(shop.name, 'Baraka Market')
+        self.assertEqual(shop.category, 'plumbing')
+        self.assertGreaterEqual(shop.days_left, 13)
+        self.assertEqual(shop.owner.profile.role, 'admin')
+        self.assertTrue(shop.settings.usd_rate)
+        self.assertIn('ochildi', tg.edit_message.call_args[0][2])
+        self.assertIn('web_app', str(tg.edit_message.call_args[1]['reply_markup']))
+        self.assertFalse(BotSignup.objects.exists())
+
+    def test_invalid_name_is_asked_again(self, tg):
+        self.text('/start signup')
+        self.text('A')
+        self.assertEqual(BotSignup.objects.get().step, 'name')
+
+    def test_registered_user_gets_menu_instead(self, tg):
+        make_shop(tg_id='555')
+        with mock.patch('core.views.send_menu') as menu:
+            self.text('/start signup')
+        menu.assert_called_once()
+        self.assertFalse(BotSignup.objects.exists())
+
+    def test_stale_category_tap_does_nothing(self, tg):
+        with mock.patch('core.views.answer_callback'):
+            self.tap('signup_cat:grocery')
         self.assertFalse(Shop.objects.exists())
 
+    def test_cancel(self, tg):
+        self.text('/start signup')
+        self.text('/cancel')
+        self.assertFalse(BotSignup.objects.exists())
+        self.text('Baraka')  # endi oddiy matn hech narsa yaratmaydi
+        self.assertFalse(BotSignup.objects.exists())
+
+    def test_plain_start_offers_signup_button(self, tg):
+        with mock.patch('core.views.telegram') as views_tg:
+            self.text('/start')
+        markup = views_tg.send_message.call_args[1]['reply_markup']
+        self.assertEqual(markup['inline_keyboard'][0][0]['callback_data'], 'signup_start')
+
+
+@mock.patch('requests.post')
+class SubscriptionBannerTests(TestCase):
     def test_menu_hides_banner_without_subscription_date(self, _post):
         user, _shop = make_shop()
         self.client.force_login(user)
@@ -68,8 +121,8 @@ class WebhookTests(TestCase):
         send_menu.assert_called_once()
         send_msg.assert_not_called()
 
-    def test_start_id_sends_telegram_id(self, send_menu, send_msg):
-        self.post_text('/start id', chat_id=777)
+    def test_id_command_sends_telegram_id(self, send_menu, send_msg):
+        self.post_text('/id', chat_id=777)
         self.assertIn('777', send_msg.call_args[0][1])
 
     def test_invite_token_links_client(self, send_menu, send_msg):
@@ -923,3 +976,29 @@ class TabBarAndLiveReloadTests(TestCase):
     def test_live_reload_only_on_list_pages(self, _post):
         self.assertContains(self.client.get(reverse('main_menu')), reverse('live_version'))
         self.assertNotContains(self.client.get(reverse('create_debt')), reverse('live_version'))
+
+
+@override_settings(BOT_USERNAME='QarzDaptarBot', SUBSCRIPTION_PRICE=100000)
+class LandingTests(TestCase):
+    def test_landing_points_to_bot_signup(self):
+        resp = self.client.get(reverse('landing_page'))
+        self.assertContains(resp, 'https://t.me/QarzDaptarBot?start=signup')
+        self.assertContains(resp, '100 000')
+        self.assertContains(resp, 'property="og:image"')
+        self.assertContains(resp, 'lang="uz"')
+        self.assertNotContains(resp, 'telegram_id')  # eski forma yo'q
+
+    def test_russian_version_is_remembered(self):
+        resp = self.client.get(reverse('landing_page') + '?lang=ru')
+        self.assertContains(resp, 'lang="ru"')
+        self.assertContains(resp, 'Сантехника')
+        self.assertEqual(resp.cookies['site_lang'].value, 'ru')
+        self.assertContains(self.client.get(reverse('privacy')), 'Политика конфиденциальности')
+
+    def test_privacy_page(self):
+        self.assertContains(self.client.get(reverse('privacy')), 'Maxfiylik siyosati')
+
+    def test_logged_in_shop_owner_skips_landing(self):
+        user, _shop = make_shop()
+        self.client.force_login(user)
+        self.assertRedirects(self.client.get(reverse('landing_page')), reverse('main_menu'))

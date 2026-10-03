@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, api
+from . import api, landing, views
 
 urlpatterns = [
     # 1. Sotuvchi oynasi
@@ -9,7 +9,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
 
     path('', views.login_page_view, name='landing_page'), # Glavniy sahifa
-    path('signup/', api.signup_view, name='signup'),
+    path('privacy/', landing.privacy_view, name='privacy'),
 
     path('my-cabinet/', views.client_cabinet_view, name='client_cabinet'),
     path('my-cabinet/switch/<int:client_id>/', views.client_switch_view, name='client_switch'),

@@ -112,7 +112,8 @@ so'ralsa, tizim rad etadi (-31007) — pulni qaytarish Payme kabineti va admin o
 ## 6. Landing sahifa dizayni (Tailwind)
 
 `static/css/landing.css` oldindan build qilingan va repoda turadi — serverda Node.js kerak emas.
-Faqat `templates/landing.html` dagi klasslarni o'zgartirsangiz, qayta build qiling:
+Faqat `templates/landing.html`, `templates/landing/` yoki `templates/privacy.html` dagi klasslarni o'zgartirsangiz, qayta build qiling
+(matnlar `core/landing.py` da — ularni o'zgartirish uchun build kerak emas):
 
 ```bash
 npm install

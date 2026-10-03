@@ -83,9 +83,11 @@ def send_document(chat_id, filename, content, caption='', background=None):
     return _post_document(chat_id, filename, content, caption)
 
 
-def edit_message(chat_id, message_id, text, background=None):
-    return call("editMessageText", {"chat_id": chat_id, "message_id": message_id,
-                                    "text": text, "parse_mode": "HTML"}, background)
+def edit_message(chat_id, message_id, text, reply_markup=None, background=None):
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "HTML"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    return call("editMessageText", payload, background)
 
 
 def answer_callback(callback_id, text=None, show_alert=False, background=None):

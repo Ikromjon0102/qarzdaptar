@@ -1,627 +1,307 @@
-{% load static %}
-<!DOCTYPE html>
-<html class="dark" lang="uz">
+{% load static %}<!DOCTYPE html>
+<html lang="{{ lang }}" class="scroll-smooth">
 
 <head>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>QarzDaptar - Nasiya Savdoning Zamonaviy Tizimi</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ t.title }}</title>
+    <meta name="description" content="{{ t.description }}">
+    <meta name="theme-color" content="#0b1710">
+    <link rel="canonical" href="{{ site_url }}/">
+    <link rel="alternate" hreflang="uz" href="{{ site_url }}/?lang=uz">
+    <link rel="alternate" hreflang="ru" href="{{ site_url }}/?lang=ru">
+
+    <!-- Telegram va boshqa ilovalarda havola ulashilganda chiqadigan kartochka -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="QarzDaptar">
+    <meta property="og:title" content="{{ t.title }}">
+    <meta property="og:description" content="{{ t.description }}">
+    <meta property="og:url" content="{{ site_url }}/">
+    <meta property="og:image" content="{{ site_url }}{% static 'images/og.png' %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="{% if lang == 'ru' %}ru_RU{% else %}uz_UZ{% endif %}">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/favicon.svg' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/apple-touch-icon.png' %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- Tailwind oldindan build qilingan (tailwind.config.js, npm run build:css) -->
-    <link rel="stylesheet" href="{% static 'css/landing.css' %}" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&family=Noto+Sans:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet" />
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/60/60484.png" />
-    <style>
-        html {
-            scroll-behavior: smooth;
-        }
-
-        .carousel-container {
-            perspective: 1000px;
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            height: 600px;
-            /* Telefon balandligiga moslang */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .carousel-card {
-            position: absolute;
-            width: 280px;
-            /* Telefon kengligi */
-            height: 560px;
-            /* Telefon balandligi */
-            transition: all 0.8s ease-in-out;
-            /* Silliq almashish vaqti */
-            border-radius: 2.5rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            border: 8px solid #1e293b;
-            /* Telefon ramkasi rangi */
-            background: #0f172a;
-        }
-
-        /* O'rtadagi karta (Katta va yorqin) */
-        .card-center {
-            transform: translateX(0) scale(1.1);
-            z-index: 30;
-            opacity: 1;
-            box-shadow: 0 0 40px rgba(48, 232, 122, 0.3);
-            /* Primary rangdagi soya */
-            border-color: #334155;
-        }
-
-        /* Chapdagi karta (Kichik va xira) */
-        .card-left {
-            transform: translateX(-60%) scale(0.85);
-            z-index: 10;
-            opacity: 0.6;
-            filter: blur(1px);
-        }
-
-        /* O'ngdagi karta (Kichik va xira) */
-        .card-right {
-            transform: translateX(60%) scale(0.85);
-            z-index: 10;
-            opacity: 0.6;
-            filter: blur(1px);
-        }
-
-        /* Telefon ichidagi rasm */
-        .carousel-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .custom-input {
-            background-color: #15281e;
-            border: 1px solid #244732;
-            color: darkslategray;
-            transition: all 0.3s ease;
-        }
-
-        .custom-input:focus {
-            border-color: #30e87a;
-            box-shadow: 0 0 0 2px rgba(48, 232, 122, 0.2);
-            outline: none;
-        }
-
-        /* Scrollbar yashirish */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* Karusel uchun animatsiya */
-        .carousel-slide {
-            transition: opacity 1s ease-in-out;
-        }
-
-        .opacity-0 {
-            opacity: 0;
-        }
-
-        .opacity-100 {
-            opacity: 1;
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/landing.css' %}">
 </head>
 
-<body
-    class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white antialiased overflow-x-hidden">
-    <div class="relative flex h-auto min-h-screen w-full flex-col group/design-root">
-        <div
-            class="w-full flex justify-center sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-border-green">
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8">
-                <header class="flex items-center justify-between whitespace-nowrap py-3">
-                    <div class="flex items-center gap-2 text-slate-900 dark:text-white">
-                        <div class="size-8 text-primary flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[32px]">account_balance_wallet</span>
-                        </div>
-                        <h2 class="text-lg font-bold leading-tight tracking-tight">
-                            Qarz<span class="text-primary">Daptar</span>
-                        </h2>
-                    </div>
+<body class="bg-ink font-sans text-fg antialiased">
 
-                    <div class="hidden md:flex flex-1 justify-center gap-8">
-                        <a class="text-sm font-medium hover:text-primary transition-colors"
-                            href="#features">Imkoniyatlar</a>
-                        <a class="text-sm font-medium hover:text-primary transition-colors" href="#reviews">Fikrlar</a>
-                        <a class="text-sm font-medium hover:text-primary transition-colors" href="#how-it-works">Qanday
-                            ishlaydi?</a>
-                    </div>
+    <!-- ============ YUQORI PANEL ============ -->
+    <header class="sticky top-0 z-50 border-b border-line bg-ink/85 backdrop-blur">
+        <div class="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
+            <a href="#top" class="flex items-center gap-2 font-extrabold tracking-tight">
+                <span class="grid size-8 place-items-center rounded-lg bg-brand/15 text-brand">
+                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.wallet|safe }}</svg>
+                </span>
+                <span class="text-lg">Qarz<span class="text-brand">Daptar</span></span>
+            </a>
+            <nav class="ml-6 hidden items-center gap-6 text-sm font-semibold text-muted md:flex" aria-label="Bo'limlar">
+                {% for href, label in t.nav %}<a href="{{ href }}" class="transition hover:text-fg">{{ label }}</a>{% endfor %}
+            </nav>
+            <div class="ml-auto flex items-center gap-3">
+                <div class="flex rounded-lg border border-line p-0.5 text-xs font-bold" role="group" aria-label="Til / Язык">
+                    <a href="?lang=uz" class="rounded-md px-2 py-1 {% if lang == 'uz' %}bg-card text-fg{% else %}text-dim hover:text-fg{% endif %}" hreflang="uz">UZ</a>
+                    <a href="?lang=ru" class="rounded-md px-2 py-1 {% if lang == 'ru' %}bg-card text-fg{% else %}text-dim hover:text-fg{% endif %}" hreflang="ru">RU</a>
+                </div>
+                <a href="{{ signup_url }}" class="hidden rounded-xl bg-brand px-4 py-2 text-sm font-bold text-ink transition hover:bg-brand-hover sm:block">{{ t.cta_short }}</a>
+            </div>
+        </div>
+    </header>
 
-                    <div class="flex justify-end gap-4">
-                        <a href="#start-now"
-                            class="flex cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-6 bg-primary hover:bg-green-400 transition-colors text-[#112218] text-sm font-bold leading-normal tracking-[0.015em] shadow-lg shadow-primary/20">
-                            <span class="truncate">Do'kon Ochish</span>
+    <main id="top">
+
+        <!-- ============ BOSH BLOK ============ -->
+        <section class="relative overflow-hidden">
+            <div class="pointer-events-none absolute -top-40 left-1/2 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-brand/10 blur-3xl" aria-hidden="true"></div>
+            <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pb-24 lg:pt-20">
+                <div class="text-center lg:text-left">
+                    <p class="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs font-bold text-muted">
+                        <span class="size-2 rounded-full bg-brand"></span>{{ t.badge }}
+                    </p>
+                    <h1 class="mt-5 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
+                        {{ t.hero_title }}
+                        <span class="mt-2 block text-2xl leading-snug text-brand sm:text-3xl lg:text-[2.1rem]">{{ t.hero_accent }}</span>
+                    </h1>
+                    <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg lg:mx-0">{{ t.hero_text }}</p>
+                    <div class="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                        {% include 'landing/cta.html' %}
+                        <a href="#how" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-line px-6 py-4 font-bold text-fg transition hover:bg-card">
+                            {{ t.hero_secondary }}
                         </a>
                     </div>
-                </header>
-            </div>
-        </div>
+                    <p class="mt-4 text-sm text-dim">{{ t.hero_note }}</p>
+                </div>
 
-        <div class="w-full flex justify-center py-12 md:py-20 lg:py-24 relative overflow-hidden">
-            <div
-                class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 blur-[120px] rounded-full pointer-events-none">
-            </div>
-
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8 relative z-10">
-                <div class="flex flex-col gap-10 lg:gap-16 lg:flex-row items-center">
-                    <div class="flex flex-col gap-6 lg:w-1/2 justify-center text-center lg:text-left">
-                        <div class="flex flex-col gap-4">
-                            <div
-                                class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border-green bg-card-dark w-fit mx-auto lg:mx-0">
-                                <span class="size-2 rounded-full bg-primary animate-pulse-slow"></span>
-                                <span class="text-xs font-medium text-white/80 uppercase tracking-wider">Telegramda
-                                    Ishlaydi</span>
-                            </div>
-
-                            <h1
-                                class="text-4xl font-black leading-tight tracking-tight md:text-5xl lg:text-6xl text-slate-900 dark:text-white">
-                                Qarz Daftardan<br />
-                                <span class="text-primary">Voz Keching.</span>
-                            </h1>
-
-                            <h2
-                                class="text-slate-600 dark:text-slate-300 text-lg font-normal leading-relaxed max-w-[540px] mx-auto lg:mx-0">
-                                Mijozlaringiz qarzini to'g'ridan-to'g'ri Telegram orqali
-                                boshqaring. Xavfsiz, tez va har doim yoningizda.
-                            </h2>
-                        </div>
-
-                        <div class="flex flex-wrap gap-4 pt-2 justify-center lg:justify-start">
-                            <a href="#start-now"
-                                class="flex cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-8 bg-primary hover:bg-green-400 transition-colors text-[#112218] text-base font-bold shadow-[0_0_20px_rgba(48,232,122,0.3)] hover:shadow-[0_0_30px_rgba(48,232,122,0.5)]">
-                                <span class="material-symbols-outlined mr-2 text-[20px]">rocket_launch</span>
-                                <span class="truncate">Boshlash</span>
-                            </a>
-                            <a href="https://t.me/{{ bot_username }}" target="_blank"
-                                class="flex cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-8 bg-card-dark hover:bg-border-green border border-border-green text-white text-base font-bold transition-colors">
-                                <span class="material-symbols-outlined mr-2 text-[20px]">play_circle</span>
-                                <span class="truncate">Botni Ko'rish</span>
-                            </a>
-                        </div>
-
-                        <div
-                            class="flex items-center gap-4 pt-4 text-sm text-slate-500 dark:text-slate-400 justify-center lg:justify-start">
-                            <div class="flex -space-x-2">
-                                <div
-                                    class="size-8 rounded-full bg-slate-700 border-2 border-background-dark flex items-center justify-center text-[10px] text-white font-bold">
-                                    A
-                                </div>
-                                <div
-                                    class="size-8 rounded-full bg-primary border-2 border-background-dark flex items-center justify-center text-[10px] text-black font-bold">
-                                    B
-                                </div>
-                                <div
-                                    class="size-8 rounded-full bg-slate-600 border-2 border-background-dark flex items-center justify-center text-[10px] text-white font-bold">
-                                    D
-                                </div>
-                            </div>
-                            <p>150+ do'kon egalari ishonchini qozongan</p>
+                <div class="relative mx-auto w-full max-w-[300px] lg:max-w-[320px]">
+                    {% include 'landing/phone.html' with screen='app-home' %}
+                    <div class="absolute -left-6 top-24 flex w-[17.5rem] items-center gap-3 rounded-2xl border border-line bg-card/95 p-3 shadow-2xl backdrop-blur sm:-left-24">
+                        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-brand text-ink">
+                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.check|safe }}</svg>
+                        </span>
+                        <div class="min-w-0 text-left">
+                            <p class="text-sm font-bold">{{ t.float_confirm }}</p>
+                            <p class="text-xs text-muted">{{ t.float_amount }}</p>
                         </div>
                     </div>
-
-                    <div class="w-full lg:w-1/2 relative flex justify-center items-center mt-12 lg:mt-0">
-                        <div
-                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/20 blur-[120px] rounded-full -z-10">
-                        </div>
-
-                        <div class="carousel-container" id="phoneCarousel">
-                            <div class="carousel-card card-center" data-index="0">
-                                <div
-                                    class="absolute top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#1e293b] z-20 ring-1 ring-slate-700/50">
-                                </div>
-                                <img src="{% static 'images/1.jpg' %}" class="carousel-img" alt="Screen 1" />
-                            </div>
-
-                            <div class="carousel-card card-center" data-index="0">
-                                <div
-                                    class="absolute top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#1e293b] z-20 ring-1 ring-slate-700/50">
-                                </div>
-                                <img src="{% static 'images/4.jpg' %}" class="carousel-img" alt="Screen 1" />
-                            </div>
-
-                            <div class="carousel-card card-right" data-index="1">
-                                <div
-                                    class="absolute top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#1e293b] z-20 ring-1 ring-slate-700/50">
-                                </div>
-                                <img src="{% static 'images/2.jpg' %}" class="carousel-img" alt="Screen 2" />
-                            </div>
-
-                            <div class="carousel-card card-left" data-index="2">
-                                <div
-                                    class="absolute top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#1e293b] z-20 ring-1 ring-slate-700/50">
-                                </div>
-                                <img src="{% static 'images/3.jpg' %}" class="carousel-img" alt="Screen 3" />
-                            </div>
-                        </div>
+                    <div class="absolute -right-4 bottom-28 hidden w-60 items-center gap-3 rounded-2xl border border-line bg-card/95 p-3 shadow-2xl backdrop-blur sm:-right-20 sm:flex">
+                        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-amber-400/20 text-amber-300">
+                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.bell|safe }}</svg>
+                        </span>
+                        <p class="text-left text-sm font-bold">{{ t.float_remind }}</p>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="w-full flex justify-center py-20 bg-[#112117] border-y border-border-green" id="features">
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8">
-                <div class="flex flex-col gap-10 md:gap-16">
-                    <div class="text-center items-center">
-                        <h2 class="text-primary font-bold tracking-wider uppercase text-sm mb-3">
-                            Nega QarzDaptar?
-                        </h2>
-                        <h3
-                            class="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight max-w-[720px] mx-auto">
-                            Eski daftarni <span class="text-primary">aqlli</span> yordamchiga almashtiring.
-                        </h3>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div
-                            class="group flex flex-col gap-6 rounded-2xl border border-border-green bg-card-dark p-8 hover:bg-[#203c2b] transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/5">
-                            <div
-                                class="size-14 rounded-full bg-border-green group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                                <span
-                                    class="material-symbols-outlined text-primary text-[32px]">notifications_active</span>
+        <!-- ============ MUAMMO -> YECHIM ============ -->
+        <section class="border-t border-line bg-ink-2 py-16 lg:py-24">
+            <div class="mx-auto max-w-6xl px-4 sm:px-6">
+                {% include 'landing/heading.html' with kicker=t.problems_kicker title=t.problems_title %}
+                <div class="mt-10 grid gap-4 md:grid-cols-2">
+                    {% for p in t.problems %}
+                    <div class="rounded-2xl border border-line bg-card p-5 sm:p-6">
+                        <div class="flex items-start gap-4">
+                            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-red-400/10 text-red-300">
+                                <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ p.icon|safe }}</svg>
+                            </span>
+                            <div>
+                                <p class="font-bold text-red-200">{{ p.problem }}</p>
+                                <p class="mt-2 flex gap-2 leading-relaxed text-fg">
+                                    <svg class="mt-1 size-4 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.check|safe }}</svg>
+                                    <span>{{ p.solution }}</span>
+                                </p>
                             </div>
-                            <h4 class="text-white text-xl font-bold">Avtomatik SMS</h4>
-                            <p class="text-[#93c8a8] text-base">
-                                Qarz yozilganda yoki to'lov bo'lganda mijozga avtomatik xabar
-                                boradi.
-                            </p>
-                        </div>
-                        <div
-                            class="group flex flex-col gap-6 rounded-2xl border border-border-green bg-card-dark p-8 hover:bg-[#203c2b] transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/5">
-                            <div
-                                class="size-14 rounded-full bg-border-green group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                                <span class="material-symbols-outlined text-primary text-[32px]">calculate</span>
-                            </div>
-                            <h4 class="text-white text-xl font-bold">Aniq Hisob-kitob</h4>
-                            <p class="text-[#93c8a8] text-base">
-                                Kalkulyatorda soatlab hisoblash shart emas. Jami qarzlar bir
-                                soniyada ko'rinadi.
-                            </p>
-                        </div>
-                        <div
-                            class="group flex flex-col gap-6 rounded-2xl border border-border-green bg-card-dark p-8 hover:bg-[#203c2b] transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/5">
-                            <div
-                                class="size-14 rounded-full bg-border-green group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                                <span class="material-symbols-outlined text-primary text-[32px]">cloud_sync</span>
-                            </div>
-                            <h4 class="text-white text-xl font-bold">Bulutli Xotira</h4>
-                            <p class="text-[#93c8a8] text-base">
-                                Telefoningiz yo'qolsa ham ma'lumotlar o'chib ketmaydi.
-                            </p>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="w-full flex justify-center py-20 bg-[#15281e]" id="reviews">
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8 overflow-hidden">
-                <div class="flex flex-col gap-8">
-                    <div class="flex flex-col gap-2 px-4 text-center md:text-left">
-                        <h2 class="text-slate-900 dark:text-white text-3xl font-black leading-tight">
-                            Tadbirkorlar Ishonchi
-                        </h2>
-                        <p class="text-[#93c8a8]">
-                            O'zbekistondagi yuzlab do'konlar allaqachon bizga o'tdi.
+        <!-- ============ QANDAY ISHLAYDI ============ -->
+        <section id="how" class="scroll-mt-16 border-t border-line py-16 lg:py-24">
+            <div class="mx-auto max-w-6xl px-4 sm:px-6">
+                {% include 'landing/heading.html' with kicker=t.how_kicker title=t.how_title %}
+                <ol class="mt-10 grid gap-4 md:grid-cols-3">
+                    {% for title, text in t.steps %}
+                    <li class="rounded-2xl border border-line bg-card p-6">
+                        <span class="grid size-10 place-items-center rounded-full bg-brand text-lg font-extrabold text-ink">{{ forloop.counter }}</span>
+                        <h3 class="mt-4 text-lg font-bold">{{ title }}</h3>
+                        <p class="mt-2 leading-relaxed text-muted">{{ text }}</p>
+                    </li>
+                    {% endfor %}
+                </ol>
+
+                <!-- Ilova ekranlari: telefonda surib ko'riladi -->
+                <div class="-mx-4 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0" id="screens">
+                    {% for screen, caption in t.screens %}
+                    <figure class="w-[68%] shrink-0 snap-center sm:w-[45%] md:w-auto">
+                        <div class="mx-auto max-w-[260px]">{% include 'landing/phone.html' %}</div>
+                        <figcaption class="mt-4 text-center text-sm font-semibold text-muted">{{ caption }}</figcaption>
+                    </figure>
+                    {% endfor %}
+                </div>
+                <div class="mt-2 flex justify-center gap-2 md:hidden" id="screenDots" aria-hidden="true">
+                    {% for s in t.screens %}<span class="h-1.5 w-1.5 rounded-full bg-line transition-all"></span>{% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ IMKONIYATLAR ============ -->
+        <section id="features" class="scroll-mt-16 border-t border-line bg-ink-2 py-16 lg:py-24">
+            <div class="mx-auto max-w-6xl px-4 sm:px-6">
+                {% include 'landing/heading.html' with kicker=t.features_kicker title=t.features_title %}
+                <div class="mt-10 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+                    {% for f in t.features %}
+                    <div class="flex gap-4 rounded-2xl border border-line bg-card p-4 sm:block sm:p-5 {% if forloop.first %}ring-1 ring-brand/50{% endif %}">
+                        <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+                            <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ f.icon|safe }}</svg>
+                        </span>
+                        <div>
+                            <h3 class="font-bold sm:mt-4">{{ f.title }}</h3>
+                            <p class="mt-1 text-sm leading-relaxed text-muted sm:mt-1.5">{{ f.text }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <h3 class="mt-14 text-center text-lg font-bold">{{ t.types_title }}</h3>
+                <ul class="mx-auto mt-5 flex max-w-4xl flex-wrap justify-center gap-2">
+                    {% for name in shop_types %}
+                    <li class="rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold text-muted">{{ name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+
+        <!-- ============ NARX ============ -->
+        <section id="pricing" class="scroll-mt-16 border-t border-line py-16 lg:py-24">
+            <div class="mx-auto max-w-6xl px-4 sm:px-6">
+                {% include 'landing/heading.html' with kicker=t.pricing_kicker title=t.pricing_title %}
+                <div class="mx-auto mt-10 max-w-md overflow-hidden rounded-3xl border border-brand/40 bg-card shadow-2xl shadow-brand/5">
+                    <div class="bg-brand/10 px-6 py-5 text-center">
+                        <p class="text-2xl font-extrabold text-brand">{{ t.trial_label }}</p>
+                        <p class="mt-1 text-sm text-muted">{{ t.trial_text }}</p>
+                    </div>
+                    <div class="p-6 sm:p-8">
+                        <p class="text-center">
+                            <span class="text-5xl font-extrabold tracking-tight">{{ price }}</span>
+                            <span class="ml-1 font-semibold text-muted">{{ t.per_month }}</span>
                         </p>
-                    </div>
-
-                    <div class="flex overflow-x-auto pb-8 gap-6 px-4 snap-x snap-mandatory hide-scrollbar">
-                        <div
-                            class="snap-center shrink-0 w-[300px] md:w-[360px] flex flex-col gap-4 rounded-2xl bg-card-dark p-6 border border-border-green hover:border-primary/50 transition-colors">
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="size-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-lg">
-                                    A
-                                </div>
-                                <div>
-                                    <p class="text-white font-bold">Akmal Aka</p>
-                                    <p class="text-xs text-[#93c8a8]">Oziq-ovqat do'koni</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-1 text-primary">
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                            </div>
-                            <p class="text-slate-300 text-sm leading-relaxed italic">
-                                "Oldin juma kuni hisob-kitob qilishga 3 soat vaqtim ketardi.
-                                Hozir botga kiraman, jami qarzni ko'raman, bo'ldi. Asabiym ham
-                                tinch."
-                            </p>
-                        </div>
-
-                        <div
-                            class="snap-center shrink-0 w-[300px] md:w-[360px] flex flex-col gap-4 rounded-2xl bg-card-dark p-6 border border-border-green hover:border-primary/50 transition-colors">
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="size-12 rounded-full bg-pink-500 flex items-center justify-center text-white font-bold text-lg">
-                                    M
-                                </div>
-                                <div>
-                                    <p class="text-white font-bold">Malika Opa</p>
-                                    <p class="text-xs text-[#93c8a8]">Kiyim-kechak butigi</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-1 text-primary">
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star_half</span>
-                            </div>
-                            <p class="text-slate-300 text-sm leading-relaxed italic">
-                                "Mijozga 'qarzingiz bor' deb telefon qilishga xijolat
-                                bo'lardim. Bot o'zi chiroyli eslatma yuboradi, mijozlar ham
-                                xursand, men ham."
-                            </p>
-                        </div>
-
-                        <div
-                            class="snap-center shrink-0 w-[300px] md:w-[360px] flex flex-col gap-4 rounded-2xl bg-card-dark p-6 border border-border-green hover:border-primary/50 transition-colors">
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="size-12 rounded-full bg-yellow-600 flex items-center justify-center text-white font-bold text-lg">
-                                    S
-                                </div>
-                                <div>
-                                    <p class="text-white font-bold">Sardor</p>
-                                    <p class="text-xs text-[#93c8a8]">Qurilish mollari</p>
-                                </div>
-                            </div>
-                            <div class="flex gap-1 text-primary">
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                                <span class="material-symbols-outlined text-[18px]">star</span>
-                            </div>
-                            <p class="text-slate-300 text-sm leading-relaxed italic">
-                                "Eng zo'r tarafi — daftarni yo'qotib qo'yishdan qo'rqmayman.
-                                Telefonim o'chsa ham, boshqa telefondan kirib davom
-                                ettiraman."
-                            </p>
-                        </div>
+                        <p class="mt-1 text-center text-sm text-dim">{{ t.after_trial }}</p>
+                        <ul class="mt-6 space-y-3">
+                            {% for item in t.included %}
+                            <li class="flex items-center gap-3">
+                                <svg class="size-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.check|safe }}</svg>
+                                <span>{{ item }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <div class="mt-8 flex flex-col">{% include 'landing/cta.html' %}</div>
+                        <p class="mt-4 text-center text-sm text-dim">{{ t.pricing_note }}</p>
                     </div>
                 </div>
             </div>
+        </section>
+
+        <!-- ============ SAVOLLAR ============ -->
+        <section id="faq" class="scroll-mt-16 border-t border-line bg-ink-2 py-16 lg:py-24">
+            <div class="mx-auto max-w-3xl px-4 sm:px-6">
+                {% include 'landing/heading.html' with title=t.faq_title %}
+                <div class="mt-10 space-y-3">
+                    {% for q, a in t.faq %}
+                    <details class="group rounded-2xl border border-line bg-card px-5 open:pb-5" {% if forloop.first %}open{% endif %}>
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-bold [&::-webkit-details-marker]:hidden">
+                            {{ q }}
+                            <svg class="size-5 shrink-0 text-muted transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </summary>
+                        <p class="leading-relaxed text-muted">{{ a }}</p>
+                    </details>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ YAKUNIY CHAQIRIQ ============ -->
+        <section class="border-t border-line py-16 lg:py-24">
+            <div class="mx-auto max-w-6xl px-4 sm:px-6">
+                <div class="relative overflow-hidden rounded-3xl border border-brand/40 bg-card px-6 py-12 text-center sm:px-12">
+                    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(48,232,122,0.18),transparent_60%)]" aria-hidden="true"></div>
+                    <h2 class="relative text-3xl font-extrabold tracking-tight sm:text-4xl">{{ t.final_title }}</h2>
+                    <p class="relative mt-3 text-muted">{{ t.final_text }}</p>
+                    <div class="relative mt-8 flex justify-center">{% include 'landing/cta.html' %}</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-line">
+        <div class="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 py-10 text-sm sm:px-6 md:flex-row md:justify-between">
+            <a href="#top" class="font-extrabold">Qarz<span class="text-brand">Daptar</span></a>
+            <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 font-semibold text-muted" aria-label="Footer">
+                {% for href, label in t.nav %}<a href="{{ href }}" class="hover:text-fg">{{ label }}</a>{% endfor %}
+                <a href="{% url 'privacy' %}" class="hover:text-fg">{{ t.footer_privacy }}</a>
+                <a href="https://t.me/{{ support_username }}" class="hover:text-fg" target="_blank" rel="noopener">{{ t.footer_contact }}: @{{ support_username }}</a>
+            </nav>
+            <p class="text-dim">&copy; {% now "Y" %} QarzDaptar. {{ t.footer_rights }}</p>
         </div>
+    </footer>
 
-        <div class="w-full flex justify-center py-20" id="how-it-works">
-            <div class="layout-content-container flex flex-col max-w-[960px] flex-1 px-4 lg:px-8">
-                <div class="flex flex-col gap-10">
-                    <div class="text-center mb-4">
-                        <h2 class="text-slate-900 dark:text-white text-3xl font-black leading-tight">
-                            30 Soniyada Boshlang
-                        </h2>
-                    </div>
-                    <div class="grid grid-cols-[60px_1fr] md:grid-cols-[80px_1fr] gap-x-4 px-4">
-                        <div class="flex flex-col items-center gap-2 pt-2">
-                            <div
-                                class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-[#112218] shadow-[0_0_15px_rgba(48,232,122,0.4)]">
-                                <span class="material-symbols-outlined text-[24px]">smart_toy</span>
-                            </div>
-                            <div class="w-[2px] bg-gradient-to-b from-primary to-border-green h-full grow min-h-[80px]">
-                            </div>
-                        </div>
-                        <div class="flex flex-col pb-12 pt-2">
-                            <h3 class="text-slate-900 dark:text-white text-xl font-bold mb-2">
-                                Botga kiring
-                            </h3>
-                            <p class="text-slate-600 dark:text-[#93c8a8]">
-                                @{{ bot_username }} ga kiring va Start bosing.
-                            </p>
-                        </div>
-                        <div class="flex flex-col items-center gap-2">
-                            <div class="w-[2px] bg-border-green h-4"></div>
-                            <div
-                                class="flex h-12 w-12 items-center justify-center rounded-full bg-card-dark border border-primary text-primary">
-                                <span class="material-symbols-outlined text-[24px]">person_add</span>
-                            </div>
-                            <div class="w-[2px] bg-gradient-to-b from-border-green to-primary h-full grow min-h-[80px]">
-                            </div>
-                        </div>
-                        <div class="flex flex-col pb-12 pt-2">
-                            <h3 class="text-slate-900 dark:text-white text-xl font-bold mb-2">
-                                Mijoz qo'shing
-                            </h3>
-                            <p class="text-slate-600 dark:text-[#93c8a8]">
-                                Ism yozing yoki kontakt yuboring.
-                            </p>
-                        </div>
-                        <div class="flex flex-col items-center gap-2">
-                            <div class="w-[2px] bg-primary h-4"></div>
-                            <div
-                                class="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#112218]">
-                                <span class="material-symbols-outlined text-[24px]">receipt_long</span>
-                            </div>
-                        </div>
-                        <div class="flex flex-col pt-2">
-                            <h3 class="text-slate-900 dark:text-white text-xl font-bold mb-2">
-                                Nasiya yozing
-                            </h3>
-                            <p class="text-slate-600 dark:text-[#93c8a8]">
-                                "50000 non" deb yozing, bo'ldi.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="w-full flex justify-center py-20 bg-[#0d1a12]" id="start-now">
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8">
-                <div class="rounded-[2.5rem] bg-gradient-to-br from-primary via-[#249655] to-[#1a3224] p-1 shadow-2xl">
-                    <div
-                        class="bg-[#112117] rounded-[2.3rem] p-8 md:p-12 flex flex-col lg:flex-row gap-12 items-center relative overflow-hidden">
-                        <div class="absolute inset-0 opacity-20" style="
-                  background-image: radial-gradient(
-                    #30e87a 1px,
-                    transparent 1px
-                  );
-                  background-size: 24px 24px;
-                "></div>
-
-                        <div class="flex-1 flex flex-col gap-6 relative z-10 text-center lg:text-left">
-                            <h2 class="text-white text-3xl md:text-5xl font-black leading-tight tracking-tight">
-                                Biznesingizni tartibga soling.
-                            </h2>
-                            <p class="text-gray-300 text-lg font-medium">
-                                Bugunoq o'z do'koningizni yarating. Bepul sinov davri.
-                            </p>
-                            <div class="flex flex-col gap-4 mt-4 text-left">
-                                <div class="flex items-center gap-3 text-white">
-                                    <span class="material-symbols-outlined text-primary">check_circle</span>
-                                    <span>Cheksiz mijozlar</span>
-                                </div>
-                                <div class="flex items-center gap-3 text-white">
-                                    <span class="material-symbols-outlined text-primary">check_circle</span>
-                                    <span>Telegram Bot</span>
-                                </div>
-                                <div class="flex items-center gap-3 text-white">
-                                    <span class="material-symbols-outlined text-primary">check_circle</span>
-                                    <span>Xavfsiz ma'lumot</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="w-full lg:w-[450px] relative z-10">
-                            <div
-                                class="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-[2rem] shadow-2xl">
-                                <h3 class="text-2xl font-bold text-white mb-6 text-center">
-                                    Do'kon Ochish
-                                </h3>
-                                {% if messages %} {% for message in messages %}
-                                <div
-                                    class="p-3 mb-4 text-sm rounded-lg bg-red-500/20 text-red-200 border border-red-500/30">
-                                    {{ message }}
-                                </div>
-                                {% endfor %} {% endif %}
-                                <form action="{% url 'signup' %}" method="POST" class="flex flex-col gap-4">
-                                    {% csrf_token %}
-                                    <div>
-                                        <label
-                                            class="block text-primary text-xs font-bold uppercase tracking-wider mb-2 ml-1">Do'kon Nomi</label>
-                                        <input type="text" name="shop_name"
-                                            class="w-full custom-input rounded-xl px-4 py-3" placeholder="Baraka Market"
-                                            required />
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-primary text-xs font-bold uppercase tracking-wider mb-2 ml-1">Ismingiz</label>
-                                        <input type="text" name="admin_name"
-                                            class="w-full custom-input rounded-xl px-4 py-3" placeholder="Alijon" required />
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-primary text-xs font-bold uppercase tracking-wider mb-2 ml-1">Telegram ID</label>
-                                        <div class="relative">
-                                            <input type="text" name="telegram_id" id="telegramIdInput"
-                                                inputmode="numeric" pattern="[0-9]{5,15}"
-                                                title="Faqat raqamlar. Telefon raqam emas!"
-                                                class="w-full custom-input rounded-xl px-4 py-3 pr-24"
-                                                placeholder="Masalan: 123456789" required />
-                                            <a href="https://t.me/{{ bot_username }}?start=id" target="_blank"
-                                                id="getIdLink"
-                                                class="absolute right-3 top-3 text-gray-400 hover:text-white text-xs underline">ID olish</a>
-                                        </div>
-                                        <p class="text-xs text-gray-500 mt-2 ml-1" id="telegramIdHint">
-                                            ⚠️ Bu <b>telefon raqam emas</b>. ID'ni bilish uchun «ID olish» tugmasini bosing —
-                                            bot sizga raqamni yuboradi.
-                                        </p>
-                                    </div>
-                                    <button type="submit"
-                                        class="mt-4 w-full bg-primary hover:bg-green-400 text-[#112218] font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
-                                        Ro'yxatdan O'tish
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <footer class="w-full flex justify-center py-10 bg-[#0d1a12] border-t border-border-green mt-auto">
-            <div class="layout-content-container flex flex-col max-w-[1200px] flex-1 px-4 lg:px-8">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div class="flex items-center gap-2 text-white">
-                        <div class="size-6 text-primary flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[24px]">account_balance_wallet</span>
-                        </div>
-                        <h2 class="text-base font-bold leading-tight tracking-tight">
-                            Qarz<span class="text-primary">Daptar</span>
-                        </h2>
-                    </div>
-                    <p class="text-slate-500 text-sm">
-                        &copy; 2026 QarzDaptar. Barcha huquqlar himoyalangan.
-                    </p>
-                </div>
-            </div>
-        </footer>
+    <!-- Telefonda pastda doim turadigan asosiy tugma (bosh blokdan o'tgandan keyin chiqadi) -->
+    <div id="stickyCta" class="fixed inset-x-0 bottom-0 z-40 translate-y-full border-t border-line bg-ink/95 p-3 backdrop-blur transition-transform duration-300 sm:hidden">
+        <div class="flex flex-col">{% include 'landing/cta.html' %}</div>
     </div>
 
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
-        // Telegram ichida ochilgan bo'lsa, ID ni o'zimiz to'ldiramiz
-        document.addEventListener("DOMContentLoaded", () => {
-            const tgUser = window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user;
-            if (!tgUser) return;
-            const input = document.getElementById("telegramIdInput");
-            input.value = tgUser.id;
-            input.readOnly = true;
-            document.getElementById("getIdLink").style.display = "none";
-            document.getElementById("telegramIdHint").innerHTML = "✅ Telegram ID avtomatik aniqlandi.";
-        });
-    </script>
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const cards = document.querySelectorAll(".carousel-card");
-            let activeIndex = 0; // 0 - indexdagi rasm markazda boshlanadi
-
-            function updateCarousel() {
-                cards.forEach((card, index) => {
-                    // Hamma klasslarni tozalaymiz
-                    card.classList.remove("card-left", "card-center", "card-right");
-
-                    // Matematik hisob-kitob (aylanma mantiq)
-                    if (index === activeIndex) {
-                        card.classList.add("card-center");
-                    } else if (index === (activeIndex + 1) % 3) {
-                        card.classList.add("card-right");
-                    } else {
-                        card.classList.add("card-left");
-                    }
+        // Ekranlar galereyasi: qaysi rasm ko'rinayotganini nuqtalar bilan ko'rsatish
+        (function () {
+            const box = document.getElementById('screens');
+            const dots = document.querySelectorAll('#screenDots span');
+            if (!box || !dots.length) return;
+            function update() {
+                const items = Array.from(box.children);
+                const center = box.scrollLeft + box.clientWidth / 2;
+                let active = 0, best = Infinity;
+                items.forEach((el, i) => {
+                    const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - center);
+                    if (d < best) { best = d; active = i; }
                 });
-
-                // Keyingi safar uchun indexni o'zgartiramiz
-                // (0 -> 1 -> 2 -> 0 ...)
-                activeIndex = (activeIndex + 1) % 3;
+                dots.forEach((dot, i) => {
+                    dot.classList.toggle('bg-brand', i === active);
+                    dot.classList.toggle('w-5', i === active);
+                    dot.classList.toggle('bg-line', i !== active);
+                });
             }
+            box.addEventListener('scroll', update, {passive: true});
+            update();
+        })();
 
-            // Birinchi marta ishga tushirish (to'g'ri joylashtirish uchun)
-            // Buni o'chirib qo'ysangiz ham bo'ladi, chunki HTMLda qo'lda yozilgan
-            // updateCarousel();
-
-            // Har 4.5 soniyada almashadi (sekinroq, tushunarli bo'lishi uchun)
-            setInterval(updateCarousel, 3000);
-        });
+        // Pastki tugma: bosh blokdagi tugma ko'rinmay qolganda chiqadi, oxirgi chaqiriqqa yetganda yashirinadi
+        (function () {
+            const bar = document.getElementById('stickyCta');
+            const ctas = document.querySelectorAll('main [data-cta]');
+            if (!bar || !ctas.length || !('IntersectionObserver' in window)) return;
+            const visible = new Set();
+            const io = new IntersectionObserver(entries => {
+                entries.forEach(e => e.isIntersecting ? visible.add(e.target) : visible.delete(e.target));
+                const pastHero = ctas[0].getBoundingClientRect().bottom < 0;
+                bar.classList.toggle('translate-y-full', visible.size > 0 || !pastHero);
+            });
+            ctas.forEach(el => io.observe(el));
+            window.addEventListener('scroll', () => {
+                const pastHero = ctas[0].getBoundingClientRect().bottom < 0;
+                bar.classList.toggle('translate-y-full', visible.size > 0 || !pastHero);
+            }, {passive: true});
+        })();
     </script>
 </body>
 

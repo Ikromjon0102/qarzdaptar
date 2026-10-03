@@ -15,11 +15,16 @@ class Shop(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     CATEGORY_CHOICES = (
         ('grocery', 'Oziq-ovqat'),
-        ('clothing', 'Kiyim-kechak'),
-        ('auto', 'Avto ehtiyot qismlar'),
         ('construction', 'Qurilish mollari'),
-        ('pharmacy', 'Dorixona'),
+        ('plumbing', 'Santexnika'),
         ('tech', 'Maishiy texnika'),
+        ('electronics', 'Telefon va elektronika'),
+        ('clothing', 'Kiyim-kechak'),
+        ('household', "Xo'jalik mollari"),
+        ('auto', 'Avto ehtiyot qismlar'),
+        ('pharmacy', 'Dorixona'),
+        ('cosmetics', 'Kosmetika va parfyumeriya'),
+        ('furniture', 'Mebel'),
         ('other', 'Boshqa'),
     )
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name="Do'kon turi")
@@ -197,3 +202,19 @@ class StaffInvite(models.Model):
     @property
     def is_valid(self):
         return self.used_at is None and timezone.now() - self.created_at < timedelta(days=self.VALID_DAYS)
+
+
+class BotSignup(models.Model):
+    """Botdagi ro'yxatdan o'tish jarayoni: qaysi qadamda turgani va kiritilgan javoblar."""
+    STEP_CHOICES = (
+        ('name', "Do'kon nomi kutilmoqda"),
+        ('category', "Do'kon turi kutilmoqda"),
+    )
+    telegram_id = models.BigIntegerField(unique=True)
+    step = models.CharField(max_length=20, choices=STEP_CHOICES, default='name')
+    shop_name = models.CharField(max_length=100, blank=True, default='')
+    first_name = models.CharField(max_length=150, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.telegram_id}: {self.get_step_display()}"
