@@ -30,6 +30,7 @@ urlpatterns = [
     path('clients/<int:client_id>/edit/', views.client_form_view, name='client_edit'),
     path('clients/<int:client_id>/reset-tg/', views.client_reset_telegram_view, name='client_reset_tg'),
     path('clients/<int:client_id>/remind/', views.remind_client_view, name='client_remind'),
+    path('clients/<int:client_id>/trust/', views.client_trust_view, name='client_trust'),
 
     path('reports/', views.reports_view, name='reports_page'),
     path('export/clients.xlsx', views.export_clients_view, name='export_clients'),

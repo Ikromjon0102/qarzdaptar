@@ -24,10 +24,19 @@
     {% for acc in accounts %}
     <a href="{% url 'client_switch' acc.id %}" class="shop-chip {% if acc.active %}active{% endif %}">
         <span class="fw-bold">{{ acc.shop }}</span>
-        <small>{% if acc.debt_uzs > 0 %}{{ acc.debt_uzs|space_format }} so'm{% elif acc.debt_usd > 0 %}${{ acc.debt_usd|floatformat:2 }}{% else %}qarz yo'q{% endif %}</small>
+        <small>
+            {% if acc.debt_uzs > 0 %}{{ acc.debt_uzs|space_format }} so'm{% endif %}{% if acc.debt_uzs > 0 and acc.debt_usd > 0 %} + {% endif %}{% if acc.debt_usd > 0 %}${{ acc.debt_usd|floatformat:2 }}{% endif %}
+            {% if acc.debt_uzs <= 0 and acc.debt_usd <= 0 %}qarz yo'q{% endif %}
+        </small>
     </a>
     {% endfor %}
 </div>
+{% if all_uzs > 0 or all_usd > 0 %}
+<div class="small mb-3 px-1" style="color: var(--tg-hint);">
+    Barcha do'konlarda jami:
+    <b style="color: var(--tg-text);">{% if all_uzs > 0 %}{{ all_uzs|space_format }} so'm{% endif %}{% if all_uzs > 0 and all_usd > 0 %} + {% endif %}{% if all_usd > 0 %}${{ all_usd|floatformat:2 }}{% endif %}</b>
+</div>
+{% endif %}
 <style>
     .shop-switch { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
     .shop-switch::-webkit-scrollbar { display: none; }

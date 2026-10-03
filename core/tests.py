@@ -1335,3 +1335,94 @@ class ContactImportTests(TestCase):
         self.send_contact(111111)
         self.assertEqual(Client.objects.count(), 30)
         self.assertIn('tagacha mijoz', send.call_args[0][1])
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class TrustTests(TestCase):
+    """Ishonch belgisi faqat do'konning o'z tarixidan; qo'lda belgi; Bepul tarifda yo'q."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop()
+        self.client.force_login(self.owner)
+        self.vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233')
+        self.today = timezone.localdate()
+
+    def op(self, uzs, days_ago, due_in=None, kind='debt'):
+        d = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=uzs, items='x', status='confirmed',
+                                transaction_type=kind,
+                                due_date=self.today + timezone.timedelta(days=due_in) if due_in is not None else None)
+        Debt.objects.filter(id=d.id).update(created_at=timezone.now() - timezone.timedelta(days=days_ago))
+
+    def test_good_payer(self, _post):
+        from .trust import client_trust
+        for i in range(3):
+            self.op(10000, days_ago=100 - i * 30, due_in=-(90 - i * 30))     # muddat
+            self.op(-10000, days_ago=95 - i * 30, kind='payment')            # muddatdan oldin to'lagan
+        t = client_trust(self.vali)
+        self.assertEqual((t.level, t.on_time, t.late), ('good', 3, 0))
+
+    def test_late_payer_and_overdue(self, _post):
+        from .trust import client_trust
+        self.op(10000, days_ago=60, due_in=-50)     # muddati 50 kun oldin edi
+        self.op(-10000, days_ago=40, kind='payment')  # 10 kun kech to'ladi
+        t = client_trust(self.vali)
+        self.assertEqual((t.level, t.late, t.avg_delay), ('warn', 1, 10))
+        self.op(50000, days_ago=45, due_in=-35)     # hozir 35 kundan beri muddati o'tgan
+        t = client_trust(self.vali)
+        self.assertEqual(t.level, 'risk')
+        self.assertIn("35 kundan beri", t.warning)
+
+    def test_mixed_currency_debt_does_not_crash(self, _post):
+        from .trust import client_trust
+        d = Debt.objects.create(shop=self.shop, client=self.vali, amount_uzs=1000, amount_usd=5, items='x',
+                                status='confirmed', due_date=self.today)
+        Debt.objects.create(shop=self.shop, client=self.vali, amount_usd=-5, items='t', status='confirmed',
+                            transaction_type='payment')
+        self.assertEqual(client_trust(self.vali).on_time, 0)   # so'm qismi hali to'lanmagan
+        self.assertTrue(d.id)
+
+    def test_manual_flag_and_note_shown_in_sale_form(self, _post):
+        self.client.post(reverse('client_trust', args=[self.vali.id]),
+                         {'risk_flag': 'on', 'risk_note': 'Katta summaga bermang'})
+        self.vali.refresh_from_db()
+        self.assertTrue(self.vali.risk_flag)
+        resp = self.client.get(reverse('create_debt'))
+        self.assertContains(resp, 'Katta summaga bermang')        # picker ma'lumotida ogohlantirish
+        self.assertContains(self.client.get(reverse('client_list')), 'fa-triangle-exclamation text-danger')
+
+    def test_free_plan_has_no_trust(self, _post):
+        self.shop.plan = 'free'
+        self.shop.save()
+        resp = self.client.get(reverse('admin_client_detail', args=[self.vali.id]))
+        self.assertContains(resp, '?need=trust')
+        resp = self.client.post(reverse('client_trust', args=[self.vali.id]), {'risk_flag': 'on'})
+        self.assertIn(reverse('pricing_page'), resp['Location'])
+        self.vali.refresh_from_db()
+        self.assertFalse(self.vali.risk_flag)
+
+    def test_worker_cannot_change_flag(self, _post):
+        worker = make_worker(self.shop)
+        self.client.force_login(worker)
+        self.client.post(reverse('client_trust', args=[self.vali.id]), {'risk_flag': 'on'})
+        self.vali.refresh_from_db()
+        self.assertFalse(self.vali.risk_flag)
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class CabinetTotalsTests(TestCase):
+    def test_total_across_shops_with_both_currencies(self, _post):
+        _, shop1 = make_shop(tg_id='1001', name='Birinchi')
+        _, shop2 = make_shop(tg_id='1002', name='Ikkinchi')
+        a = Client.objects.create(shop=shop1, full_name='Vali', phone='+998901112233', telegram_id=77)
+        b = Client.objects.create(shop=shop2, full_name='Vali', phone='+998901112233', telegram_id=77)
+        Debt.objects.create(shop=shop1, client=a, amount_uzs=100000, amount_usd=10, items='x', status='confirmed')
+        Debt.objects.create(shop=shop2, client=b, amount_uzs=50000, items='x', status='confirmed')
+        session = self.client.session
+        session['client_id'] = a.id
+        session.save()
+        resp = self.client.get(reverse('client_cabinet'))
+        self.assertContains(resp, "100 000 so&#x27;m + $10.00".replace('&#x27;', "'"))
+        self.assertContains(resp, "Barcha do'konlarda jami")
+        self.assertContains(resp, "150 000 so'm + $10.00")

@@ -22,6 +22,9 @@ avtomatik hisoblanadi.
 - **Savdo**: nasiya yoki naqd; bir nechta tovar, so'm va dollar, kurs bo'yicha jami.
 - **Tez boshlash**: mijoz qo'shishda daftardagi eski qarzini kiritish (hisobotda savdo emas, mijoz botga
   ulanganda tasdiqlaydi); botga 📎 Kontakt yuborib mijoz qo'shish (`core/clients.py`).
+- **Ishonch belgisi** (Standart/Biznes): mijoz shu do'konda o'z vaqtida to'laydimi, necha marta kechiktirgan;
+  rahbarning «Ehtiyot bo'ling» belgisi va yopiq izohi; nasiya yozishda ogohlantirish. Ma'lumot faqat shu
+  do'kon ichida qoladi (`core/trust.py`).
 - **To'lov muddati**: nasiyaga muddat (1 hafta / 2 hafta / 1 oy / sana); muddati o'tganlar ro'yxati,
   mijozga ertaga va muddat kuni eslatma. To'lovlar eng eski nasiyani birinchi yopadi (`core/dues.py`).
 - **To'lov olish**: mijozning joriy qarzi, «Hammasi» tugmasi, qoldiq oldindan ko'rinadi.

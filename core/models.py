@@ -94,6 +94,9 @@ class Client(models.Model):
     telegram_id = models.BigIntegerField(null=True, blank=True)
 
     invite_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, null=True, blank=True)
+    # Ishonch: rahbar qo'ygan «Ehtiyot bo'ling» belgisi va yopiq izoh (faqat shu do'kon jamoasi ko'radi)
+    risk_flag = models.BooleanField(default=False, verbose_name="Ehtiyot bo'ling")
+    risk_note = models.CharField(max_length=300, blank=True, default='', verbose_name="Yopiq izoh")
     last_reminded_at = models.DateTimeField(null=True, blank=True, verbose_name="Oxirgi eslatma")
 
     class Meta:

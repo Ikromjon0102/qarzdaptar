@@ -20,7 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from store.models import Order
-from . import bot_signup, dues, exports, landing, plans, telegram
+from . import bot_signup, dues, exports, landing, plans, telegram, trust
 from . import clients as client_tools
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
@@ -171,6 +171,7 @@ def picker_clients(shop):
         )
         .order_by('full_name')
     )
+    trust_map = trust.trust_or_none(shop) or {}
     return [{
         'id': c.id,
         'name': c.full_name,
@@ -178,6 +179,8 @@ def picker_clients(shop):
         'tg': bool(c.telegram_id),
         'bal_uzs': float(c.bal_uzs or 0),
         'bal_usd': float(c.bal_usd or 0),
+        'risk': trust_map[c.id].warning if c.id in trust_map else '',
+        'risk_level': trust_map[c.id].level if c.id in trust_map else '',
     } for c in clients]
 
 
@@ -680,6 +683,7 @@ def admin_client_detail_view(request, client_id):
         'client': client,
         'debts': debts,
         'due': dues.client_due_status(client),
+        'trust': trust.trust_or_none(shop, client),
         'today': timezone.localdate(),
         'total_uzs': stats['sum_uzs'] or 0,
         'total_usd': stats['sum_usd'] or 0,
@@ -712,6 +716,8 @@ def client_cabinet_view(request):
     return render(request, 'client_cabinet.html', {
         'client': client,
         'accounts': accounts if len(accounts) > 1 else [],
+        'all_uzs': sum(max(a['debt_uzs'], 0) for a in accounts),
+        'all_usd': sum(max(a['debt_usd'], 0) for a in accounts),
         'shop_has_products': bool(client.shop and plans.has_feature(client.shop, plans.STORE)
                                   and client.shop.products.filter(is_active=True).exists()),
         'total_uzs': bal_uzs,
@@ -1045,9 +1051,11 @@ def client_list_view(request):
         .order_by('full_name')
     )
     due_map = dues.shop_due_map(shop)
+    trust_map = trust.trust_or_none(shop) or {}
     clients = list(clients)
     for c in clients:
         c.due = due_map.get(c.id)
+        c.trust = trust_map.get(c.id)
 
     return render(request, 'client_list.html', {
         'clients': clients,
@@ -1155,6 +1163,19 @@ def remind_client_view(request, client_id):
             messages.success(request, f"🔔 {client.full_name}ga eslatma yuborildi.")
         else:
             messages.error(request, "Eslatma yuborilmadi: mijozning qarzi yo'q yoki botga ulanmagan.")
+    return redirect('admin_client_detail', client_id=client.id)
+
+
+@shop_admin_required
+@plan_feature_required(plans.TRUST)
+@require_POST
+def client_trust_view(request, client_id):
+    """Rahbar: «Ehtiyot bo'ling» belgisi va yopiq izoh (faqat shu do'kon jamoasi ko'radi)."""
+    client = get_object_or_404(Client, id=client_id, shop=get_current_shop(request))
+    client.risk_flag = request.POST.get('risk_flag') == 'on'
+    client.risk_note = (request.POST.get('risk_note') or '').strip()[:300]
+    client.save(update_fields=['risk_flag', 'risk_note'])
+    messages.success(request, "⚠️ Belgi saqlandi." if client.risk_flag else "Saqlandi.")
     return redirect('admin_client_detail', client_id=client.id)
 
 

@@ -55,6 +55,10 @@
         {% include 'components/client_picker.html' with field_name='client' allow_add=True %}
 
         <!-- Botga ulanmagan mijoz uchun ogohlantirish -->
+        <div id="risk-warning" class="app-toast error mt-3 mb-0 d-none">
+            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+            <div class="small" id="risk-text"></div>
+        </div>
         <div id="no-tg-warning" class="no-tg-box mt-3 d-none">
             <div class="fw-bold mb-1">
                 <i class="fa-solid fa-triangle-exclamation" style="color: var(--warning)"></i>
@@ -230,6 +234,12 @@
         const showWarning = mode === 'debt' && client && !client.tg;
 
         warning.classList.toggle('d-none', !showWarning);
+        // Ishonch: shu do'kon tarixidan ogohlantirish (Standart/Biznes)
+        const risk = mode === 'debt' && client && client.risk;
+        document.getElementById('risk-warning').classList.toggle('d-none', !risk);
+        document.getElementById('risk-warning').classList.toggle('warning', !!risk && client.risk_level === 'warn');
+        document.getElementById('risk-warning').classList.toggle('error', !!risk && client.risk_level === 'risk');
+        if (risk) document.getElementById('risk-text').innerText = client.risk;
         warning.querySelectorAll('input').forEach(el => el.disabled = !showWarning);
         if (showWarning) {
             document.getElementById('inviteLink').href = "{% url 'client_edit' 0 %}".replace('/0/', `/${client.id}/`);

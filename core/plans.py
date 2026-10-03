@@ -23,12 +23,13 @@ CHOICES = ((FREE, 'Bepul'), (STANDARD, 'Standart'), (BUSINESS, 'Biznes'))
 PAID = (STANDARD, BUSINESS)
 
 # Imkoniyatlar
-REMINDERS, BROADCAST, EXPORT, STORE = 'reminders', 'broadcast', 'export', 'store'
+REMINDERS, BROADCAST, EXPORT, STORE, TRUST = 'reminders', 'broadcast', 'export', 'store', 'trust'
 FEATURE_NAMES = {
     REMINDERS: "Avtomatik eslatma",
     BROADCAST: "Xabar yuborish",
     EXPORT: "Excel eksport",
     STORE: "Onlayn do'kon",
+    TRUST: "Mijoz ishonch belgisi",
 }
 
 # To'lov davri -> oy soni. Yillik narx = YEAR_PRICED_MONTHS oylik narx.
@@ -51,8 +52,8 @@ class Plan:
 
 PLANS = {
     FREE: Plan(FREE, 'Bepul', 30, 0, frozenset()),
-    STANDARD: Plan(STANDARD, 'Standart', None, 2, frozenset({REMINDERS, BROADCAST, EXPORT})),
-    BUSINESS: Plan(BUSINESS, 'Biznes', None, None, frozenset({REMINDERS, BROADCAST, EXPORT, STORE})),
+    STANDARD: Plan(STANDARD, 'Standart', None, 2, frozenset({REMINDERS, BROADCAST, EXPORT, TRUST})),
+    BUSINESS: Plan(BUSINESS, 'Biznes', None, None, frozenset({REMINDERS, BROADCAST, EXPORT, STORE, TRUST})),
 }
 
 

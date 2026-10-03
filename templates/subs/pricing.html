@@ -157,7 +157,7 @@
 
         // Qaysi imkoniyat uchun kelgan bo'lsa - o'sha tarifga o'tkazamiz
         const need = "{{ need|escapejs }}";
-        const target = {store: 'business', staff: 'standard', clients: 'standard', reminders: 'standard',
+        const target = {store: 'business', staff: 'standard', clients: 'standard', reminders: 'standard', trust: 'standard',
                         broadcast: 'standard', export: 'standard'}[need];
         if (target) document.getElementById('plan-' + target)?.scrollIntoView({block: 'center'});
     })();

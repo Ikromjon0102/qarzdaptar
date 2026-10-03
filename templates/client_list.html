@@ -75,6 +75,8 @@
             <div class="fw-bold text-truncate">
                 {{ client.full_name }}
                 {% if client.telegram_id %}<i class="fa-brands fa-telegram text-primary small"></i>{% endif %}
+                {% if client.trust.level == 'risk' %}<i class="fa-solid fa-triangle-exclamation text-danger small" title="Ehtiyot bo'ling"></i>
+                {% elif client.trust.level == 'good' %}<i class="fa-solid fa-shield-halved text-success small" title="Ishonchli"></i>{% endif %}
             </div>
             <small>{{ client.phone }}
                 {% if client.pending_count %}<span class="badge bg-warning text-dark ms-1">{{ client.pending_count }} kutilmoqda</span>{% endif %}
