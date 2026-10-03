@@ -22,9 +22,10 @@ def signed_init(telegram_id, auth_date=None, token=TEST_BOT_TOKEN):
     }, bot_token=token)
 
 
-def make_shop(tg_id='111111', name="Test Do'kon"):
+def make_shop(tg_id='111111', name="Test Do'kon", plan='business'):
+    """Test do'koni. Standart holatda - muddatsiz Biznes (hamma imkoniyat ochiq)."""
     user = User.objects.create_user(username=tg_id, password='1')
-    shop = Shop.objects.create(name=name, owner=user)
+    shop = Shop.objects.create(name=name, owner=user, plan=plan)
     UserProfile.objects.create(user=user, shop=shop, role='admin')
     return user, shop
 
@@ -634,11 +635,14 @@ class StoreTests(TestCase):
         self.client.force_login(worker)
         self.assertRedirects(self.client.get(reverse('manage_products')), reverse('main_menu'))
 
-    def test_pricing_page_is_honest(self, _post):
+    @override_settings(PLAN_STANDARD_PRICE=39000, PLAN_STANDARD_LAUNCH_PRICE=29000, PLAN_BUSINESS_PRICE=79000,
+                       LAUNCH_PRICE_UNTIL='2099-12-31')
+    def test_pricing_page_shows_plans(self, _post):
         self.client.force_login(self.owner)
         resp = self.client.get(reverse('pricing_page'))
-        self.assertNotContains(resp, 'SMS')
-        self.assertContains(resp, '100 000')
+        for text in ('Bepul', 'Standart', 'Biznes', '29 000', '39 000', '290 000', '390 000', '79 000',
+                     'pchilik tanlovi'):
+            self.assertContains(resp, text)
 
 
 @override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
@@ -978,12 +982,17 @@ class TabBarAndLiveReloadTests(TestCase):
         self.assertNotContains(self.client.get(reverse('create_debt')), reverse('live_version'))
 
 
-@override_settings(BOT_USERNAME='QarzDaptarBot', SUBSCRIPTION_PRICE=100000)
+@override_settings(BOT_USERNAME='QarzDaptarBot', PLAN_STANDARD_PRICE=39000, PLAN_STANDARD_LAUNCH_PRICE=29000,
+                   PLAN_BUSINESS_PRICE=79000, LAUNCH_PRICE_UNTIL='2099-12-31')
 class LandingTests(TestCase):
     def test_landing_points_to_bot_signup(self):
         resp = self.client.get(reverse('landing_page'))
         self.assertContains(resp, 'https://t.me/QarzDaptarBot?start=signup')
-        self.assertContains(resp, '100 000')
+        # Anchoring: Biznes birinchi, Standart o'rtada; ishga tushirish narxi va chizilgan narx
+        html = resp.content.decode()
+        self.assertLess(html.index('79 000'), html.index('29 000'))
+        for text in ('39 000', '290 000', '390 000', '31.12.2099'):
+            self.assertContains(resp, text)
         self.assertContains(resp, 'property="og:image"')
         self.assertContains(resp, 'lang="uz"')
         self.assertNotContains(resp, 'telegram_id')  # eski forma yo'q
@@ -1002,3 +1011,107 @@ class LandingTests(TestCase):
         user, _shop = make_shop()
         self.client.force_login(user)
         self.assertRedirects(self.client.get(reverse('landing_page')), reverse('main_menu'))
+
+
+@override_settings(BOT_TOKEN=TEST_BOT_TOKEN)
+@mock.patch('requests.post')
+class PlanLimitTests(TestCase):
+    """Tariflar: Bepul tarif cheklovlari, muddat tugaganda bloklanmaslik, pullik imkoniyatlar."""
+
+    def setUp(self):
+        self.owner, self.shop = make_shop(plan='free')
+        self.client.force_login(self.owner)
+
+    def fill_clients(self, n):
+        Client.objects.bulk_create([Client(shop=self.shop, full_name=f'M{i}', phone=f'+9989000{i:05d}')
+                                    for i in range(n)])
+
+    def test_free_plan_client_limit(self, _post):
+        self.fill_clients(29)
+        self.client.post(reverse('client_add'), {'full_name': '30-mijoz', 'phone': '+998911111111'})
+        self.assertTrue(Client.objects.filter(full_name='30-mijoz').exists())
+        resp = self.client.post(reverse('client_add'), {'full_name': '31-mijoz', 'phone': '+998922222222'})
+        self.assertRedirects(resp, reverse('pricing_page') + '?need=clients')
+        self.assertFalse(Client.objects.filter(full_name='31-mijoz').exists())
+        ajax = self.client.post(reverse('create_client_ajax'), data=json.dumps(
+            {'full_name': 'Ajax', 'phone': '+998933333333'}), content_type='application/json').json()
+        self.assertEqual(ajax['status'], 'error')
+        # Mavjud mijozlar bilan ishlash davom etadi, bosh sahifada ogohlantirish bor
+        resp = self.client.get(reverse('main_menu'))
+        self.assertContains(resp, '30 / 30')
+
+    def test_cash_client_not_counted(self, _post):
+        from . import plans
+        from .models import CASH_CLIENT_PHONE
+        Client.objects.create(shop=self.shop, full_name='Kassa', phone=CASH_CLIENT_PHONE)
+        self.assertEqual(plans.client_count(self.shop), 0)
+
+    def test_paid_features_redirect_to_pricing(self, _post):
+        for name in ('broadcast', 'export_clients', 'manage_products'):
+            resp = self.client.get(reverse(name))
+            self.assertEqual(resp.status_code, 302, name)
+            self.assertIn(reverse('pricing_page'), resp['Location'])
+        resp = self.client.post(reverse('manage_admins', args=['invite']), {'name': 'Ali'})
+        self.assertIn(reverse('pricing_page'), resp['Location'])
+        from .models import StaffInvite
+        self.assertFalse(StaffInvite.objects.exists())
+
+    def test_menu_shows_locks(self, _post):
+        resp = self.client.get(reverse('main_menu'))
+        self.assertContains(resp, 'plan-lock')
+
+    def test_expired_trial_falls_back_to_free_without_blocking(self, _post):
+        self.shop.plan = 'standard'
+        self.shop.subscription_ends_at = timezone.now() - timezone.timedelta(days=1)
+        self.shop.save()
+        self.assertEqual(self.shop.current_plan.code, 'free')
+        self.assertEqual(self.client.get(reverse('main_menu')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('create_debt')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('broadcast')).status_code, 302)
+
+    def test_standard_limits_staff_to_two(self, _post):
+        self.shop.plan = 'standard'
+        self.shop.save()  # muddatsiz
+        self.assertEqual(self.client.get(reverse('broadcast')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('manage_products')).status_code, 302)  # Biznes'da
+        make_worker(self.shop, tg_id='333331')
+        make_worker(self.shop, tg_id='333332')
+        self.client.post(reverse('manage_admins', args=['invite']), {'name': 'Uchinchi'})
+        from .models import StaffInvite
+        self.assertFalse(StaffInvite.objects.exists())
+
+    def test_store_closed_for_customer_without_business(self, _post):
+        vali = Client.objects.create(shop=self.shop, full_name='Vali', phone='+998901112233', telegram_id=77)
+        session = self.client.session
+        session['client_id'] = vali.id
+        session.save()
+        self.client.logout()
+        session = self.client.session
+        session['client_id'] = vali.id
+        session.save()
+        self.assertRedirects(self.client.get(reverse('shop_home')), reverse('client_cabinet'))
+
+    def test_reminders_only_on_paid_plan(self, _post):
+        from .models import Settings
+        from .reminders import due_reminders
+        Settings.objects.create(shop=self.shop, reminder_enabled=True, reminder_days=1, reminder_min_debt=0)
+        c = Client.objects.create(shop=self.shop, full_name='Q', phone='+998900000009', telegram_id=9)
+        Debt.objects.create(shop=self.shop, client=c, amount_uzs=1000, items='x', status='confirmed')
+        self.assertEqual(list(due_reminders()), [])
+        self.shop.plan = 'standard'
+        self.shop.save()
+        self.assertEqual(len(list(due_reminders())), 1)
+
+    def test_bot_signup_starts_standard_trial(self, _post):
+        from .bot_signup import create_shop
+        shop = create_shop(900001, 'Yangi', 'Ali')
+        self.assertEqual((shop.plan, shop.current_plan.code), ('standard', 'standard'))
+        self.assertGreaterEqual(shop.days_left, 13)
+
+    def test_super_control_sets_plan_for_a_year(self, _post):
+        admin = User.objects.create_superuser('root', password='x')
+        self.client.force_login(admin)
+        self.client.post(reverse('extend_subscription', args=[self.shop.id]), {'plan': 'business', 'period': 'year'})
+        self.shop.refresh_from_db()
+        self.assertEqual(self.shop.current_plan.code, 'business')
+        self.assertGreaterEqual(self.shop.days_left, 364)

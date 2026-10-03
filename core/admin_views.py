@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from . import plans
 from .models import Client, Debt, Shop
 
 superuser_required = user_passes_test(lambda u: u.is_superuser, login_url='/admin/login/')
@@ -26,7 +27,10 @@ def super_dashboard(request):
     rows = []
     for shop in shops:
         ends = shop.subscription_ends_at
-        status = 'unlimited' if not ends else ('expired' if ends < now else ('soon' if shop.days_left <= 3 else 'active'))
+        if not shop.current_plan.is_paid:
+            status = 'free'
+        else:
+            status = 'unlimited' if not ends else ('soon' if shop.days_left <= 3 else 'active')
         rows.append({'shop': shop, 'status': status,
                      'outstanding': (shop.debt_uzs or 0) + (shop.paid_uzs or 0)})
 
@@ -37,7 +41,7 @@ def super_dashboard(request):
         'rows': rows,
         'total_shops': len(rows),
         'active_shops': sum(r['status'] in ('active', 'soon', 'unlimited') for r in rows),
-        'expired_shops': sum(r['status'] == 'expired' for r in rows),
+        'expired_shops': sum(r['status'] == 'free' for r in rows),
         'total_clients': Client.objects.count(),
         'global_turnover': turnover,
         'new_this_month': Shop.objects.filter(created_at__gte=now.replace(day=1, hour=0, minute=0, second=0)).count(),
@@ -47,8 +51,16 @@ def super_dashboard(request):
 @superuser_required
 @require_POST
 def extend_subscription(request, shop_id):
-    """To'lov qabul qilingach obunani 30 kunga uzaytirish (muddat tugagan bo'lsa - bugundan)."""
+    """Qo'lda qabul qilingan to'lov: tarifni yoqish va 30 kun / 1 yilga uzaytirish (tugagan bo'lsa - bugundan)."""
     shop = get_object_or_404(Shop, id=shop_id)
-    shop.extend_subscription(30)
-    messages.success(request, f"✅ «{shop.name}» obunasi {shop.subscription_ends_at:%d.%m.%Y} gacha uzaytirildi.")
+    plan = request.POST.get('plan') or shop.plan
+    if plan not in plans.PAID:
+        plan = plans.STANDARD
+    days = 365 if request.POST.get('period') == 'year' else 30
+    if shop.plan != plan:
+        shop.plan = plan
+        shop.save(update_fields=['plan'])
+    shop.extend_subscription(days)
+    messages.success(request, f"✅ «{shop.name}»: {plans.PLANS[plan].name} tarif "
+                              f"{shop.subscription_ends_at:%d.%m.%Y} gacha.")
     return redirect('super_dashboard')

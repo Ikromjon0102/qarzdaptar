@@ -41,6 +41,10 @@ def shop_role(request):
     if request.user.is_authenticated and url_name in STAFF_TABS:
         # View o'zi active_tab bersa, o'shanisi ustun turadi
         context['active_tab'] = STAFF_TABS[url_name]
+        from . import plans
+        from .views import get_current_shop
+        # Pullik imkoniyatlar yonida qulf belgisi uchun
+        context['plan_features'] = plans.current_plan(get_current_shop(request)).features
         if url_name in LIVE_PAGES:
             from .live import shop_version
             from .views import get_current_shop

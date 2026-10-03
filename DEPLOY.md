@@ -73,7 +73,10 @@ Keyin serverni (gunicorn / uwsgi / runserver) qayta ishga tushiring.
 | `SUPPORT_USERNAME` | Obuna to'lovi uchun Telegram akkaunt | `ergashev_ikromjon` |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook maxfiy kaliti (A-Z a-z 0-9 _ -) | `k3J9_x...` |
 | `ALLOWED_HOSTS` | Vergul bilan domenlar | `qarzdaptar.uz,www.qarzdaptar.uz` |
-| `SUBSCRIPTION_PRICE` | Oylik obuna narxi (so'm) | `100000` |
+| `PLAN_STANDARD_PRICE` / `PLAN_BUSINESS_PRICE` | Tarif narxi, so'm/oy (yillik = 10 oylik) | `39000` / `79000` |
+| `PLAN_STANDARD_LAUNCH_PRICE` | Standart'ning ishga tushirish narxi | `29000` |
+| `LAUNCH_PRICE_UNTIL` | Ishga tushirish narxining oxirgi kuni | `2026-12-31` |
+| `LAUNCH_PRICE_LOCK` | Shu muddatda to'laganlar narxni saqlab qoladimi | `True` |
 | `SERVE_MEDIA` | Rasmlarni Django bersinmi (nginx bersa `False`) | `True` |
 
 **Domen yoki bot almashsa:** faqat `.env` ni o'zgartiring, serverni qayta ishga

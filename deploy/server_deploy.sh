@@ -98,7 +98,6 @@ BOT_USERNAME=$BOT_USERNAME
 SUPPORT_USERNAME=ergashev_ikromjon
 ALLOWED_HOSTS=$DOMAIN,www.$DOMAIN,127.0.0.1,localhost
 CSRF_TRUSTED_ORIGINS=https://$DOMAIN,https://www.$DOMAIN
-SUBSCRIPTION_PRICE=100000
 ENV
     umask 022
     echo "✅ .env yaratildi (ruxsat 600)"

@@ -9,15 +9,12 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from core import plans
 from core.permissions import shop_admin_required
 from . import click, payme
 from .models import SubscriptionPayment
 
 logger = logging.getLogger(__name__)
-
-# Obuna muddatlari (oy)
-PLANS = (1, 3, 6)
-
 
 def providers_enabled():
     return {
@@ -29,21 +26,20 @@ def providers_enabled():
 @shop_admin_required
 @require_POST
 def start_payment(request):
-    """Obuna uchun to'lov yaratib, foydalanuvchini Payme/Click sahifasiga yuboradi."""
+    """Tanlangan tarif va davr (oy/yil) uchun to'lov yaratib, Payme/Click sahifasiga yuboradi."""
     from core.views import get_current_shop
 
     shop = get_current_shop(request)
     provider = request.POST.get('provider')
-    try:
-        months = int(request.POST.get('months') or 1)
-    except ValueError:
-        months = 1
-    if months not in PLANS or not providers_enabled().get(provider) or not shop:
+    plan = request.POST.get('plan')
+    period = request.POST.get('period')
+    if plan not in plans.PAID or period not in plans.PERIODS or not providers_enabled().get(provider) or not shop:
         messages.error(request, "Bu to'lov usuli hozircha mavjud emas.")
         return redirect('pricing_page')
 
-    payment = SubscriptionPayment.objects.create(shop=shop, provider=provider, months=months,
-                                                 amount=settings.SUBSCRIPTION_PRICE * months)
+    payment = SubscriptionPayment.objects.create(shop=shop, provider=provider, plan=plan,
+                                                 months=plans.PERIODS[period],
+                                                 amount=plans.period_price(plan, period, shop))
     return_url = f"https://{settings.SITE_DOMAIN}{reverse('pricing_page')}?payment={payment.id}"
     url = payme.checkout_url(payment, return_url) if provider == 'payme' else click.pay_url(payment, return_url)
     return redirect(url)

@@ -10,7 +10,7 @@ from django.conf import settings as dj_settings
 from django.db.models import Q, Sum
 from django.utils import timezone
 
-from . import telegram
+from . import plans, telegram
 from .models import Client, Settings
 
 
@@ -58,7 +58,7 @@ def due_reminders(now=None):
     shop_settings = Settings.objects.filter(reminder_enabled=True).select_related('shop')
     for cfg in shop_settings:
         shop = cfg.shop
-        if not shop or (shop.subscription_ends_at and shop.subscription_ends_at < now):
+        if not shop or not plans.has_feature(shop, plans.REMINDERS):
             continue
         cutoff = now - timedelta(days=max(cfg.reminder_days, 1))
         clients = clients_with_debt(shop, cfg.reminder_min_debt).filter(

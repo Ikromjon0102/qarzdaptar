@@ -45,8 +45,14 @@ SITE_DOMAIN = os.environ.get('SITE_DOMAIN') or 'telapp.tunl.uz'
 BASE_URL = f'https://{SITE_DOMAIN}'
 BOT_USERNAME = os.environ.get('BOT_USERNAME') or 'QarzDaptarBot'
 SUPPORT_USERNAME = os.environ.get('SUPPORT_USERNAME') or 'ergashev_ikromjon'
-# Oylik obuna narxi (so'm) - obuna sahifasida ko'rsatiladi
-SUBSCRIPTION_PRICE = int(os.environ.get('SUBSCRIPTION_PRICE') or 100000)
+# --- Tariflar (so'm, oyiga). Imkoniyat va cheklovlar: core/plans.py ---
+PLAN_STANDARD_PRICE = int(os.environ.get('PLAN_STANDARD_PRICE') or 39000)
+PLAN_BUSINESS_PRICE = int(os.environ.get('PLAN_BUSINESS_PRICE') or 79000)
+# Ishga tushirish narxi: shu sanagacha (shu kun ham) Standart arzonroq
+PLAN_STANDARD_LAUNCH_PRICE = int(os.environ.get('PLAN_STANDARD_LAUNCH_PRICE') or 29000)
+LAUNCH_PRICE_UNTIL = os.environ.get('LAUNCH_PRICE_UNTIL') or '2026-12-31'
+# True: muddat ichida to'lagan do'konlar keyin ham ishga tushirish narxida qoladi
+LAUNCH_PRICE_LOCK = (os.environ.get('LAUNCH_PRICE_LOCK') or 'True').lower() in ('1', 'true', 'yes')
 
 # --- Obuna to'lovi: Payme va Click (kalitlar berilmasa - tugmalar ko'rinmaydi, faqat qo'lda to'lov) ---
 PAYME_MERCHANT_ID = os.environ.get('PAYME_MERCHANT_ID', '')
@@ -90,7 +96,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'core.middleware.SubscriptionMiddleware', #check subs
 ]
 
 ROOT_URLCONF = 'config.urls'

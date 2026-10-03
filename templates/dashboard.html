@@ -53,6 +53,7 @@
         <div class="row-title">Mijozlar va qarzlar — Excel</div>
         <div class="row-sub">Barcha mijozlar, telefon va joriy qarzi</div>
     </div>
+    {% if 'export' not in plan_features %}<span class="plan-lock"><i class="fa-solid fa-lock"></i> Standart</span>{% endif %}
     <i class="fa-solid fa-download chevron"></i>
 </a>
 {% endif %}

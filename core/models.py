@@ -8,6 +8,8 @@ from django.contrib.auth.models import User
 from django.db.models import Sum, Q
 from django.utils import timezone
 
+from . import plans
+
 # --- 1. DO'KON MODELI ---
 class Shop(models.Model):
     name = models.CharField(max_length=100, verbose_name="Do'kon nomi")
@@ -29,9 +31,12 @@ class Shop(models.Model):
     )
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other', verbose_name="Do'kon turi")
 
-    # YANGI: OBUNA (TRIAL)
+    # TARIF VA OBUNA (core/plans.py). Pullik tarif muddati tugasa - Bepul tarif.
+    plan = models.CharField(max_length=20, choices=plans.CHOICES, default=plans.FREE, verbose_name="Tarif")
     is_trial_used = models.BooleanField(default=False, verbose_name="Sinov davri ishlatilganmi?")
-    subscription_ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Obuna tugash vaqti")
+    subscription_ends_at = models.DateTimeField(null=True, blank=True, verbose_name="Tarif tugash vaqti",
+                                                help_text="Bo'sh - muddatsiz")
+    launch_price_locked = models.BooleanField(default=False, verbose_name="Ishga tushirish narxi saqlangan")
 
     # Sozlamalar
     telegram_bot_token = models.CharField(max_length=100, blank=True, null=True, verbose_name="Bot Token")
@@ -48,6 +53,10 @@ class Shop(models.Model):
         self.is_active = True
         self.save(update_fields=['subscription_ends_at', 'is_active'])
         return self.subscription_ends_at
+
+    @property
+    def current_plan(self):
+        return plans.current_plan(self)
 
     @property
     def days_left(self):

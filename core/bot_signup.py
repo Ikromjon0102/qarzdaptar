@@ -15,7 +15,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from . import telegram
+from . import plans, telegram
 from .models import AllowedAdmin, BotSignup, Settings, Shop, UserProfile
 
 TRIAL_DAYS = 14
@@ -41,6 +41,7 @@ def create_shop(telegram_id, shop_name, admin_name, category='other'):
             name=shop_name,
             owner=user,
             category=category,
+            plan=plans.STANDARD,  # sinov muddati Standart imkoniyatlari bilan, keyin - Bepul
             is_trial_used=True,
             subscription_ends_at=timezone.now() + timedelta(days=TRIAL_DAYS),
         )
@@ -123,7 +124,8 @@ def handle_category(chat_id, message_id, code):
         chat_id, message_id,
         f"🎉 <b>«{html.escape(shop.name)}» do'koni ochildi!</b>\n"
         f"{category_label(code)}\n\n"
-        f"🎁 {TRIAL_DAYS} kun bepul — barcha imkoniyatlar ochiq.\n\n"
+        f"🎁 {TRIAL_DAYS} kun Standart tarif bepul. Keyin Bepul tarifda davom etasiz yoki tarif tanlaysiz — "
+        "ma'lumotlar hech qachon o'chmaydi.\n\n"
         "<b>Keyingi qadamlar:</b>\n"
         "1. Mijoz qo'shing va unga havola yuboring\n"
         "2. Nasiya yozing — mijoz Telegramda tasdiqlaydi\n\n"

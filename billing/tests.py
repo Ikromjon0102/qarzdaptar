@@ -13,6 +13,8 @@ from .models import SubscriptionPayment
 
 PAYME = dict(PAYME_MERCHANT_ID='merchant123', PAYME_KEY='secret-key', PAYME_TEST_MODE=True)
 CLICK = dict(CLICK_SERVICE_ID='111', CLICK_MERCHANT_ID='222', CLICK_SECRET_KEY='click-secret')
+PRICES = dict(PLAN_STANDARD_PRICE=39000, PLAN_STANDARD_LAUNCH_PRICE=29000, PLAN_BUSINESS_PRICE=79000,
+              LAUNCH_PRICE_UNTIL='2099-12-31', LAUNCH_PRICE_LOCK=True)
 
 
 def make_shop():
@@ -22,31 +24,48 @@ def make_shop():
     return user, shop
 
 
-@override_settings(SUBSCRIPTION_PRICE=100000, **PAYME, **CLICK)
+@override_settings(**PRICES, **PAYME, **CLICK)
 @mock.patch('core.telegram.send_message')
 class StartPaymentTests(TestCase):
     def setUp(self):
         self.user, self.shop = make_shop()
         self.client.force_login(self.user)
 
-    def test_payme_redirect(self, _send):
-        resp = self.client.post(reverse('start_payment'), {'provider': 'payme', 'months': 3})
+    def test_payme_redirect_yearly_standard(self, _send):
+        resp = self.client.post(reverse('start_payment'), {'provider': 'payme', 'plan': 'standard', 'period': 'year'})
         payment = SubscriptionPayment.objects.get()
-        self.assertEqual((payment.amount, payment.months, payment.status), (300000, 3, 'new'))
+        # Yillik = 10 oylik, ishga tushirish narxida
+        self.assertEqual((payment.plan, payment.amount, payment.months, payment.status), ('standard', 290000, 12, 'new'))
         self.assertTrue(resp['Location'].startswith('https://checkout.test.paycom.uz/'))
         decoded = base64.b64decode(resp['Location'].rsplit('/', 1)[1]).decode()
-        self.assertIn(f'ac.order_id={payment.id};a=30000000', decoded)
+        self.assertIn(f'ac.order_id={payment.id};a=29000000', decoded)
 
-    def test_click_redirect(self, _send):
-        resp = self.client.post(reverse('start_payment'), {'provider': 'click', 'months': 1})
+    def test_click_redirect_monthly_business(self, _send):
+        resp = self.client.post(reverse('start_payment'), {'provider': 'click', 'plan': 'business', 'period': 'month'})
         self.assertIn('my.click.uz/services/pay', resp['Location'])
-        self.assertIn('amount=100000.00', resp['Location'])
+        self.assertIn('amount=79000.00', resp['Location'])
 
     def test_disabled_provider_and_bad_plan(self, _send):
         with override_settings(PAYME_KEY=''):
-            self.client.post(reverse('start_payment'), {'provider': 'payme', 'months': 1})
-        self.client.post(reverse('start_payment'), {'provider': 'click', 'months': 5})
+            self.client.post(reverse('start_payment'), {'provider': 'payme', 'plan': 'standard', 'period': 'month'})
+        self.client.post(reverse('start_payment'), {'provider': 'click', 'plan': 'free', 'period': 'month'})
+        self.client.post(reverse('start_payment'), {'provider': 'click', 'plan': 'standard', 'period': 'week'})
         self.assertFalse(SubscriptionPayment.objects.exists())
+
+    def test_paid_payment_switches_plan_and_locks_launch_price(self, _send):
+        payment = SubscriptionPayment.objects.create(shop=self.shop, provider='payme', plan='standard',
+                                                     months=12, amount=290000)
+        payment.mark_paid()
+        self.shop.refresh_from_db()
+        self.assertEqual((self.shop.plan, self.shop.current_plan.code), ('standard', 'standard'))
+        self.assertTrue(self.shop.launch_price_locked)
+        self.assertGreaterEqual(self.shop.days_left, 364)
+        from core import plans
+        with override_settings(LAUNCH_PRICE_UNTIL='2000-01-01'):  # muddat o'tdi
+            self.assertEqual(plans.monthly_price('standard', self.shop), 29000)   # saqlangan
+            self.assertEqual(plans.monthly_price('standard', Shop(plan='free')), 39000)
+            with override_settings(LAUNCH_PRICE_LOCK=False):
+                self.assertEqual(plans.monthly_price('standard', self.shop), 39000)
 
     def test_pricing_shows_buttons_only_when_configured(self, _send):
         self.assertContains(self.client.get(reverse('pricing_page')), 'Payme orqali')
@@ -54,7 +73,7 @@ class StartPaymentTests(TestCase):
             self.assertNotContains(self.client.get(reverse('pricing_page')), 'Payme orqali')
 
 
-@override_settings(SUBSCRIPTION_PRICE=100000, **PAYME)
+@override_settings(**PRICES, **PAYME)
 @mock.patch('core.telegram.send_message')
 class PaymeTests(TestCase):
     def setUp(self):

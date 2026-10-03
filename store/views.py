@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from core.models import Client
-from core.permissions import shop_admin_required
+from core import plans
+from core.permissions import plan_feature_required, shop_admin_required
 from core.utils import parse_amount
 from .models import Category, Order, OrderItem, Product
 from .utils import send_order_to_shop
@@ -24,6 +25,8 @@ def current_client(request):
 
 
 def shop_products(client):
+    if not plans.has_feature(client.shop, plans.STORE):  # tarifda onlayn do'kon yo'q - buyurtma ham yo'q
+        return Product.objects.none()
     return Product.objects.filter(shop=client.shop, is_active=True)
 
 
@@ -53,6 +56,9 @@ def shop_home(request):
     client = current_client(request)
     if not client:
         return redirect('telegram_auth')
+    if not plans.has_feature(client.shop, plans.STORE):
+        messages.info(request, "Bu do'konda onlayn buyurtma hozircha yoqilmagan.")
+        return redirect('client_cabinet')
 
     products = shop_products(client).select_related('category').order_by('category__name', 'name')
     categories = Category.objects.filter(shop=client.shop, product__in=products).distinct().order_by('name')
@@ -159,6 +165,7 @@ def _staff_shop(request):
 
 
 @shop_admin_required
+@plan_feature_required(plans.STORE)
 def manage_products(request):
     shop = _staff_shop(request)
     products = Product.objects.filter(shop=shop).select_related('category').order_by('-is_active', 'name')
@@ -170,6 +177,7 @@ def manage_products(request):
 
 
 @shop_admin_required
+@plan_feature_required(plans.STORE)
 def product_form(request, product_id=None):
     shop = _staff_shop(request)
     product = get_object_or_404(Product, id=product_id, shop=shop) if product_id else None

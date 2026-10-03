@@ -31,6 +31,12 @@
 </form>
 
 <div class="section-title">Qarzdorlarga eslatma</div>
+{% if 'reminders' not in plan_features %}
+<a href="{% url 'pricing_page' %}?need=reminders" class="app-toast warning text-decoration-none mb-2">
+    <i class="fa-solid fa-lock mt-1"></i>
+    <div>Avtomatik eslatma Standart tarifida ishlaydi. <span style="color: var(--tg-button);">Tarifni ko'rish →</span></div>
+</a>
+{% endif %}
 <form method="POST" class="app-card">
     {% csrf_token %}
     <input type="hidden" name="action" value="update_reminders">
@@ -56,14 +62,17 @@
 <div class="section-title">Boshqa</div>
 <div class="list-group-app">
     <a href="{% url 'pricing_page' %}" class="list-row">
-        <span class="row-icon {% if shop.subscription_ends_at and shop.days_left <= 3 %}red{% else %}green{% endif %}"><i class="fa-solid fa-crown"></i></span>
+        {% with plan=shop.current_plan %}
+        <span class="row-icon {% if plan.is_paid and shop.subscription_ends_at and shop.days_left <= 3 %}red{% elif plan.is_paid %}green{% else %}gray{% endif %}"><i class="fa-solid fa-crown"></i></span>
         <div class="row-main">
-            <div class="row-title">Obuna</div>
+            <div class="row-title">Tarif: {{ plan.name }}</div>
             <div class="row-sub">
-                {% if shop.subscription_ends_at %}{{ shop.subscription_ends_at|date:"d.m.Y" }} gacha · {{ shop.days_left }} kun qoldi
-                {% else %}Cheklovsiz{% endif %}
+                {% if plan.is_paid and shop.subscription_ends_at %}{{ shop.subscription_ends_at|date:"d.m.Y" }} gacha · {{ shop.days_left }} kun qoldi
+                {% elif plan.is_paid %}Muddatsiz
+                {% else %}{{ plan.max_clients }} tagacha mijoz · tarifni oshirish{% endif %}
             </div>
         </div>
+        {% endwith %}
         <i class="fa-solid fa-chevron-right chevron"></i>
     </a>
     <a href="{% url 'admin_control' %}" class="list-row">

@@ -3,11 +3,13 @@ import re
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from .models import Client, UserProfile
 from .reminders import balance_line
 from . import telegram
 from .views import get_current_shop
-from .permissions import shop_admin_required
+from .permissions import plan_feature_required, shop_admin_required
+from . import plans
 from django.db import transaction
 from django.db.models import Q, Sum
 from .models import AllowedAdmin, StaffInvite
@@ -23,6 +25,7 @@ def personalize(text, client, bal_uzs, bal_usd):
 
 
 @shop_admin_required
+@plan_feature_required(plans.BROADCAST)
 def broadcast_view(request):
     shop = get_current_shop(request)
     # Botga ulangan mijozlar, qarzi bilan (katta qarz tepada)
@@ -75,6 +78,13 @@ def broadcast_view(request):
 def manage_admins_view(request, action=None, admin_id=None):
     shop = get_current_shop(request)
     # Taklif havolasi yaratish (asosiy usul - Telegram ID so'ralmaydi)
+    if action in ('invite', 'add') and request.method == 'POST' and not plans.can_add_staff(shop):
+        limit = plans.current_plan(shop).max_staff
+        messages.error(request, f"🔒 {plans.current_plan(shop).name} tarifida "
+                                + (f"{limit} tagacha xodim." if limit else "xodim qo'shib bo'lmaydi.")
+                                + " Ko'proq xodim uchun tarifni oshiring.")
+        return redirect(f"{reverse('pricing_page')}?need=staff")
+
     if action == 'invite' and request.method == 'POST':
         name = (request.POST.get('name') or '').strip()
         if not name:
@@ -129,4 +139,7 @@ def admin_control(request):
         'allowed_admins': allowed_admins,
         'invites': invites,
         'owner_tg_id': shop.owner.username if shop else '',
+        'plan': plans.current_plan(shop),
+        'staff_count': plans.staff_count(shop),
+        'staff_limit': plans.current_plan(shop).max_staff,
     })

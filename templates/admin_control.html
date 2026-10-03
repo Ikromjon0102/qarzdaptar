@@ -12,6 +12,10 @@
         <input type="text" name="name" class="form-control" placeholder="Xodim ismi (masalan: Ali)" required maxlength="100">
         <button type="submit" class="btn btn-primary flex-shrink-0"><i class="fa-solid fa-link"></i> Havola</button>
     </form>
+    <div class="small mt-2 {% if staff_limit is not None and staff_count >= staff_limit %}text-danger{% else %}text-muted{% endif %}">
+        {{ plan.name }} tarif: {{ staff_count }}{% if staff_limit is None %} xodim · cheksiz{% else %} / {{ staff_limit }} xodim{% endif %}
+        {% if staff_limit is not None and staff_count >= staff_limit %}· <a href="{% url 'pricing_page' %}?need=staff">tarifni oshirish</a>{% endif %}
+    </div>
 </div>
 
 {% if invites %}

@@ -57,7 +57,7 @@
 
 {% if is_shop_admin %}
 <a href="{% url 'broadcast' %}?to=debtors" class="d-flex align-items-center gap-2 small fw-bold text-decoration-none mb-3 px-1">
-    <i class="fa-solid fa-paper-plane"></i> Qarzdorlarga yoki tanlangan mijozlarga xabar yuborish
+    <i class="fa-solid fa-paper-plane"></i> Qarzdorlarga yoki tanlangan mijozlarga xabar yuborish {% if 'broadcast' not in plan_features %}<span class="plan-lock"><i class="fa-solid fa-lock"></i> Standart</span>{% endif %}
 </a>
 {% endif %}
 

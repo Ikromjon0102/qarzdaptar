@@ -24,18 +24,29 @@
     </form>
 </div>
 
-{# Muddat belgilanmagan (eski) do'konlarga ogohlantirish ko'rsatilmaydi #}
-{% if shop.subscription_ends_at and shop.days_left <= 10 %}
-<a href="https://t.me/{{ support_username }}?text=Salom, men {{ shop.name }} obunasini uzaytirmoqchiman" target="_blank"
-   class="app-toast {% if shop.days_left <= 3 %}error{% else %}warning{% endif %} text-decoration-none mb-3">
+{# Tarif: pullik muddat tugashiga oz qolganda yoki Bepul tarif limiti yaqinlashganda #}
+{% with plan=shop.current_plan %}
+{% if plan.is_paid and shop.subscription_ends_at and shop.days_left <= 7 %}
+<a href="{% url 'pricing_page' %}" class="app-toast {% if shop.days_left <= 2 %}error{% else %}warning{% endif %} text-decoration-none mb-3">
     <i class="fa-solid fa-clock mt-1"></i>
     <div>
-        {% if shop.days_left <= 0 %}Obuna muddati <b>bugun tugaydi</b>.
-        {% else %}Obuna tugashiga <b>{{ shop.days_left }} kun</b> qoldi.{% endif %}
-        <div class="small" style="color: var(--tg-button);">Uzaytirish →</div>
+        {% if shop.days_left <= 0 %}{{ plan.name }} tarif <b>bugun tugaydi</b>.
+        {% else %}{{ plan.name }} tarif tugashiga <b>{{ shop.days_left }} kun</b> qoldi.{% endif %}
+        Keyin Bepul tarifga o'tasiz — ma'lumotlar saqlanadi.
+        <div class="small" style="color: var(--tg-button);">Tarifni tanlash →</div>
+    </div>
+</a>
+{% elif is_shop_admin and plan.max_clients and client_count >= plan.max_clients|add:"-5" %}
+<a href="{% url 'pricing_page' %}?need=clients" class="app-toast {% if client_count >= plan.max_clients %}error{% else %}warning{% endif %} text-decoration-none mb-3">
+    <i class="fa-solid fa-users mt-1"></i>
+    <div>
+        {{ plan.name }} tarif: <b>{{ client_count }} / {{ plan.max_clients }}</b> mijoz.
+        {% if client_count >= plan.max_clients %}Yangi mijoz qo'shib bo'lmaydi.{% endif %}
+        <div class="small" style="color: var(--tg-button);">Cheksiz mijozlar — Standart tarifda →</div>
     </div>
 </a>
 {% endif %}
+{% endwith %}
 
 <!-- Asosiy ko'rsatkich -->
 <div class="app-card text-white mb-3" style="background: var(--primary-gradient); padding: 20px;">
@@ -154,11 +165,13 @@
     <a href="{% url 'manage_products' %}" class="list-row">
         <span class="row-icon green"><i class="fa-solid fa-store"></i></span>
         <div class="row-main"><div class="row-title">Mahsulotlar va buyurtmalar</div></div>
+        {% if 'store' not in plan_features %}<span class="plan-lock"><i class="fa-solid fa-lock"></i> Biznes</span>{% endif %}
         <i class="fa-solid fa-chevron-right chevron"></i>
     </a>
     <a href="{% url 'broadcast' %}" class="list-row">
         <span class="row-icon blue"><i class="fa-solid fa-paper-plane"></i></span>
         <div class="row-main"><div class="row-title">Xabar yuborish</div></div>
+        {% if 'broadcast' not in plan_features %}<span class="plan-lock"><i class="fa-solid fa-lock"></i> Standart</span>{% endif %}
         <i class="fa-solid fa-chevron-right chevron"></i>
     </a>
     <a href="{% url 'admin_control' %}" class="list-row">

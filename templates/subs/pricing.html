@@ -1,104 +1,165 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
-{% block matn %}<h3>Obuna</h3>{% endblock %}
+{% block matn %}<h3>Tarif</h3>{% endblock %}
 
 {% block content %}
-<div class="{% if not back_url %}pt-4{% endif %}">
-
-{% if expired %}
-<div class="app-toast error mb-3">
-    <i class="fa-solid fa-lock mt-1"></i>
-    <div><b>Obuna muddati tugagan.</b> Ma'lumotlaringiz saqlangan — to'lovdan keyin hammasi avvalgidek ishlaydi.</div>
-</div>
-{% elif shop.subscription_ends_at %}
-<div class="app-toast mb-3">
-    <i class="fa-regular fa-calendar mt-1"></i>
-    <div>Obuna <b>{{ shop.subscription_ends_at|date:"d.m.Y" }}</b> gacha faol ({{ shop.days_left }} kun qoldi).</div>
-</div>
-{% endif %}
+<style>
+    .plan-card { border: 1.5px solid var(--line); }
+    .plan-card.popular { border: 2px solid var(--tg-button); }
+    .plan-badge { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+                  background: var(--tg-button); color: #fff; border-radius: 999px; padding: 2px 12px;
+                  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .plan-price { font-size: 30px; font-weight: 800; line-height: 1.1; }
+    .plan-old { color: var(--tg-hint); text-decoration: line-through; font-weight: 700; }
+    .plan-current { background: rgba(31, 157, 85, 0.12); color: var(--success); border-radius: 999px;
+                    padding: 2px 10px; font-size: 12px; font-weight: 700; }
+    .usage-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+    .usage-bar span { display: block; height: 100%; background: var(--tg-button); }
+    .usage-bar.full span { background: var(--danger); }
+</style>
 
 {% if returned_payment %}
 <div class="app-toast {% if returned_payment.status == 'paid' %}success{% elif returned_payment.status == 'cancelled' %}error{% else %}warning{% endif %} mb-3">
     <i class="fa-solid {% if returned_payment.status == 'paid' %}fa-circle-check{% else %}fa-clock{% endif %} mt-1"></i>
     <div>
-        {% if returned_payment.status == 'paid' %}To'lov qabul qilindi — obuna uzaytirildi. Rahmat!
+        {% if returned_payment.status == 'paid' %}To'lov qabul qilindi — tarif yoqildi. Rahmat!
         {% elif returned_payment.status == 'cancelled' %}To'lov bekor qilindi. Qayta urinib ko'ring.
-        {% else %}To'lov tekshirilmoqda. Bir necha daqiqada obuna avtomatik uzaytiriladi — sahifani yangilang.{% endif %}
+        {% else %}To'lov tekshirilmoqda. Bir necha daqiqada tarif avtomatik yoqiladi — sahifani yangilang.{% endif %}
     </div>
 </div>
 {% endif %}
 
-<div class="app-card text-center" style="padding: 24px;">
-    <div class="small text-muted">{{ shop.name }}</div>
-    <div class="fw-bold" style="font-size: 32px;">{{ price|space_format }} <span style="font-size: 17px;">so'm</span></div>
-    <div class="text-muted small">oyiga</div>
+<!-- Joriy holat -->
+<div class="app-card">
+    <div class="d-flex align-items-center justify-content-between gap-2">
+        <div>
+            <div class="small text-muted">{{ shop.name }}</div>
+            <div class="fw-bold" style="font-size: 20px;">{{ plan.name }} tarif{% if on_trial %} <span class="small text-muted fw-normal">(sinov)</span>{% endif %}</div>
+        </div>
+        <span class="row-icon {% if plan.is_paid %}green{% else %}gray{% endif %}"><i class="fa-solid fa-crown"></i></span>
+    </div>
+    {% if plan.is_paid and shop.subscription_ends_at %}
+    <div class="small mt-2 {% if shop.days_left <= 3 %}text-danger{% else %}text-muted{% endif %}">
+        {{ shop.subscription_ends_at|date:"d.m.Y" }} gacha · {{ shop.days_left }} kun qoldi.
+        {% if on_trial %}Keyin Bepul tarifga o'tasiz — ma'lumotlar saqlanadi.{% endif %}
+    </div>
+    {% elif plan.is_paid %}
+    <div class="small mt-2 text-muted">Muddatsiz.</div>
+    {% endif %}
+
+    <div class="mt-3 pt-3" style="border-top: 1px solid var(--line);">
+        <div class="d-flex justify-content-between small mb-1">
+            <span>Mijozlar</span>
+            <b>{{ client_count }}{% if plan.max_clients %} / {{ plan.max_clients }}{% else %} · cheksiz{% endif %}</b>
+        </div>
+        {% if plan.max_clients %}
+        <div class="usage-bar {% if client_count >= plan.max_clients %}full{% endif %}">
+            <span style="width: {% widthratio client_count plan.max_clients 100 %}%; max-width: 100%;"></span>
+        </div>
+        {% endif %}
+        <div class="d-flex justify-content-between small mt-2">
+            <span>Xodimlar</span>
+            <b>{{ staff_count }}{% if plan.max_staff is None %} · cheksiz{% else %} / {{ plan.max_staff }}{% endif %}</b>
+        </div>
+    </div>
 </div>
 
-{% if providers.payme or providers.click %}
-<div class="section-title">Onlayn to'lash</div>
-<form method="POST" action="{% url 'start_payment' %}" class="app-card">
-    {% csrf_token %}
-    <div class="segmented mb-3" id="planPicker">
-        {% for plan in plans %}
-        <label class="flex-fill text-center m-0">
-            <input type="radio" name="months" value="{{ plan.months }}" class="d-none" {% if forloop.first %}checked{% endif %}>
-            <span class="d-block py-2 rounded-3 fw-bold plan-opt">{{ plan.months }} oy<br><small class="fw-normal text-muted">{{ plan.amount|space_format }}</small></span>
-        </label>
+<!-- Oylik / yillik -->
+<div class="segmented mt-3" id="periodTabs">
+    <a href="#" data-period="month" class="active">Oylik</a>
+    <a href="#" data-period="year">Yillik <small class="text-success">· 2 oy bepul</small></a>
+</div>
+
+{% for card in cards %}
+<div class="app-card plan-card position-relative {% if card.popular %}popular mt-4{% endif %}" id="plan-{{ card.code }}">
+    {% if card.popular %}<span class="plan-badge">Ko'pchilik tanlovi</span>{% endif %}
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <div class="fw-bold" style="font-size: 18px;">{{ card.name }}</div>
+            <div class="small text-muted">{{ card.tagline }}</div>
+        </div>
+        {% if plan.code == card.code %}<span class="plan-current">Joriy</span>{% endif %}
+    </div>
+
+    <div class="mt-3">
+        {% if card.prices %}
+        <div data-period-show="month">
+            {% if card.prices.old_month %}<div class="plan-old">{{ card.prices.old_month|space_format }} so'm</div>{% endif %}
+            <span class="plan-price">{{ card.prices.month|space_format }}</span> <span class="text-muted small">so'm / oy</span>
+        </div>
+        <div data-period-show="year" class="d-none">
+            {% if card.prices.old_year %}<div class="plan-old">{{ card.prices.old_year|space_format }} so'm</div>{% endif %}
+            <span class="plan-price">{{ card.prices.year|space_format }}</span> <span class="text-muted small">so'm / yil</span>
+            <div class="small text-success fw-bold">{{ card.year_hint }}</div>
+        </div>
+        {% else %}
+        <span class="plan-price">0</span> <span class="text-muted small">muddatsiz</span>
+        {% endif %}
+    </div>
+
+    <ul class="list-unstyled mt-3 mb-0">
+        {% for item in card.bullets %}
+        <li class="d-flex gap-2 mb-2 small"><i class="fa-solid fa-check text-success mt-1"></i><span>{{ item }}</span></li>
         {% endfor %}
-    </div>
-    <div class="d-grid gap-2">
-        {% if providers.payme %}
-        <button type="submit" name="provider" value="payme" class="btn py-3 fw-bold" style="background: #00CCCC; color: #fff;">
-            Payme orqali to'lash
-        </button>
+    </ul>
+
+    {% if card.prices %}
+        {% if providers.payme or providers.click %}
+        <form method="POST" action="{% url 'start_payment' %}" class="d-grid gap-2 mt-3">
+            {% csrf_token %}
+            <input type="hidden" name="plan" value="{{ card.code }}">
+            <input type="hidden" name="period" value="month" class="period-input">
+            {% if providers.payme %}
+            <button type="submit" name="provider" value="payme" class="btn py-3 fw-bold" style="background: #00CCCC; color: #fff;">Payme orqali {% if plan.code == card.code and not on_trial %}uzaytirish{% else %}to'lash{% endif %}</button>
+            {% endif %}
+            {% if providers.click %}
+            <button type="submit" name="provider" value="click" class="btn py-3 fw-bold" style="background: #0066FF; color: #fff;">Click orqali {% if plan.code == card.code and not on_trial %}uzaytirish{% else %}to'lash{% endif %}</button>
+            {% endif %}
+        </form>
+        {% else %}
+        <a href="https://t.me/{{ support_username }}?text={{ "Salom! "|urlencode }}{{ shop.name|urlencode }}{{ " do'koni uchun "|urlencode }}{{ card.name|urlencode }}{{ " tarifini to'lamoqchiman."|urlencode }}"
+           target="_blank" class="btn {% if card.popular %}btn-primary{% else %}btn-outline-primary{% endif %} w-100 py-3 mt-3">
+            <i class="fa-brands fa-telegram"></i> {% if plan.code == card.code and not on_trial %}Uzaytirish{% else %}{{ card.name }} tarifiga o'tish{% endif %}
+        </a>
         {% endif %}
-        {% if providers.click %}
-        <button type="submit" name="provider" value="click" class="btn py-3 fw-bold" style="background: #0066FF; color: #fff;">
-            Click orqali to'lash
-        </button>
-        {% endif %}
+    {% endif %}
+</div>
+{% endfor %}
+
+<a href="https://t.me/{{ support_username }}" target="_blank" class="list-group-app list-row mt-2 text-decoration-none">
+    <span class="row-icon blue"><i class="fa-solid fa-building"></i></span>
+    <div class="row-main" style="white-space: normal;">
+        <div class="row-title">Bir nechta filial yoki maxsus ehtiyoj?</div>
+        <div class="row-sub">Biz bilan bog'laning</div>
     </div>
-    <div class="small text-muted mt-2 text-center">To'lovdan keyin obuna darhol, avtomatik uzaytiriladi.</div>
-</form>
-<style>
-    #planPicker input:checked + .plan-opt { background: var(--tg-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--tg-button); }
-</style>
-{% endif %}
+    <i class="fa-solid fa-chevron-right chevron"></i>
+</a>
 
-<div class="section-title">Nimalar kiradi</div>
-<div class="list-group-app">
-    <div class="list-row"><span class="row-icon blue"><i class="fa-brands fa-telegram"></i></span>
-        <div class="row-main"><div class="row-title">Telegram bot va ilova</div><div class="row-sub">Mijozlar qarzini botda ko'radi va tasdiqlaydi</div></div></div>
-    <div class="list-row"><span class="row-icon green"><i class="fa-solid fa-users"></i></span>
-        <div class="row-main"><div class="row-title">Cheksiz mijoz va operatsiya</div></div></div>
-    <div class="list-row"><span class="row-icon orange"><i class="fa-solid fa-users-gear"></i></span>
-        <div class="row-main"><div class="row-title">Xodimlar</div><div class="row-sub">Sotuvchilarni taklif havolasi bilan qo'shing</div></div></div>
-    <div class="list-row"><span class="row-icon blue"><i class="fa-solid fa-chart-simple"></i></span>
-        <div class="row-main"><div class="row-title">Hisobotlar</div><div class="row-sub">Umumiy va oylik, naqd va nasiya alohida</div></div></div>
-    <div class="list-row"><span class="row-icon green"><i class="fa-solid fa-store"></i></span>
-        <div class="row-main"><div class="row-title">Onlayn buyurtma</div><div class="row-sub">Mijozlar mahsulotlaringizdan buyurtma beradi</div></div></div>
-</div>
+<p class="small text-muted text-center mt-3 px-2">
+    {% if launch_active %}Ishga tushirish narxi {{ launch_until }} gacha. Shu muddatda to'lasangiz, narx siz uchun o'zgarmaydi.<br>{% endif %}
+    {% if providers.payme or providers.click %}To'lovdan keyin tarif darhol yoqiladi.{% else %}Admin Click, Payme yoki karta rekvizitlarini yuboradi, tarif shu kunning o'zida yoqiladi.{% endif %}
+    Ma'lumotlaringiz hech qachon o'chmaydi.
+</p>
+{% endblock %}
 
-<div class="section-title">{% if providers.payme or providers.click %}Yoki admin orqali{% else %}Qanday to'lanadi{% endif %}</div>
-<div class="list-group-app">
-    <div class="list-row"><span class="row-icon gray fw-bold">1</span>
-        <div class="row-main" style="white-space: normal;">Pastdagi tugmani bosing — admin bilan Telegram chat ochiladi.</div></div>
-    <div class="list-row"><span class="row-icon gray fw-bold">2</span>
-        <div class="row-main" style="white-space: normal;">Admin Click, Payme yoki karta rekvizitlarini yuboradi.</div></div>
-    <div class="list-row"><span class="row-icon gray fw-bold">3</span>
-        <div class="row-main" style="white-space: normal;">To'lovdan keyin obuna odatda shu kunning o'zida uzaytiriladi.</div></div>
-</div>
+{% block scripts %}
+<script>
+    (function () {
+        const tabs = document.querySelectorAll('#periodTabs a');
+        function show(period) {
+            tabs.forEach(a => a.classList.toggle('active', a.dataset.period === period));
+            document.querySelectorAll('[data-period-show]').forEach(el =>
+                el.classList.toggle('d-none', el.dataset.periodShow !== period));
+            document.querySelectorAll('.period-input').forEach(i => i.value = period);
+        }
+        tabs.forEach(a => a.addEventListener('click', e => { e.preventDefault(); show(a.dataset.period); }));
 
-<div class="d-grid gap-2 mt-4">
-    <a href="https://t.me/{{ support_username }}?text={{ "Salom! "|urlencode }}{{ shop.name|urlencode }}{{ " do'koni obunasini to'lamoqchiman."|urlencode }}"
-       target="_blank" class="btn btn-primary py-3">
-        <i class="fa-brands fa-telegram"></i> Admin bilan bog'lanish
-    </a>
-    <form method="POST" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn w-100 text-danger">Tizimdan chiqish</button>
-    </form>
-</div>
-</div>
+        // Qaysi imkoniyat uchun kelgan bo'lsa - o'sha tarifga o'tkazamiz
+        const need = "{{ need|escapejs }}";
+        const target = {store: 'business', staff: 'standard', clients: 'standard', reminders: 'standard',
+                        broadcast: 'standard', export: 'standard'}[need];
+        if (target) document.getElementById('plan-' + target)?.scrollIntoView({block: 'center'});
+    })();
+</script>
 {% endblock %}

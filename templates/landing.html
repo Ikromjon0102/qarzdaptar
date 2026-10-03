@@ -1,4 +1,4 @@
-{% load static %}<!DOCTYPE html>
+{% load static custom_filters %}<!DOCTYPE html>
 <html lang="{{ lang }}" class="scroll-smooth">
 
 <head>
@@ -187,28 +187,73 @@
         <section id="pricing" class="scroll-mt-16 border-t border-line py-16 lg:py-24">
             <div class="mx-auto max-w-6xl px-4 sm:px-6">
                 {% include 'landing/heading.html' with kicker=t.pricing_kicker title=t.pricing_title %}
-                <div class="mx-auto mt-10 max-w-md overflow-hidden rounded-3xl border border-brand/40 bg-card shadow-2xl shadow-brand/5">
-                    <div class="bg-brand/10 px-6 py-5 text-center">
-                        <p class="text-2xl font-extrabold text-brand">{{ t.trial_label }}</p>
-                        <p class="mt-1 text-sm text-muted">{{ t.trial_text }}</p>
+                <p class="mx-auto mt-3 max-w-xl text-center text-muted">{{ t.pricing_sub }}</p>
+
+                <!-- Oylik / yillik -->
+                <div class="mt-8 flex justify-center">
+                    <div class="inline-flex rounded-2xl border border-line bg-card p-1 text-sm font-bold" role="group" id="periodToggle">
+                        <button type="button" data-period="month" class="rounded-xl px-5 py-2.5 transition">{{ t.period_month }}</button>
+                        <button type="button" data-period="year" class="rounded-xl px-5 py-2.5 transition">
+                            {{ t.period_year }} <span class="ml-1 rounded-full border border-current px-2 py-0.5 text-xs">{{ t.year_bonus }}</span>
+                        </button>
                     </div>
-                    <div class="p-6 sm:p-8">
-                        <p class="text-center">
-                            <span class="text-5xl font-extrabold tracking-tight">{{ price }}</span>
-                            <span class="ml-1 font-semibold text-muted">{{ t.per_month }}</span>
-                        </p>
-                        <p class="mt-1 text-center text-sm text-dim">{{ t.after_trial }}</p>
-                        <ul class="mt-6 space-y-3">
-                            {% for item in t.included %}
-                            <li class="flex items-center gap-3">
-                                <svg class="size-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.check|safe }}</svg>
+                </div>
+
+                <div class="mt-10 grid items-start gap-5 lg:grid-cols-3">
+                    {% for card in plan_cards %}
+                    <div class="relative flex h-full flex-col rounded-3xl border bg-card p-6 sm:p-7 {% if card.popular %}border-2 border-brand shadow-2xl shadow-brand/10 lg:-mt-3{% else %}border-line{% endif %}">
+                        {% if card.popular %}
+                        <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand px-4 py-1 text-xs font-extrabold uppercase tracking-wide text-ink">{{ t.popular }}</span>
+                        {% endif %}
+                        <h3 class="text-xl font-extrabold">{{ card.name }}</h3>
+                        <p class="mt-1 text-sm text-muted">{{ card.tagline }}</p>
+
+                        <div class="mt-5 min-h-[5.5rem]">
+                            {% if card.prices %}
+                            <div data-period-show="month">
+                                {% if card.prices.old_month %}<p class="text-lg font-bold text-dim line-through">{{ card.prices.old_month|space_format }}</p>{% endif %}
+                                <p><span class="text-4xl font-extrabold tracking-tight">{{ card.prices.month|space_format }}</span>
+                                   <span class="ml-1 text-sm font-semibold text-muted">{{ t.per_month }}</span></p>
+                            </div>
+                            <div data-period-show="year" class="hidden">
+                                {% if card.prices.old_year %}<p class="text-lg font-bold text-dim line-through">{{ card.prices.old_year|space_format }}</p>{% endif %}
+                                <p><span class="text-4xl font-extrabold tracking-tight">{{ card.prices.year|space_format }}</span>
+                                   <span class="ml-1 text-sm font-semibold text-muted">{{ t.per_year }}</span></p>
+                                <p class="mt-1 text-sm text-brand">{{ card.year_hint }}</p>
+                            </div>
+                            {% else %}
+                            <p><span class="text-4xl font-extrabold tracking-tight">0</span>
+                               <span class="ml-1 text-sm font-semibold text-muted">{{ t.free_price_note }}</span></p>
+                            {% endif %}
+                        </div>
+
+                        <ul class="mt-5 flex-1 space-y-3">
+                            {% for item in card.bullets %}
+                            <li class="flex items-start gap-3">
+                                <svg class="mt-0.5 size-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.check|safe }}</svg>
                                 <span>{{ item }}</span>
                             </li>
                             {% endfor %}
                         </ul>
-                        <div class="mt-8 flex flex-col">{% include 'landing/cta.html' %}</div>
-                        <p class="mt-4 text-center text-sm text-dim">{{ t.pricing_note }}</p>
+
+                        <a href="{{ signup_url }}" data-cta
+                           class="mt-7 inline-flex items-center justify-center rounded-2xl px-6 py-3.5 font-extrabold transition {% if card.popular %}bg-brand text-ink hover:bg-brand-hover{% else %}border border-line text-fg hover:bg-ink-2{% endif %}">
+                            {% if card.prices %}{{ t.plan_cta_paid }}{% else %}{{ t.plan_cta_free }}{% endif %}
+                        </a>
                     </div>
+                    {% endfor %}
+                </div>
+
+                <a href="https://t.me/{{ support_username }}" target="_blank" rel="noopener"
+                   class="mt-5 flex items-center justify-between gap-4 rounded-2xl border border-line bg-card px-6 py-4 font-semibold text-muted transition hover:text-fg">
+                    <span>{{ t.corporate }}</span>
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icons.arrow|safe }}</svg>
+                </a>
+
+                <div class="mx-auto mt-8 max-w-2xl space-y-2 text-center text-sm">
+                    <p class="font-semibold text-fg">{{ t.value_anchor }}</p>
+                    {% if launch_active %}<p class="text-muted">{{ t.launch_note }}</p>{% endif %}
+                    <p class="text-dim">{{ t.pricing_note }}</p>
                 </div>
             </div>
         </section>
@@ -262,6 +307,24 @@
     </div>
 
     <script>
+        // Narx: oylik / yillik
+        (function () {
+            const buttons = document.querySelectorAll('#periodToggle [data-period]');
+            function show(period) {
+                buttons.forEach(b => {
+                    const on = b.dataset.period === period;
+                    b.classList.toggle('bg-brand', on);
+                    b.classList.toggle('text-ink', on);
+                    b.classList.toggle('text-muted', !on);
+                    b.setAttribute('aria-pressed', on);
+                });
+                document.querySelectorAll('[data-period-show]').forEach(el =>
+                    el.classList.toggle('hidden', el.dataset.periodShow !== period));
+            }
+            buttons.forEach(b => b.addEventListener('click', () => show(b.dataset.period)));
+            show('month');
+        })();
+
         // Ekranlar galereyasi: qaysi rasm ko'rinayotganini nuqtalar bilan ko'rsatish
         (function () {
             const box = document.getElementById('screens');

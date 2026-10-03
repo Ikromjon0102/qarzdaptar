@@ -4,9 +4,12 @@ Landing sahifa va maxfiylik siyosati: matnlar (o'zbekcha / ruscha) va ko'rinishl
 Til: ?lang=ru yoki ?lang=uz (cookie'da eslab qolinadi), aks holda o'zbekcha.
 Matnlar shu yerda - shablonga tegmasdan tahrirlash mumkin.
 """
+from datetime import date
+
 from django.conf import settings
 from django.shortcuts import render
 
+from . import plans
 from .bot_signup import CATEGORY_EMOJI, TRIAL_DAYS
 from .models import Shop
 
@@ -43,11 +46,11 @@ TEXT = {
     'uz': {
         'title': "QarzDaptar — nasiya daftari Telegramda",
         'description': "Do'kon uchun nasiya daftari: mijoz har bir nasiyani Telegramda o'zi tasdiqlaydi, "
-                       "qarzdorlarga eslatma avtomatik boradi. {trial} kun bepul.",
+                       "qarzdorlarga eslatma avtomatik boradi. Bepul tarif mavjud.",
         'nav': [('#features', 'Imkoniyatlar'), ('#pricing', 'Narx'), ('#faq', 'Savollar')],
         'cta': "Telegram orqali boshlash",
         'cta_short': "Boshlash",
-        'badge': "Telegram ichida ishlaydi · {trial} kun bepul",
+        'badge': "Telegram ichida ishlaydi · Bepul tarif bor",
         'hero_title': "Nasiya daftaringiz endi Telegramda",
         'hero_accent': "Mijoz har bir yozuvni o'zi tasdiqlaydi.",
         'hero_text': "Nasiyani yozasiz — mijozga Telegramda xabar boradi, u tasdiqlaydi va qarz hisobga yoziladi. "
@@ -98,14 +101,33 @@ TEXT = {
         ],
         'types_title': "Har qanday do'kon uchun",
         'pricing_kicker': "Narx",
-        'pricing_title': "Oddiy va tushunarli",
-        'trial_label': "{trial} kun bepul",
-        'trial_text': "Barcha imkoniyatlar ochiq. Karta talab qilinmaydi.",
+        'pricing_title': "Biznesingizga mos tarif",
+        'pricing_sub': "Bepul boshlang. Do'koningiz o'sganda — tarifni oshirasiz.",
+        'value_anchor': "Daftarda unutilgan bitta qarz ≈ 300 000 so'm. QarzDaptar Standart — kuniga 1 000 so'mdan kam.",
+        'period_month': "Oylik",
+        'period_year': "Yillik",
+        'year_bonus': "2 oy bepul",
         'per_month': "so'm / oy",
-        'after_trial': "sinov muddatidan keyin",
-        'included': ["Cheksiz mijozlar va nasiyalar", "Xodimlar va ruxsatlar", "Avtomatik eslatmalar",
-                     "Hisobot va Excel eksport", "Onlayn do'kon", "Har kuni zaxira nusxa"],
-        'pricing_note': "To'lamasangiz ham ma'lumotlaringiz o'chmaydi.",
+        'per_year': "so'm / yil",
+        'year_hint': "oyiga ~{n} so'm",
+        'free_price_note': "muddatsiz",
+        'popular': "Ko'pchilik tanlovi",
+        'launch_note': "Ishga tushirish narxi {launch_until} gacha. Shu muddatda to'lagan do'konlar uchun narx o'zgarmaydi.",
+        'plan_cards': {
+            'business': ("Biznes", "Xodimlari bor do'konlar uchun",
+                         ["Standart'dagi hammasi", "Cheksiz xodimlar", "Onlayn do'kon: mijoz Telegramdan buyurtma beradi",
+                          "SMS'ga chegirma (tez orada)"]),
+            'standard': ("Standart", "Ko'pchilik do'konlar uchun",
+                         ["Cheksiz mijozlar", "{std_staff} tagacha xodim", "Qarzdorlarga avtomatik eslatma",
+                          "Tanlangan mijozlarga xabar yuborish", "Excel hisobot"]),
+            'free': ("Bepul", "Endi boshlayotganlar uchun",
+                     ["{free_limit} tagacha mijoz", "Nasiya va to'lovlar", "Mijoz nasiyani o'zi tasdiqlaydi",
+                      "Telegram xabarlar — cheksiz", "Hisobot"]),
+        },
+        'plan_cta_free': "Bepul boshlash",
+        'plan_cta_paid': "{trial} kun bepul sinash",
+        'corporate': "Bir nechta filial yoki maxsus ehtiyoj? Biz bilan bog'laning",
+        'pricing_note': "Telegram xabarlari hamma tarifda bepul. Ma'lumotlaringiz hech qachon o'chmaydi.",
         'faq_title': "Ko'p beriladigan savollar",
         'faq': [
             ("Mijozda Telegram bo'lmasa-chi?",
@@ -121,12 +143,15 @@ TEXT = {
              "sozlamalar faqat rahbarda."),
             ("Dollarda savdo qilsam-chi?",
              "Har bir tovarni so'm yoki dollarda yozish mumkin. Qarz ikkala valyutada alohida hisoblanadi."),
+            ("Bepul tarif qachongacha?",
+             "Muddatsiz. {free_limit} tagacha mijoz bilan bepul ishlaysiz. Mijozlar ko'paysa — Standart tarifga "
+             "o'tasiz."),
             ("Sinov muddati tugagach nima bo'ladi?",
-             "Oylik to'lovni qilsangiz, davom etasiz. To'lamasangiz ham ma'lumotlar o'chmaydi — to'lovdan keyin "
-             "hammasi qaytadi."),
+             "Yangi do'kon {trial} kun Standart imkoniyatlari bilan ishlaydi. Keyin tarif tanlaysiz yoki Bepul "
+             "tarifda davom etasiz. Hech narsa bloklanmaydi va ma'lumotlar o'chmaydi."),
         ],
         'final_title': "Daftarni bugun yopib qo'ying",
-        'final_text': "Bir daqiqada do'kon oching — {trial} kun bepul.",
+        'final_text': "Bir daqiqada do'kon oching va bepul boshlang.",
         'footer_contact': "Aloqa",
         'footer_privacy': "Maxfiylik siyosati",
         'footer_rights': "Barcha huquqlar himoyalangan.",
@@ -152,11 +177,11 @@ TEXT = {
     'ru': {
         'title': "QarzDaptar — тетрадь долгов в Telegram",
         'description': "Учёт продаж в долг для магазина: клиент сам подтверждает каждую запись в Telegram, "
-                       "должникам автоматически приходят напоминания. {trial} дней бесплатно.",
+                       "должникам автоматически приходят напоминания. Есть бесплатный тариф.",
         'nav': [('#features', 'Возможности'), ('#pricing', 'Цена'), ('#faq', 'Вопросы')],
         'cta': "Начать в Telegram",
         'cta_short': "Начать",
-        'badge': "Работает в Telegram · {trial} дней бесплатно",
+        'badge': "Работает в Telegram · Есть бесплатный тариф",
         'hero_title': "Тетрадь долгов теперь в Telegram",
         'hero_accent': "Клиент сам подтверждает каждую запись.",
         'hero_text': "Вы записываете долг — клиенту приходит сообщение в Telegram, он подтверждает, и долг "
@@ -207,14 +232,33 @@ TEXT = {
         ],
         'types_title': "Для любого магазина",
         'pricing_kicker': "Цена",
-        'pricing_title': "Просто и понятно",
-        'trial_label': "{trial} дней бесплатно",
-        'trial_text': "Все возможности открыты. Карта не нужна.",
+        'pricing_title': "Тариф под ваш бизнес",
+        'pricing_sub': "Начните бесплатно. Магазин вырос — повысьте тариф.",
+        'value_anchor': "Одна забытая запись в тетради ≈ 300 000 сум. QarzDaptar Стандарт — меньше 1 000 сум в день.",
+        'period_month': "Месяц",
+        'period_year': "Год",
+        'year_bonus': "2 месяца в подарок",
         'per_month': "сум / мес",
-        'after_trial': "после пробного периода",
-        'included': ["Без ограничений по клиентам и записям", "Сотрудники и права доступа", "Автонапоминания",
-                     "Отчёты и выгрузка в Excel", "Онлайн-магазин", "Ежедневное резервное копирование"],
-        'pricing_note': "Даже без оплаты ваши данные не удаляются.",
+        'per_year': "сум / год",
+        'year_hint': "~{n} сум в месяц",
+        'free_price_note': "бессрочно",
+        'popular': "Выбор большинства",
+        'launch_note': "Стартовая цена до {launch_until}. Для магазинов, оплативших в этот период, цена не изменится.",
+        'plan_cards': {
+            'business': ("Бизнес", "Для магазинов с сотрудниками",
+                         ["Всё из Стандарта", "Без ограничений по сотрудникам",
+                          "Онлайн-магазин: клиент заказывает в Telegram", "Скидка на SMS (скоро)"]),
+            'standard': ("Стандарт", "Для большинства магазинов",
+                         ["Без ограничений по клиентам", "До {std_staff} сотрудников", "Автонапоминания должникам",
+                          "Рассылка выбранным клиентам", "Отчёты в Excel"]),
+            'free': ("Бесплатный", "Для тех, кто только начинает",
+                     ["До {free_limit} клиентов", "Долги и оплаты", "Клиент сам подтверждает запись",
+                      "Сообщения в Telegram — без ограничений", "Отчёты"]),
+        },
+        'plan_cta_free': "Начать бесплатно",
+        'plan_cta_paid': "{trial} дней бесплатно",
+        'corporate': "Несколько филиалов или особые задачи? Свяжитесь с нами",
+        'pricing_note': "Сообщения в Telegram бесплатны на всех тарифах. Ваши данные никогда не удаляются.",
         'faq_title': "Частые вопросы",
         'faq': [
             ("А если у клиента нет Telegram?",
@@ -230,11 +274,14 @@ TEXT = {
              "записей и настройки доступны только руководителю."),
             ("А если я продаю в долларах?",
              "Каждый товар можно записать в сумах или долларах. Долг считается отдельно по каждой валюте."),
+            ("Бесплатный тариф — до какого срока?",
+             "Бессрочно. До {free_limit} клиентов — бесплатно. Клиентов стало больше — переходите на Стандарт."),
             ("Что будет после пробного периода?",
-             "Оплачиваете месяц — продолжаете работать. Без оплаты данные не удаляются и вернутся после оплаты."),
+             "Новый магазин {trial} дней работает с возможностями Стандарта. Затем выбираете тариф или остаётесь "
+             "на бесплатном. Ничего не блокируется, данные не удаляются."),
         ],
         'final_title': "Закройте тетрадь сегодня",
-        'final_text': "Откройте магазин за минуту — {trial} дней бесплатно.",
+        'final_text': "Откройте магазин за минуту и начните бесплатно.",
         'footer_contact': "Связаться",
         'footer_privacy': "Политика конфиденциальности",
         'footer_rights': "Все права защищены.",
@@ -268,18 +315,61 @@ def get_lang(request):
     return lang if lang in LANGS else 'uz'
 
 
+class _KeepMissing(dict):
+    """Noma'lum o'rinlar ({n} kabi) keyinroq to'ldirish uchun o'zgarmay qoladi."""
+    def __missing__(self, key):
+        return '{' + key + '}'
+
+
 def _fill(value, **kw):
     """Matnlardagi {trial}, {bot} kabi o'rinlarni to'ldirish (ichma-ich ro'yxatlarda ham)."""
     if isinstance(value, str):
-        return value.format(**kw)
+        return value.format_map(_KeepMissing(kw))
     if isinstance(value, (list, tuple)):
         return type(value)(_fill(v, **kw) for v in value)
     return value
 
 
+def placeholders():
+    return {
+        'trial': TRIAL_DAYS,
+        'bot': settings.BOT_USERNAME,
+        'free_limit': plans.PLANS[plans.FREE].max_clients,
+        'std_staff': plans.PLANS[plans.STANDARD].max_staff,
+        'launch_until': date.fromisoformat(settings.LAUNCH_PRICE_UNTIL).strftime('%d.%m.%Y'),
+    }
+
+
+def _money(n):
+    return f"{n:,}".replace(',', ' ')
+
+
+def plan_cards(lang='uz', shop=None):
+    """
+    Narx kartochkalari: Biznes, Standart (o'rtada, «Ko'pchilik tanlovi»), Bepul.
+    Birinchi bo'lib qimmatrog'i - Standart yonida arzon ko'rinadi (anchoring).
+    """
+    texts = TEXT[lang]['plan_cards']
+    prices = plans.price_table(shop)
+    cards = []
+    for code in (plans.BUSINESS, plans.STANDARD, plans.FREE):
+        name, tagline, bullets = texts[code]
+        cards.append({
+            'code': code,
+            'name': name,
+            'tagline': tagline,
+            'bullets': [b.format(**placeholders()) for b in bullets],
+            'popular': code == plans.STANDARD,
+            'prices': prices.get(code),
+            'year_hint': (TEXT[lang]['year_hint'].format(n=_money(prices[code]['year_per_month']))
+                          if code in prices else ''),
+        })
+    return cards
+
+
 def page_context(request):
     lang = get_lang(request)
-    t = {k: _fill(v, trial=TRIAL_DAYS, bot=settings.BOT_USERNAME) for k, v in TEXT[lang].items()}
+    t = {k: _fill(v, **placeholders()) for k, v in TEXT[lang].items()}
     t['features'] = [{'icon': ICONS[i], 'title': a, 'text': b} for i, a, b in t['features']]
     t['problems'] = [{'icon': ICONS[i], 'problem': a, 'solution': b} for i, a, b in t['problems']]
     names = CATEGORY_RU if lang == 'ru' else dict(Shop.CATEGORY_CHOICES)
@@ -289,7 +379,8 @@ def page_context(request):
         'icons': ICONS,
         'shop_types': [f"{CATEGORY_EMOJI[code]} {names[code]}" for code, _ in Shop.CATEGORY_CHOICES
                        if code != 'other'],
-        'price': f"{settings.SUBSCRIPTION_PRICE:,}".replace(',', ' '),
+        'plan_cards': plan_cards(lang),
+        'launch_active': plans.launch_price_active(),
         'signup_url': f"https://t.me/{settings.BOT_USERNAME}?start=signup",
         'site_url': f"https://{settings.SITE_DOMAIN}",
     }

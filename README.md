@@ -34,9 +34,22 @@ avtomatik hisoblanadi.
 - Har bir nasiyani ko'radi va **tasdiqlaydi yoki rad etadi** (sababi bilan).
 - Kabinet: joriy qarz, tarix, bir nechta do'kondagi hisoblar, onlayn buyurtma.
 
+### Tariflar (`core/plans.py`)
+| | Bepul | Standart | Biznes |
+|---|---|---|---|
+| Narx (oy / yil) | 0 | 39 000 / 390 000 (ishga tushirish: 29 000 / 290 000) | 79 000 / 790 000 |
+| Mijozlar | 30 tagacha | cheksiz | cheksiz |
+| Xodimlar | — | 2 tagacha | cheksiz |
+| Eslatma, xabar yuborish, Excel | — | ✅ | ✅ |
+| Onlayn do'kon | — | — | ✅ |
+
+- Yangi do'kon 14 kun Standart imkoniyatlari bilan ishlaydi, keyin to'lamasa Bepul'ga tushadi.
+- Pullik muddat tugasa hech narsa bloklanmaydi va o'chmaydi — faqat cheklovlar qaytadi.
+- `subscription_ends_at` bo'sh bo'lsa, tarif muddatsiz (bir umrlik litsenziya uchun).
+
 ### Platforma egasi
-- `/super-control/` — barcha do'konlar, obuna holati, «+30 kun».
-- Obuna: 14 kun bepul sinov, keyin oylik to'lov (qo'lda yoki Payme/Click orqali).
+- `/super-control/` — barcha do'konlar, tarif va muddati; tarifni yoqish (+30 kun / +1 yil).
+- To'lov: Payme/Click orqali avtomatik yoki admin orqali qo'lda.
 
 ---
 
@@ -77,7 +90,8 @@ Kodga tegmasdan domen, bot yoki narxni almashtirish mumkin.
 | `SITE_DOMAIN`, `ALLOWED_HOSTS` | Sayt domeni |
 | `BOT_USERNAME`, `SUPPORT_USERNAME` | Bot va yordam akkaunti (`@` siz) |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook'ni soxta so'rovlardan himoyalash |
-| `SUBSCRIPTION_PRICE` | Oylik obuna narxi (so'm) |
+| `PLAN_STANDARD_PRICE`, `PLAN_BUSINESS_PRICE` | Tariflar narxi (so'm/oy; yillik = 10 oylik) |
+| `PLAN_STANDARD_LAUNCH_PRICE`, `LAUNCH_PRICE_UNTIL`, `LAUNCH_PRICE_LOCK` | Ishga tushirish narxi, oxirgi kuni va to'laganlar uchun saqlanishi |
 | `PAYME_*`, `CLICK_*` | Onlayn to'lov (bo'sh bo'lsa o'chiq) |
 
 Sozlanmagan narsa bo'lsa, `python manage.py check` ogohlantiradi.

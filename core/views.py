@@ -19,10 +19,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from store.models import Order
-from . import bot_signup, exports, landing, telegram
+from . import bot_signup, exports, landing, plans, telegram
 from .models import (CASH_CLIENT_PHONE, AllowedAdmin, Client, Debt, Settings, Shop, StaffInvite,
                      UserProfile)
-from .permissions import is_shop_admin, shop_admin_required
+from .permissions import client_limit_message, is_shop_admin, plan_feature_required, shop_admin_required
 from .live import shop_version
 from .reminders import send_reminder
 from .telegram_auth import verify_init_data
@@ -135,6 +135,7 @@ def main_menu_view(request):
         'stats': shop_stats(shop),
         'today': shop_stats(shop, created_at__date=timezone.localdate()),
         'pending_count': Debt.objects.filter(shop=shop, status='pending').count(),
+        'client_count': plans.client_count(shop),
         # Mijoz rad etgan nasiyalar (oxirgi 14 kun): sababi bilan, qayta yuborish uchun
         'rejected': Debt.objects.filter(
             shop=shop, status='rejected',
@@ -678,7 +679,8 @@ def client_cabinet_view(request):
     return render(request, 'client_cabinet.html', {
         'client': client,
         'accounts': accounts if len(accounts) > 1 else [],
-        'shop_has_products': client.shop.products.filter(is_active=True).exists() if client.shop else False,
+        'shop_has_products': bool(client.shop and plans.has_feature(client.shop, plans.STORE)
+                                  and client.shop.products.filter(is_active=True).exists()),
         'total_uzs': bal_uzs,
         'total_usd': bal_usd,
         'month_debt': month_debt,
@@ -796,6 +798,9 @@ def accept_staff_invite(chat_id, token, tg_from):
     if User.objects.filter(username=str(chat_id)).exists():
         send_tg_msg(chat_id, "ℹ️ Bu Telegram akkaunt allaqachon tizimda ro'yxatdan o'tgan.")
         send_menu(chat_id, settings.SITE_DOMAIN)
+        return
+    if not plans.can_add_staff(invite.shop):
+        send_tg_msg(chat_id, "⛔ Do'konning tarifida xodimlar soni to'lgan. Do'kon rahbariga ayting.")
         return
 
     with transaction.atomic():
@@ -1021,6 +1026,9 @@ def client_form_view(request, client_id=None):
         phone = clean_phone_number(raw_phone)
 
         error = None
+        if not client and not plans.can_add_client(shop):
+            messages.error(request, client_limit_message(shop))
+            return redirect(f"{reverse('pricing_page')}?need=clients")
         if not full_name:
             error = "Mijoz ismini kiriting."
         elif not phone:
@@ -1053,12 +1061,14 @@ def client_form_view(request, client_id=None):
 
 
 @shop_admin_required
+@plan_feature_required(plans.EXPORT)
 def export_clients_view(request):
     wb, filename = exports.clients_export(get_current_shop(request))
     return exports.deliver(request, wb, filename, reverse('dashboard'))
 
 
 @shop_admin_required
+@plan_feature_required(plans.EXPORT)
 def export_month_view(request):
     try:
         year, month = map(int, (request.GET.get('date') or '').split('-'))
@@ -1172,6 +1182,9 @@ def create_client_ajax(request):
             # Tekshiramiz
             if Client.objects.filter(shop=shop, phone=phone).exists():
                 return JsonResponse({'status': 'error', 'message': 'Bu raqamli mijoz allaqachon bor!'})
+            if not plans.can_add_client(shop):
+                return JsonResponse({'status': 'error', 'message': client_limit_message(shop),
+                                     'upgrade_url': reverse('pricing_page') + '?need=clients'})
 
 
             client = Client.objects.create(
@@ -1193,18 +1206,26 @@ def create_client_ajax(request):
 @login_required(login_url='/login/')
 def pricing_view(request):
     from billing.models import SubscriptionPayment
-    from billing.views import PLANS, providers_enabled
+    from billing.views import providers_enabled
 
     shop = get_current_shop(request)
     returned = None
     if request.GET.get('payment', '').isdigit() and shop:
         returned = SubscriptionPayment.objects.filter(id=int(request.GET['payment']), shop=shop).first()
+    plan = plans.current_plan(shop)
+    on_trial = bool(shop and plan.is_paid and shop.subscription_ends_at
+                    and not shop.subscription_payments.filter(status='paid').exists())
     return render(request, 'subs/pricing.html', {
         'shop': shop,
-        'price': settings.SUBSCRIPTION_PRICE,
-        'plans': [{'months': m, 'amount': settings.SUBSCRIPTION_PRICE * m} for m in PLANS],
+        'plan': plan,
+        'on_trial': on_trial,
+        'cards': landing.plan_cards('uz', shop),
+        'client_count': plans.client_count(shop) if shop else 0,
+        'staff_count': plans.staff_count(shop) if shop else 0,
+        'need': request.GET.get('need', ''),
+        'launch_active': plans.launch_price_active(),
+        'launch_until': landing.placeholders()['launch_until'],
         'providers': providers_enabled(),
         'returned_payment': returned,
-        'expired': bool(shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()),
-        'back_url': None if (shop and shop.subscription_ends_at and shop.subscription_ends_at < timezone.now()) else 'main_menu',
+        'back_url': 'main_menu',
     })

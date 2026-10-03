@@ -20,8 +20,8 @@
         <div class="small">+{{ new_this_month }} shu oy</div>
     </div></div>
     <div class="col-6"><div class="app-card mb-0 h-100">
-        <div class="small text-muted">Faol / tugagan</div>
-        <div class="fw-bold" style="font-size: 26px;"><span class="text-success">{{ active_shops }}</span> / <span class="text-danger">{{ expired_shops }}</span></div>
+        <div class="small text-muted">Pullik / Bepul</div>
+        <div class="fw-bold" style="font-size: 26px;"><span class="text-success">{{ active_shops }}</span> / <span class="text-muted">{{ expired_shops }}</span></div>
     </div></div>
     <div class="col-6"><div class="app-card mb-0 h-100">
         <div class="small text-muted">Mijozlar</div>
@@ -38,23 +38,32 @@
     {% for row in rows %}
     {% with shop=row.shop %}
     <div class="list-row">
-        <span class="row-icon {% if row.status == 'expired' %}red{% elif row.status == 'soon' %}orange{% elif row.status == 'unlimited' %}gray{% else %}green{% endif %}">
+        <span class="row-icon {% if row.status == 'free' %}gray{% elif row.status == 'soon' %}orange{% elif row.status == 'unlimited' %}gray{% else %}green{% endif %}">
             <i class="fa-solid fa-store"></i>
         </span>
         <div class="row-main">
             <div class="row-title">{{ shop.name }}</div>
             <div class="row-sub">
-                {% if row.status == 'expired' %}<span class="text-danger">Tugagan {{ shop.subscription_ends_at|date:"d.m" }}</span>
-                {% elif row.status == 'unlimited' %}Cheklovsiz
-                {% else %}{{ shop.days_left }} kun qoldi{% endif %}
+                <b>{{ shop.current_plan.name }}</b>
+                {% if row.status == 'free' and shop.subscription_ends_at %}<span class="text-danger">(tugagan {{ shop.subscription_ends_at|date:"d.m" }})</span>
+                {% elif row.status == 'unlimited' %}muddatsiz
+                {% elif row.status != 'free' %}{{ shop.days_left }} kun qoldi{% endif %}
                 · {{ shop.client_count }} mijoz · qarz {{ row.outstanding|space_format }}
             </div>
             <div class="row-sub">ID {{ shop.owner.username }}{% if shop.owner.first_name %} · {{ shop.owner.first_name }}{% endif %}</div>
         </div>
-        <form method="POST" action="{% url 'extend_subscription' shop.id %}" class="flex-shrink-0"
-              onsubmit="return confirm('«{{ shop.name|escapejs }}» obunasi 30 kunga uzaytirilsinmi?')">
+        <form method="POST" action="{% url 'extend_subscription' shop.id %}" class="d-flex gap-1 flex-shrink-0"
+              onsubmit="return confirm('«{{ shop.name|escapejs }}»: tarif yoqilsinmi / uzaytirilsinmi?')">
             {% csrf_token %}
-            <button type="submit" class="btn btn-sm btn-primary">+30 kun</button>
+            <select name="plan" class="form-select form-select-sm py-1" style="width: auto;" aria-label="Tarif">
+                <option value="standard" {% if shop.plan != 'business' %}selected{% endif %}>Standart</option>
+                <option value="business" {% if shop.plan == 'business' %}selected{% endif %}>Biznes</option>
+            </select>
+            <select name="period" class="form-select form-select-sm py-1" style="width: auto;" aria-label="Muddat">
+                <option value="month">+30 kun</option>
+                <option value="year">+1 yil</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">OK</button>
         </form>
         <a href="/admin/core/shop/{{ shop.id }}/change/" class="btn btn-sm flex-shrink-0" style="background: var(--tg-bg);" aria-label="Tahrirlash">
             <i class="fa-solid fa-pen"></i>

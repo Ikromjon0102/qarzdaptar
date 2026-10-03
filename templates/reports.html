@@ -15,7 +15,7 @@
     {% if is_shop_admin %}
     <a href="{% url 'export_month' %}?date={{ selected_date }}" data-export class="btn flex-shrink-0 d-flex align-items-center gap-1"
        style="background: var(--tg-secondary); color: var(--success);" title="Excel'ga yuklab olish">
-        <i class="fa-solid fa-file-excel"></i> Excel
+        <i class="fa-solid fa-file-excel"></i> Excel {% if 'export' not in plan_features %}<i class="fa-solid fa-lock small"></i>{% endif %}
     </a>
     {% endif %}
 </form>
